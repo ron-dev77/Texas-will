@@ -11,12 +11,19 @@ import Terms from '@/pages/Terms'
 import Privacy from '@/pages/Privacy'
 import Disclaimer from '@/pages/Disclaimer'
 import Questionnaire from '@/pages/Questionnaire'
+import Auth from '@/pages/Auth'
+import AdminLayout from '@/pages/admin/AdminLayout'
+import OrdersQueue from '@/pages/admin/OrdersQueue'
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="questionnaire" element={<Questionnaire />} />
+        <Route path="auth" element={<Auth />} />
+        <Route path="admin" element={<AdminLayout />}>
+          <Route index element={<OrdersQueue />} />
+        </Route>
         <Route element={<MarketingLayout />}>
           <Route index element={<Home />} />
           <Route path="how-it-works" element={<HowItWorks />} />
