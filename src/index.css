@@ -1,0 +1,266 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * My AI Will — brand design system
+ * Palette: warm ivory, deep ink navy, muted Texas terracotta.
+ * Type: Fraunces (headings) + Inter (body).
+ * This file is the only CSS source — use Tailwind utilities everywhere else.
+ */
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Fraunces", ui-serif, Georgia, serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+
+  --color-ink: var(--ink);
+  --color-ivory: var(--ivory);
+  --color-clay: var(--clay);
+  --color-clay-foreground: var(--clay-foreground);
+  --color-sage: var(--sage);
+}
+
+:root {
+  --radius: 0.5rem;
+
+  --ivory: oklch(0.975 0.012 85);
+  --ink: oklch(0.22 0.035 255);
+  --clay: oklch(0.62 0.115 45);
+  --clay-foreground: oklch(0.985 0.005 85);
+  --sage: oklch(0.78 0.045 145);
+
+  --background: var(--ivory);
+  --foreground: var(--ink);
+
+  --card: oklch(1 0 0);
+  --card-foreground: var(--ink);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--ink);
+
+  --primary: var(--ink);
+  --primary-foreground: var(--ivory);
+
+  --secondary: oklch(0.94 0.012 85);
+  --secondary-foreground: var(--ink);
+
+  --muted: oklch(0.945 0.01 85);
+  --muted-foreground: oklch(0.45 0.025 255);
+
+  --accent: var(--clay);
+  --accent-foreground: var(--clay-foreground);
+
+  --destructive: oklch(0.55 0.21 27);
+  --destructive-foreground: oklch(0.985 0.005 85);
+
+  --border: oklch(0.9 0.012 85);
+  --input: oklch(0.9 0.012 85);
+  --ring: var(--clay);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-serif {
+    font-family: var(--font-serif);
+    font-feature-settings: "ss01";
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer utilities {
+  .hero-orb {
+    animation: hero-orb-float 10s ease-in-out infinite;
+  }
+
+  .hero-orb-delayed {
+    animation: hero-orb-float 12s ease-in-out infinite reverse;
+    animation-delay: -3s;
+  }
+
+  .reveal-base {
+    opacity: 0;
+    transition:
+      opacity 800ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 800ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
+  }
+
+  .reveal-up:not(.reveal-visible) {
+    transform: translate3d(0, 36px, 0);
+  }
+
+  .reveal-fade:not(.reveal-visible) {
+    transform: none;
+  }
+
+  .reveal-left:not(.reveal-visible) {
+    transform: translate3d(-36px, 0, 0);
+  }
+
+  .reveal-right:not(.reveal-visible) {
+    transform: translate3d(36px, 0, 0);
+  }
+
+  .reveal-scale:not(.reveal-visible) {
+    transform: scale(0.94);
+  }
+
+  .reveal-visible {
+    opacity: 1 !important;
+    transform: translate3d(0, 0, 0) scale(1) !important;
+  }
+}
+
+@keyframes hero-orb-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translate3d(18px, -22px, 0) scale(1.08);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-base,
+  .reveal-up,
+  .reveal-fade,
+  .reveal-left,
+  .reveal-right,
+  .reveal-scale,
+  .reveal-visible {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .hero-orb,
+  .hero-orb-delayed {
+    animation: none !important;
+  }
+}
+
+/* Soft phone input — matches questionnaire fields */
+.phone-field .PhoneInput {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2.5rem;
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  background: color-mix(in oklch, var(--secondary) 30%, transparent);
+  padding: 0 0.55rem 0 0.35rem;
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease;
+}
+
+.phone-field .PhoneInput:focus-within {
+  background: var(--card);
+  border-color: color-mix(in oklch, var(--ring) 45%, var(--border));
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring) 25%, transparent);
+}
+
+.phone-field .PhoneInputCountryIcon {
+  width: 1.5rem;
+  height: 1rem;
+}
+
+.phone-field .phone-flag {
+  width: 1.5rem;
+  height: 1rem;
+}
+
+.phone-flag svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.phone-field .PhoneInputCountryIcon svg,
+.phone-field .PhoneInputCountryIconSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.phone-field .PhoneInputCountryIconImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.phone-field .PhoneInputCountrySelectArrow {
+  display: none;
+}
+
+.phone-field .PhoneInputInput {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+  font-size: 0.875rem;
+  color: var(--foreground);
+}
+
+.phone-field .PhoneInputInput::placeholder {
+  color: var(--muted-foreground);
+}
+

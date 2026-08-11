@@ -1,0 +1,1 @@
+revoke execute on function public.handle_admin_signup() from public, anon, authenticated;
