@@ -105,6 +105,13 @@ Deno.serve(async (req) => {
       const plan = draft?.plan === 'couples' ? 'couples' : 'individual'
       const amountCents = Math.round((draft?.total ?? 0) * 100)
 
+      const { data: activeForm } = await sb
+        .from('questionnaire_forms')
+        .select('id')
+        .eq('is_active', true)
+        .maybeSingle()
+      const activeFormId = activeForm?.id ?? null
+
       const { data: order, error: orderError } = await sb
         .from('orders')
         .insert({
@@ -114,6 +121,7 @@ Deno.serve(async (req) => {
           add_ons: { trust: Boolean(draft?.includeTrust) },
           amount_paid: amountCents,
           status: 'paid',
+          questionnaire_form_id: activeFormId,
         })
         .select('id, partner1_token')
         .single()

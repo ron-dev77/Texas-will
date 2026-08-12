@@ -18,15 +18,18 @@ import {
   type QuestionnaireSession,
 } from '@/lib/questionnaire-db'
 import {
-  SECTIONS,
   fieldQualityError,
   formatAnswerPreview,
+  getActiveSections,
   getVisibleFields,
   missingRequired,
+  SECTIONS,
   type Field,
   type GiftRow,
   type PersonRow,
+  type Section,
 } from '@/lib/questionnaire'
+import { getActiveQuestionnaireSchema } from '@/lib/admin-forms'
 
 const STORAGE_KEY = 'myaiwill.questionnaire.v1'
 
@@ -116,17 +119,34 @@ export default function Questionnaire() {
   const [ready, setReady] = useState(false)
   const [order, setOrder] = useState<OrderDraft | null>(null)
   const [session, setSession] = useState<QuestionnaireSession | null>(null)
+  const [formSections, setFormSections] = useState<Section[]>([...SECTIONS])
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const sessionRef = useRef<QuestionnaireSession | null>(null)
   const skipNextSave = useRef(true)
 
-  const section = SECTIONS[sectionIdx]
-  const totalSections = SECTIONS.length
-  const isReview = section.id === 'review'
-  const visibleFields = useMemo(() => getVisibleFields(section, answers), [section, answers])
+  const activeSections = useMemo(
+    () => getActiveSections(Boolean(order?.includeTrust), formSections),
+    [order?.includeTrust, formSections],
+  )
+  const section = activeSections[Math.min(sectionIdx, activeSections.length - 1)] ?? activeSections[0]
+  const totalSections = activeSections.length
+  const isReview = Boolean(section?.isReview) || section?.id === 'review'
+  useEffect(() => {
+    if (sectionIdx >= activeSections.length) {
+      setSectionIdx(Math.max(0, activeSections.length - 1))
+    }
+  }, [activeSections.length, sectionIdx])
+
+  const visibleFields = useMemo(
+    () => (section ? getVisibleFields(section, answers) : []),
+    [section, answers],
+  )
   const fieldRows = useMemo(() => groupFields(visibleFields), [visibleFields])
-  const missing = useMemo(() => missingRequired(section, answers), [section, answers])
+  const missing = useMemo(
+    () => (section ? missingRequired(section, answers) : []),
+    [section, answers],
+  )
   const progressPct = Math.round(((sectionIdx + 1) / totalSections) * 100)
 
   useEffect(() => {
@@ -136,8 +156,12 @@ export default function Questionnaire() {
       const local = loadAnswers()
       setOrder(draft)
       try {
-        const result = await ensureQuestionnaireSession(draft, local)
+        const [schemaResult, result] = await Promise.all([
+          getActiveQuestionnaireSchema(),
+          ensureQuestionnaireSession(draft, local),
+        ])
         if (cancelled) return
+        setFormSections(schemaResult.sections)
         sessionRef.current = result.session
         setSession(result.session)
         setAnswers(result.answers)
@@ -146,6 +170,13 @@ export default function Questionnaire() {
         setReady(true)
       } catch (err) {
         if (cancelled) return
+        // Still try to load schema even if session boot fails
+        try {
+          const schemaResult = await getActiveQuestionnaireSchema()
+          if (!cancelled) setFormSections(schemaResult.sections)
+        } catch {
+          /* keep bundled SECTIONS */
+        }
         setBootError(err instanceof Error ? err.message : 'Could not start questionnaire')
         setAnswers(local)
         setReady(true)
@@ -431,6 +462,7 @@ export default function Questionnaire() {
                 <ReviewPanel
                   answers={answers}
                   order={order}
+                  formSections={formSections}
                   onEdit={goTo}
                   onSubmit={handleContinue}
                   submitting={submitting}
@@ -918,12 +950,14 @@ function GiftsEditor({
 function ReviewPanel({
   answers,
   order,
+  formSections,
   onEdit,
   onSubmit,
   submitting,
 }: {
   answers: Answers
   order: OrderDraft | null
+  formSections: Section[]
   onEdit: (idx: number) => void
   onSubmit: () => void | Promise<void>
   submitting?: boolean
@@ -931,7 +965,9 @@ function ReviewPanel({
   const planLabel =
     order?.plan === 'couples' ? 'Couples will' : order?.plan === 'individual' ? 'Individual will' : null
 
-  const sections = SECTIONS.filter((s) => s.id !== 'review')
+  const sections = getActiveSections(Boolean(order?.includeTrust), formSections).filter(
+    (s) => !s.isReview && s.id !== 'review',
+  )
 
   return (
     <div className="space-y-5">

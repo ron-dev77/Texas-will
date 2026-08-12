@@ -17,6 +17,7 @@ export type OrderRow = {
   customer_name: string | null
   partner_name: string | null
   promo_code: string | null
+  questionnaire_form_id?: string | null
   created_at: string
   submitted_at: string | null
   approved_at: string | null
@@ -106,21 +107,85 @@ export async function signInAdmin(email: string, password: string) {
 }
 
 export async function listOrders(includeArchived = true): Promise<OrderRow[]> {
-  let q = supabase
-    .from('orders')
-    .select(
-      'id, status, plan_type, user_email, partner_email, customer_name, partner_name, promo_code, created_at, submitted_at, approved_at, delivered_at, archived_at',
-    )
-    .order('created_at', { ascending: false })
-    .limit(300)
+  const withFormId =
+    'id, status, plan_type, user_email, partner_email, customer_name, partner_name, promo_code, questionnaire_form_id, created_at, submitted_at, approved_at, delivered_at, archived_at'
+  const withoutFormId =
+    'id, status, plan_type, user_email, partner_email, customer_name, partner_name, promo_code, created_at, submitted_at, approved_at, delivered_at, archived_at'
 
-  if (!includeArchived) {
-    q = q.is('archived_at', null)
+  async function run(select: string) {
+    let q = supabase
+      .from('orders')
+      .select(select)
+      .order('created_at', { ascending: false })
+      .limit(300)
+    if (!includeArchived) q = q.is('archived_at', null)
+    return q
   }
 
-  const { data, error } = await q
-  if (error) throw error
-  return (data ?? []) as OrderRow[]
+  const first = await run(withFormId)
+  if (!first.error) return (first.data ?? []) as unknown as OrderRow[]
+
+  // Column missing until migration is applied — fall back so the queue still loads.
+  const msg = first.error.message?.toLowerCase() ?? ''
+  if (msg.includes('questionnaire_form_id') || first.error.code === '42703') {
+    const second = await run(withoutFormId)
+    if (second.error) throw second.error
+    return ((second.data ?? []) as unknown as OrderRow[]).map((row) => ({
+      ...row,
+      questionnaire_form_id: null,
+    }))
+  }
+
+  throw first.error
+}
+
+const DELETABLE_STATUSES = new Set(['pending_payment', 'paid', 'failed'])
+
+export function canDeleteOrder(order: Pick<OrderRow, 'status' | 'archived_at'>) {
+  return Boolean(order.archived_at) || DELETABLE_STATUSES.has(order.status)
+}
+
+export async function archiveOrder(orderId: string, archived: boolean): Promise<void> {
+  const { error } = await supabase
+    .from('orders')
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq('id', orderId)
+  if (error) throw new Error(error.message)
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const { error: eventError } = await supabase.from('will_status_events').insert({
+    order_id: orderId,
+    partner_number: null,
+    status: archived ? 'archived' : 'unarchived',
+    created_by: user?.id ?? null,
+  })
+  if (eventError) {
+    console.error('Failed to log archive event', eventError)
+  }
+}
+
+export async function deleteOrder(orderId: string): Promise<void> {
+  const { data: order, error: oErr } = await supabase
+    .from('orders')
+    .select('status, archived_at')
+    .eq('id', orderId)
+    .single()
+  if (oErr || !order) throw new Error(oErr?.message ?? 'Order not found')
+
+  if (!canDeleteOrder(order)) {
+    throw new Error(
+      'Submitted, delivered, or in-review orders must be archived before delete. Archive it first.',
+    )
+  }
+
+  // Best-effort child cleanup (most FKs cascade, but grants/RLS may still require explicit deletes)
+  await supabase.from('will_status_events').delete().eq('order_id', orderId)
+  await supabase.from('will_documents').delete().eq('order_id', orderId)
+  await supabase.from('questionnaire_answers').delete().eq('order_id', orderId)
+  const { error: dErr } = await supabase.from('orders').delete().eq('id', orderId)
+  if (dErr) throw new Error(dErr.message)
 }
 
 export const STATUS_LABEL: Record<string, string> = {

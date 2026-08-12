@@ -1,4 +1,5 @@
 import type { WillContent } from '@/lib/will-render'
+import type { DocumentKind } from '@/lib/document-kinds'
 
 type Answers = Record<string, unknown>
 
@@ -98,6 +99,86 @@ function residuaryText(answers: Answers, spouse: string): string[] {
   }
 }
 
+/** When the customer also bought a living trust, the will pours residue into that trust. */
+function pourOverResiduaryText(answers: Answers, name: string): string[] {
+  const trustName = plain(
+    str(answers.trust_name, `The ${name} Revocable Living Trust`),
+  )
+  return [
+    'I give, devise, and bequeath all of the rest, residue, and remainder of my estate, of every kind and character, real, personal, or mixed, wheresoever situated (including all property over which I may have a power of appointment to the extent I may exercise such power by will), to the then-acting **Trustee** of the trust known as **' +
+      trustName +
+      '**, created by me as Grantor, to be added to the principal of that trust and held, administered, and distributed under its terms as then in effect.',
+    'If for any reason that trust is not in existence at my death, or if this pour-over gift is ineffective, then I give my residuary estate to the beneficiaries and in the shares that would have received the residuary trust estate under that trust as if it had terminated on my death.',
+    'This Will is intended to operate as a **pour-over will** in coordination with my Revocable Living Trust. Specific bequests in this Will, if any, are given outright; the residuary estate is governed by the Trust.',
+  ]
+}
+
+function trustResiduaryDistribution(answers: Answers, spouse: string): string[] {
+  const plan = str(answers.trust_residuary_plan)
+  if (plan === 'custom') {
+    const custom = plain(str(answers.trust_residuary_custom))
+    return [
+      custom
+        ? `The Trustee shall distribute the remaining trust property (the **Residuary Trust Estate**) as follows: ${custom}`
+        : 'The Trustee shall distribute the remaining trust property (the **Residuary Trust Estate**) according to the Grantor\'s written instructions provided with this Trust.',
+    ]
+  }
+
+  // same_as_will (default): mirror the will residuary plan as trust distribution language
+  const willPlan = str(answers.residuary_plan)
+  const customWill = plain(str(answers.residuary_custom))
+  switch (willPlan) {
+    case 'spouse_then_children':
+      return [
+        spouse
+          ? `The Trustee shall distribute the Residuary Trust Estate to the Grantor's spouse, **${spouse}**, if living. If the Grantor's spouse is not then living, the Trustee shall distribute the Residuary Trust Estate in equal shares to the Grantor's children who are then living, **per stirpes**.`
+          : 'The Trustee shall distribute the Residuary Trust Estate to the Grantor\'s spouse if living, and if not, in equal shares to the Grantor\'s children who are then living, **per stirpes**.',
+      ]
+    case 'children_equally':
+      return [
+        'The Trustee shall distribute the Residuary Trust Estate in equal shares to the Grantor\'s children who are then living, **per stirpes**.',
+      ]
+    case 'spouse_only':
+      return [
+        spouse
+          ? `The Trustee shall distribute the Residuary Trust Estate to the Grantor's spouse, **${spouse}**, if living, and if not, to the Grantor's heirs at law under Texas law.`
+          : 'The Trustee shall distribute the Residuary Trust Estate to the Grantor\'s spouse if living, and if not, to the Grantor\'s heirs at law under Texas law.',
+      ]
+    case 'custom':
+      return [
+        customWill
+          ? `The Trustee shall distribute the Residuary Trust Estate as follows: ${customWill}`
+          : 'The Trustee shall distribute the Residuary Trust Estate according to the written instructions accompanying the Grantor\'s estate plan.',
+      ]
+    default:
+      return [
+        'The Trustee shall distribute the Residuary Trust Estate to the Grantor\'s heirs at law under the laws of the **State of Texas**.',
+      ]
+  }
+}
+
+function scheduleAParagraphs(assetsRaw: string): string[] {
+  const lines = assetsRaw
+    .split(/\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+  if (lines.length === 0) {
+    return [
+      'The Grantor intends to fund this Trust with property to be assigned by separate instruments of transfer (deed, assignment, beneficiary designation, or account retitling). **None** listed on this Schedule at signing.',
+    ]
+  }
+  return [
+    'The following property is transferred to and held by this Trust (or is intended to be funded by separate transfer instruments):',
+    ...lines.map((line) => `• ${line}`),
+    'Additional property may be added at any time by the Grantor or any other person, subject to the Trustee\'s acceptance. Where a deed, assignment, or beneficiary designation is required to complete funding, the Grantor shall execute such instruments promptly.',
+  ]
+}
+
+export type BuildDocOptions = {
+  /** When true, will residuary pours into the living trust. */
+  includeTrust?: boolean
+}
+
 function dispositionText(value: string) {
   switch (value) {
     case 'burial':
@@ -114,7 +195,11 @@ function dispositionText(value: string) {
 }
 
 /** Build will JSON from questionnaire answers. Use **word** for bold emphasis in the PDF. */
-export function buildWillFromAnswers(answers: Answers): WillContent {
+export function buildWillFromAnswers(
+  answers: Answers,
+  options: BuildDocOptions = {},
+): WillContent {
+  const includeTrust = Boolean(options.includeTrust)
   const name = plain(str(answers.legal_full_name, '[Testator]'))
   const aka = plain(str(answers.also_known_as))
   const dob = formatDate(str(answers.date_of_birth))
@@ -309,7 +394,9 @@ export function buildWillFromAnswers(answers: Answers): WillContent {
 
   sections.push({
     heading: `ARTICLE ${roman(article++)}. RESIDUARY ESTATE`,
-    paragraphs: residuaryText(answers, spouse),
+    paragraphs: includeTrust
+      ? pourOverResiduaryText(answers, name)
+      : residuaryText(answers, spouse),
   })
 
   const finalParas: string[] = []
@@ -355,7 +442,10 @@ export function buildWillFromAnswers(answers: Answers): WillContent {
 
 export function buildTrustFromAnswers(answers: Answers): WillContent {
   const name = plain(str(answers.legal_full_name, '[Grantor]'))
-  const trustName = plain(str(answers.trust_name, `The ${name} Revocable Living Trust`))
+  const year = new Date().getFullYear()
+  const trustName = plain(
+    str(answers.trust_name, `The ${name} Revocable Living Trust dated ${year}`),
+  )
   const successor = plain(str(answers.trust_successor_trustee_name, '[Successor Trustee]'))
   const successorRel = plain(str(answers.trust_successor_trustee_relationship))
   const successorAddress = plain(str(answers.trust_successor_trustee_address))
@@ -363,77 +453,232 @@ export function buildTrustFromAnswers(answers: Answers): WillContent {
   const altAddress = plain(str(answers.trust_alternate_successor_trustee_address))
   const assets = plain(str(answers.trust_assets))
   const gifts = plain(str(answers.trust_specific_gifts))
-  const residuary =
-    str(answers.trust_residuary_plan) === 'custom'
-      ? plain(str(answers.trust_residuary_custom)) || 'as described by the Grantor'
-      : "to the same beneficiaries and in the same shares as the residuary estate under the Grantor's Last Will and Testament"
+  const spouse = plain(str(answers.spouse_full_name))
   const age = str(answers.trust_distribution_age, '25')
   const street = plain(str(answers.address_street))
   const city = plain(str(answers.address_city))
   const county = plain(str(answers.address_county))
   const zip = plain(str(answers.address_zip))
+  const countyLine = county ? `${county} County` : '[County] County'
   const residence =
     [street, city, county ? `${county} County` : '', zip ? `Texas ${zip}` : 'Texas']
       .filter(Boolean)
       .join(', ') || 'the State of Texas'
 
-  const trusteeParas: string[] = [
-    successorRel
-      ? `**${name}** shall serve as initial **Trustee**. Upon the death or incapacity of the Grantor, **${successor}**, the Grantor's ${successorRel.toLowerCase()}, shall serve as **Successor Trustee**.`
-      : `**${name}** shall serve as initial **Trustee**. Upon the death or incapacity of the Grantor, **${successor}** shall serve as **Successor Trustee**.`,
-  ]
-  if (successorAddress) {
-    trusteeParas.push(`The Successor Trustee's mailing address is **${successorAddress}**.`)
-  }
-  if (alt) {
-    trusteeParas.push(
-      `If **${successor}** is unable or unwilling to serve, or ceases to serve, **${alt}** shall serve as **Alternate Successor Trustee**.`,
-    )
-    if (altAddress) {
-      trusteeParas.push(
-        `The Alternate Successor Trustee's mailing address is **${altAddress}**.`,
-      )
-    }
-  } else {
-    trusteeParas.push(
-      'If the Successor Trustee is unable or unwilling to serve, or ceases to serve, a successor may be appointed as provided by Texas law and the terms of this Trust.',
-    )
-  }
+  const successorLine = successorRel
+    ? `**${successor}**, the Grantor's ${successorRel.toLowerCase()}${successorAddress ? `, of **${successorAddress}**` : ''}`
+    : `**${successor}**${successorAddress ? `, of **${successorAddress}**` : ''}`
+
+  const altLine = alt
+    ? altAddress
+      ? `**${alt}**, of **${altAddress}**`
+      : `**${alt}**`
+    : null
 
   return {
     title: 'REVOCABLE LIVING TRUST',
     testatorName: name,
     sections: [
       {
-        heading: 'ARTICLE I. CREATION OF TRUST',
+        heading: 'ARTICLE I. DECLARATION OF TRUST',
         paragraphs: [
-          `This **Revocable Living Trust Agreement** is made by **${name}**, of **${residence}**, as Grantor and initial Trustee, and creates the trust known as **${trustName}**.`,
-          "The Grantor reserves the right to amend or revoke this Trust in whole or in part during the Grantor's lifetime while competent, by a writing signed by the Grantor and delivered to the Trustee.",
-          'This Trust is intended to be governed by the laws of the **State of Texas**.',
+          `**Establishment.** I, **${name}**, a resident of **${countyLine}, Texas** (the "Grantor"), hereby establish this Revocable Living Trust (the "Trust"). The Trust shall be known as **${trustName}**.`,
+          '**Governing Law.** This Trust is created under and shall be governed by the laws of the **State of Texas**, including the Texas Trust Code (Chapter 111 et seq. of the Texas Property Code), except as otherwise expressly stated herein.',
+          '**Transfer of Property.** The Grantor transfers to the Trust the property described in **Schedule A**, attached hereto and incorporated by reference. Additional property may be added to the Trust at any time by the Grantor or by any other person, subject to the Trustee\'s acceptance.',
         ],
       },
       {
-        heading: 'ARTICLE II. TRUSTEES',
-        paragraphs: trusteeParas,
-      },
-      {
-        heading: 'ARTICLE III. TRUST PROPERTY',
+        heading: 'ARTICLE II. TRUSTEE',
         paragraphs: [
-          assets
-            ? `The Grantor intends to fund this Trust with the following property: **${assets}**. Additional property may be added from time to time.`
-            : 'The Grantor may transfer property to the Trustee from time to time to be held as part of this Trust estate.',
+          `**Initial Trustee.** The Grantor, **${name}**, shall serve as the initial Trustee.`,
+          `**Successor Trustee.** Upon the Grantor's death, resignation, or incapacity, ${successorLine} shall serve as **Successor Trustee**.`,
+          altLine
+            ? `**Alternate Successor Trustee.** If the Successor Trustee is unable or unwilling to serve, or ceases to serve, ${altLine} shall serve as **Alternate Successor Trustee**.`
+            : '**Alternate Successor Trustee.** If the Successor Trustee is unable or unwilling to serve, or ceases to serve, a successor may be appointed as provided by Texas law and the terms of this Trust.',
+          '**Trustee Compensation.** Any Trustee (other than the Grantor while serving) shall be entitled to reasonable compensation for services rendered.',
+          '**No Bond.** No Trustee shall be required to post bond or other security.',
         ],
       },
       {
-        heading: 'ARTICLE IV. DISTRIBUTIONS ON DEATH',
+        heading: 'ARTICLE III. REVOCATION AND AMENDMENT',
         paragraphs: [
+          '**Power to Revoke or Amend.** During the Grantor\'s lifetime and while the Grantor is competent, the Grantor may revoke or amend this Trust, in whole or in part, at any time, by a written instrument signed by the Grantor and delivered to the Trustee.',
+          '**Irrevocability on Death or Incapacity.** This Trust shall become irrevocable upon the Grantor\'s death or upon a determination of the Grantor\'s incapacity as provided below.',
+          '**Determination of Incapacity.** The Grantor shall be deemed incapacitated upon the written certification of two licensed physicians who have personally examined the Grantor and determined that the Grantor is unable to manage the Grantor\'s financial affairs.',
+        ],
+      },
+      {
+        heading: 'ARTICLE IV. DISTRIBUTIONS DURING GRANTOR\'S LIFETIME',
+        paragraphs: [
+          '**Income and Principal.** During the Grantor\'s lifetime, the Trustee shall distribute to or for the benefit of the Grantor such amounts of net income and principal as the Grantor may from time to time request, or as the Trustee determines are advisable for the Grantor\'s health, education, maintenance, and support.',
+          '**Distributions During Incapacity.** If the Grantor becomes incapacitated, the Trustee shall use trust income and principal for the Grantor\'s health, education, maintenance, support, and comfort, and may also make distributions for the benefit of persons the Grantor was legally obligated to support.',
+        ],
+      },
+      {
+        heading: 'ARTICLE V. DISTRIBUTIONS UPON GRANTOR\'S DEATH',
+        paragraphs: [
+          '**Payment of Expenses.** Upon the Grantor\'s death, the Trustee shall pay from the Trust the Grantor\'s legally enforceable debts, funeral and burial expenses, and expenses of last illness and estate administration, to the extent not otherwise provided for.',
           gifts
-            ? `Upon the Grantor's death, the Trustee shall make the following specific distributions: **${gifts}**`
-            : "Upon the Grantor's death, the Trustee shall first pay debts, expenses of administration, and taxes as appropriate from trust property.",
-          `The remaining trust property shall pass **${residuary}**.`,
-          `Any share for a beneficiary under age **${age}** shall be held in further trust until the beneficiary attains that age; provided that the Trustee may distribute income or principal earlier for the beneficiary's health, education, maintenance, and support.`,
+            ? `**Specific Distributions.** The Trustee shall make the following specific distributions: **${gifts}**`
+            : '**Specific Distributions.** There are no specific distributions under this Article. **None.**',
+          '**Residuary Distribution.**',
+          ...trustResiduaryDistribution(answers, spouse),
+          `**Distributions to Minors or Incapacitated Beneficiaries.** If any beneficiary entitled to a distribution is a minor or is incapacitated, the Trustee may hold that share in a separate trust for the beneficiary's benefit, and distribute income and principal for the beneficiary's health, education, maintenance, and support until the beneficiary reaches the age of **${age}** or regains capacity, at which time the remaining trust property shall be distributed outright to the beneficiary.`,
+        ],
+      },
+      {
+        heading: 'ARTICLE VI. TRUSTEE POWERS',
+        paragraphs: [
+          '**General Powers.** The Trustee shall have all powers granted to trustees under the Texas Trust Code, including, without limitation, the powers to: (a) retain, invest, and reinvest trust property in any kind of property, real or personal; (b) sell, exchange, lease, mortgage, or otherwise dispose of trust property; (c) borrow money and pledge trust property as security; (d) employ attorneys, accountants, investment advisors, and other professionals, and pay reasonable compensation therefor; (e) settle, compromise, or abandon claims in favor of or against the Trust; (f) distribute property in kind, in cash, or partly in each; and (g) do all other acts necessary or advisable for the proper administration of the Trust.',
+          '**Standard of Care.** The Trustee shall administer the Trust as a prudent person would, considering the purposes, terms, distribution requirements, and other circumstances of the Trust.',
+        ],
+      },
+      {
+        heading: 'ARTICLE VII. SPENDTHRIFT PROVISION',
+        paragraphs: [
+          '**Spendthrift Trust.** No beneficiary shall have the power to anticipate, assign, transfer, or otherwise dispose of any interest in the Trust before actual receipt, and no interest of any beneficiary shall be subject to the claims of that beneficiary\'s creditors.',
+        ],
+      },
+      {
+        heading: 'ARTICLE VIII. MISCELLANEOUS',
+        paragraphs: [
+          '**Perpetuities Savings.** Notwithstanding any other provision, any trust created hereunder shall terminate no later than the latest date permitted under the Texas Trust Code.',
+          '**Severability.** If any provision of this Trust is held invalid, the remaining provisions shall continue in full force and effect.',
+          '**Successor Definitions.** References to any person acting as Trustee include any successor or substitute Trustee acting hereunder.',
+          `**Residence.** The Grantor's residence for notice and administration purposes is **${residence}**.`,
+        ],
+      },
+      {
+        heading: 'SCHEDULE A. INITIAL TRUST PROPERTY',
+        paragraphs: scheduleAParagraphs(assets),
+      },
+    ],
+  }
+}
+
+function peopleNames(v: unknown): string {
+  if (!Array.isArray(v)) return '[Authorized recipients]'
+  const names = v
+    .map((row) => {
+      if (!row || typeof row !== 'object') return ''
+      return plain(str((row as Record<string, unknown>).name))
+    })
+    .filter(Boolean)
+  return names.length ? names.join('; ') : '[Authorized recipients]'
+}
+
+/** Snapshot content for Medical POA (skeleton layout is the primary live preview). */
+export function buildMpoaFromAnswers(answers: Answers): WillContent {
+  const name = plain(str(answers.legal_full_name, '[Principal]'))
+  return {
+    title: 'MEDICAL POWER OF ATTORNEY',
+    testatorName: name,
+    sections: [
+      {
+        heading: 'APPOINTMENT OF AGENT',
+        paragraphs: [
+          `I, **${name}**, appoint **${plain(str(answers.mpoa_agent_name, '[Agent]'))}** (${plain(str(answers.mpoa_agent_relationship)) || 'relationship as stated'}) as my medical agent. Phone: ${plain(str(answers.mpoa_agent_phone)) || '—'}.`,
+          answers.mpoa_alt_agent_name
+            ? `Alternate agent: **${plain(str(answers.mpoa_alt_agent_name))}**. Phone: ${plain(str(answers.mpoa_alt_agent_phone)) || '—'}.`
+            : 'No alternate agent named.',
         ],
       },
     ],
+  }
+}
+
+export function buildDpoaFromAnswers(answers: Answers): WillContent {
+  const name = plain(str(answers.legal_full_name, '[Principal]'))
+  const when =
+    answers.dpoa_when_effective === 'incapacity'
+      ? 'Only if I become incapacitated'
+      : 'Immediately when I sign'
+  return {
+    title: 'DURABLE POWER OF ATTORNEY',
+    testatorName: name,
+    sections: [
+      {
+        heading: 'APPOINTMENT OF AGENT',
+        paragraphs: [
+          `I, **${name}**, appoint **${plain(str(answers.dpoa_agent_name, '[Agent]'))}** (${plain(str(answers.dpoa_agent_relationship)) || 'relationship as stated'}) as my agent. Phone: ${plain(str(answers.dpoa_agent_phone)) || '—'}.`,
+          answers.dpoa_alt_agent_name
+            ? `Alternate agent: **${plain(str(answers.dpoa_alt_agent_name))}**.`
+            : 'No alternate agent named.',
+          `When effective: **${when}**.`,
+        ],
+      },
+    ],
+  }
+}
+
+export function buildDirectiveFromAnswers(answers: Answers): WillContent {
+  const name = plain(str(answers.legal_full_name, '[Declarant]'))
+  const prefMap: Record<string, string> = {
+    no_prolong: 'Do not prolong my life with life-sustaining treatment',
+    prolong: 'I want life-sustaining treatment continued',
+    agent_decides: 'Let my medical agent decide',
+  }
+  const pref =
+    prefMap[str(answers.directive_preference)] ??
+    str(answers.directive_preference, '[Preference]')
+  return {
+    title: 'DIRECTIVE TO PHYSICIANS',
+    testatorName: name,
+    sections: [
+      {
+        heading: 'TREATMENT PREFERENCE',
+        paragraphs: [
+          `I, **${name}**, state the following preference: **${pref}**.`,
+          answers.directive_notes
+            ? `Additional wishes: ${plain(str(answers.directive_notes))}`
+            : 'No additional wishes stated.',
+        ],
+      },
+    ],
+  }
+}
+
+export function buildHipaaFromAnswers(answers: Answers): WillContent {
+  const name = plain(str(answers.legal_full_name, '[Individual]'))
+  const includeAgents =
+    answers.hipaa_include_agents === 'yes'
+      ? 'Yes'
+      : answers.hipaa_include_agents === 'no'
+        ? 'No'
+        : '—'
+  return {
+    title: 'HIPAA AUTHORIZATION',
+    testatorName: name,
+    sections: [
+      {
+        heading: 'AUTHORIZED RECIPIENTS',
+        paragraphs: [
+          `I, **${name}**, authorize disclosure of my protected health information to: **${peopleNames(answers.hipaa_recipients)}**.`,
+          `Also authorize Medical POA agent(s): **${includeAgents}**.`,
+        ],
+      },
+    ],
+  }
+}
+
+export function buildDocumentFromAnswers(
+  kind: DocumentKind,
+  answers: Answers,
+  options: BuildDocOptions = {},
+): WillContent {
+  switch (kind) {
+    case 'rlt':
+      return buildTrustFromAnswers(answers)
+    case 'mpoa':
+      return buildMpoaFromAnswers(answers)
+    case 'dpoa':
+      return buildDpoaFromAnswers(answers)
+    case 'directive':
+      return buildDirectiveFromAnswers(answers)
+    case 'hipaa':
+      return buildHipaaFromAnswers(answers)
+    case 'will':
+    default:
+      return buildWillFromAnswers(answers, options)
   }
 }

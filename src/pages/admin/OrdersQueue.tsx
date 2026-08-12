@@ -1,13 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, MoreHorizontal, RefreshCw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Modal } from '@/components/ui/modal'
 import { cn } from '@/lib/utils'
 import {
   STATUS_LABEL,
   STATUS_TONE,
+  archiveOrder,
+  canDeleteOrder,
+  deleteOrder,
   listOrders,
+  requireAdminAccess,
   type OrderRow,
 } from '@/lib/admin'
 
@@ -19,7 +25,6 @@ type StatusFilter =
   | 'in_review'
   | 'needs_revision'
   | 'delivered'
-  | 'paid'
   | 'archived'
 
 const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
@@ -28,7 +33,6 @@ const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: 'in_review', label: 'In Review' },
   { id: 'needs_revision', label: 'Needs Revision' },
   { id: 'delivered', label: 'Delivered' },
-  { id: 'paid', label: 'Paid' },
   { id: 'archived', label: 'Archived' },
 ]
 
@@ -47,6 +51,7 @@ export default function OrdersQueue() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -72,6 +77,9 @@ export default function OrdersQueue() {
 
   useEffect(() => {
     void load()
+    requireAdminAccess()
+      .then(({ roles }) => setIsAdmin(roles.includes('admin')))
+      .catch(() => setIsAdmin(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -81,7 +89,7 @@ export default function OrdersQueue() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return orders.filter((o) => {
+    const rows = orders.filter((o) => {
       if (statusFilter === 'archived') {
         if (!o.archived_at) return false
       } else if (statusFilter === 'all') {
@@ -89,9 +97,6 @@ export default function OrdersQueue() {
       } else if (statusFilter === 'pending') {
         if (o.archived_at) return false
         if (o.status !== 'submitted' && o.status !== 'ready_for_review') return false
-      } else if (statusFilter === 'paid') {
-        if (o.archived_at) return false
-        if (o.status !== 'paid' && o.status !== 'pending_payment') return false
       } else {
         if (o.archived_at) return false
         if (o.status !== statusFilter) return false
@@ -123,6 +128,12 @@ export default function OrdersQueue() {
 
       return true
     })
+
+    return rows.sort((a, b) => {
+      const aT = new Date(a.submitted_at ?? a.created_at).getTime()
+      const bT = new Date(b.submitted_at ?? b.created_at).getTime()
+      return bT - aT
+    })
   }, [orders, search, statusFilter, dateFrom, dateTo])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -136,9 +147,9 @@ export default function OrdersQueue() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl tracking-tight text-foreground">Review queue</h1>
+          <h1 className="font-serif text-3xl tracking-tight text-foreground">Orders queue</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Orders awaiting review, with a 24-hour delivery clock.
+            Newest first, with customer email, submission time, status, and a 24-hour delivery clock.
           </p>
         </div>
         <Button
@@ -154,7 +165,6 @@ export default function OrdersQueue() {
         </Button>
       </div>
 
-      {/* Filters */}
       <div className="mt-6 space-y-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -240,7 +250,7 @@ export default function OrdersQueue() {
                   <th className="px-4 py-3 font-medium">Customer</th>
                   <th className="px-4 py-3 font-medium">Plan</th>
                   <th className="px-4 py-3 font-medium">Submitted</th>
-                  <th className="px-4 py-3 font-medium">Countdown</th>
+                  <th className="px-4 py-3 font-medium">24h clock</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Promo</th>
                   <th className="w-12 px-4 py-3" />
@@ -254,7 +264,14 @@ export default function OrdersQueue() {
                     </td>
                   </tr>
                 ) : (
-                  pageRows.map((o) => <OrderRow key={o.id} order={o} />)
+                  pageRows.map((o) => (
+                    <OrderRowView
+                      key={o.id}
+                      order={o}
+                      isAdmin={isAdmin}
+                      onChanged={() => void load(true)}
+                    />
+                  ))
                 )}
               </tbody>
             </table>
@@ -298,7 +315,15 @@ export default function OrdersQueue() {
   )
 }
 
-function OrderRow({ order: o }: { order: OrderRow }) {
+function OrderRowView({
+  order: o,
+  isAdmin,
+  onChanged,
+}: {
+  order: OrderRow
+  isAdmin: boolean
+  onChanged: () => void
+}) {
   const navigate = useNavigate()
   const submittedAt = o.submitted_at ? new Date(o.submitted_at) : null
   const deadline = submittedAt ? new Date(submittedAt.getTime() + 24 * 60 * 60 * 1000) : null
@@ -374,20 +399,290 @@ function OrderRow({ order: o }: { order: OrderRow }) {
           <span className="text-muted-foreground">—</span>
         )}
       </td>
-      <td className="px-4 py-3.5 text-right">
-        <button
-          type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-          aria-label="Open order detail"
-          title="Open order detail"
-          onClick={(e) => {
-            e.stopPropagation()
-            navigate(`/admin/orders/${o.id}`)
-          }}
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
+      <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+        <RowActions order={o} isAdmin={isAdmin} onChanged={onChanged} />
       </td>
     </tr>
+  )
+}
+
+function RowActions({
+  order: o,
+  isAdmin,
+  onChanged,
+}: {
+  order: OrderRow
+  isAdmin: boolean
+  onChanged: () => void
+}) {
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [flash, setFlash] = useState<string | null>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; openUp: boolean } | null>(
+    null,
+  )
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  const isArchived = Boolean(o.archived_at)
+  const canDelete = canDeleteOrder(o)
+
+  function placeMenu() {
+    const btn = buttonRef.current
+    if (!btn) return
+    const r = btn.getBoundingClientRect()
+    const menuWidth = 224
+    const estimatedHeight = isAdmin ? 280 : 160
+    const spaceBelow = window.innerHeight - r.bottom
+    const openUp = spaceBelow < estimatedHeight && r.top > spaceBelow
+    const left = Math.min(Math.max(8, r.right - menuWidth), window.innerWidth - menuWidth - 8)
+    setMenuPos({
+      top: openUp ? r.top - 4 : r.bottom + 4,
+      left,
+      openUp,
+    })
+  }
+
+  useEffect(() => {
+    if (!open) {
+      setMenuPos(null)
+      return
+    }
+    placeMenu()
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (buttonRef.current?.contains(t) || menuRef.current?.contains(t)) return
+      setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    const onReposition = () => placeMenu()
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    window.addEventListener('resize', onReposition)
+    window.addEventListener('scroll', onReposition, true)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+      window.removeEventListener('resize', onReposition)
+      window.removeEventListener('scroll', onReposition, true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isAdmin])
+
+  useEffect(() => {
+    if (!flash) return
+    const t = window.setTimeout(() => setFlash(null), 1800)
+    return () => window.clearTimeout(t)
+  }, [flash])
+
+  async function copy(text: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+      setFlash(`${label} copied`)
+    } catch {
+      setFlash(`Could not copy ${label.toLowerCase()}`)
+    }
+    setOpen(false)
+  }
+
+  async function onArchive(archived: boolean) {
+    setBusy(true)
+    try {
+      await archiveOrder(o.id, archived)
+      setFlash(archived ? 'Order archived' : 'Order unarchived')
+      setOpen(false)
+      onChanged()
+    } catch (e) {
+      setFlash(e instanceof Error ? e.message : 'Archive failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onDelete() {
+    setBusy(true)
+    try {
+      await deleteOrder(o.id)
+      setConfirmOpen(false)
+      setConfirmText('')
+      setFlash('Order deleted')
+      onChanged()
+    } catch (e) {
+      setFlash(e instanceof Error ? e.message : 'Delete failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const menu =
+    open && menuPos
+      ? createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{
+              position: 'fixed',
+              top: menuPos.openUp ? undefined : menuPos.top,
+              bottom: menuPos.openUp ? window.innerHeight - menuPos.top : undefined,
+              left: menuPos.left,
+            }}
+            className="z-[80] w-56 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-lg"
+          >
+            <p className="px-3 py-1.5 text-xs font-semibold text-foreground">Order actions</p>
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full px-3 py-2 text-left text-sm hover:bg-secondary"
+              onClick={() => {
+                setOpen(false)
+                navigate(`/admin/orders/${o.id}`)
+              }}
+            >
+              Open order
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full px-3 py-2 text-left text-sm hover:bg-secondary"
+              onClick={() => void copy(o.user_email, 'Email')}
+            >
+              Copy customer email
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full px-3 py-2 text-left text-sm hover:bg-secondary"
+              onClick={() => void copy(o.id, 'Order ID')}
+            >
+              Copy order ID
+            </button>
+
+            {isAdmin ? (
+              <>
+                <div className="my-1 border-t border-border" />
+                {isArchived ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full px-3 py-2 text-left text-sm hover:bg-secondary"
+                    onClick={() => void onArchive(false)}
+                  >
+                    Unarchive order
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full px-3 py-2 text-left text-sm hover:bg-secondary"
+                    onClick={() => void onArchive(true)}
+                  >
+                    Archive order
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={!canDelete}
+                  className={cn(
+                    'flex w-full px-3 py-2 text-left text-sm',
+                    canDelete
+                      ? 'text-red-600 hover:bg-red-50'
+                      : 'cursor-not-allowed text-red-600/40',
+                  )}
+                  onClick={() => {
+                    if (!canDelete) return
+                    setOpen(false)
+                    setConfirmOpen(true)
+                  }}
+                >
+                  Delete order…
+                </button>
+                {!canDelete ? (
+                  <p className="px-3 pb-2 pt-1 text-[11px] text-muted-foreground">
+                    Archive submitted/delivered orders before deleting.
+                  </p>
+                ) : null}
+              </>
+            ) : null}
+          </div>,
+          document.body,
+        )
+      : null
+
+  return (
+    <div className="relative inline-block text-left">
+      {flash ? (
+        <span className="pointer-events-none absolute -top-8 right-0 z-20 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-[10px] text-background">
+          {flash}
+        </span>
+      ) : null}
+      <Button
+        ref={buttonRef}
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 rounded-full p-0"
+        aria-label="Order actions"
+        aria-expanded={open}
+        disabled={busy}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </Button>
+
+      {menu}
+
+      <Modal
+        open={confirmOpen}
+        onClose={() => {
+          if (busy) return
+          setConfirmOpen(false)
+          setConfirmText('')
+        }}
+        title="Delete this order?"
+        description="This permanently removes the order, its questionnaire answers, generated wills, and timeline events. This cannot be undone."
+        className="max-w-md"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              className="rounded-full"
+              disabled={busy}
+              onClick={() => {
+                setConfirmOpen(false)
+                setConfirmText('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="rounded-full bg-red-600 text-white hover:bg-red-700"
+              disabled={confirmText !== 'DELETE' || busy}
+              onClick={() => void onDelete()}
+            >
+              {busy ? 'Deleting…' : 'Delete order'}
+            </Button>
+          </>
+        }
+      >
+        <p className="mb-2 text-sm text-muted-foreground">
+          Type <strong>DELETE</strong> to confirm.
+        </p>
+        <Input
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          placeholder="DELETE"
+          autoFocus
+          className="rounded-xl"
+        />
+      </Modal>
+    </div>
   )
 }

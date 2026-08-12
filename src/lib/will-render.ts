@@ -1,4 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
+import type { DocumentKind } from '@/lib/document-kinds'
+import { DOCUMENT_KIND_LABEL } from '@/lib/document-kinds'
 
 export interface WillContent {
   title: string
@@ -19,8 +21,8 @@ interface ExecSection {
   rows: ExecRow[]
 }
 
-/** Signature / witnesses / affidavit / notary — compact two-column witness lines. */
-function buildExecutionBlock(testatorName: string): ExecSection[] {
+/** Signature / witnesses / affidavit / notary — for Last Will and Testament. */
+function buildWillExecutionBlock(testatorName: string): ExecSection[] {
   const name = testatorName || '[Testator]'
   return [
     {
@@ -76,21 +78,56 @@ function buildExecutionBlock(testatorName: string): ExecSection[] {
   ]
 }
 
+/** Texas RLT: Grantor signature + notary only (no witnesses). */
+function buildRltExecutionBlock(grantorName: string, trustTitle?: string): ExecSection[] {
+  const name = grantorName || '[Grantor]'
+  const trust = trustTitle || `The ${name} Revocable Living Trust`
+  return [
+    {
+      heading: 'SIGNATURE OF GRANTOR',
+      rows: [
+        {
+          kind: 'text',
+          text: `I, **${name}**, the Grantor, sign my name to this **Revocable Living Trust** on this ______ day of __________________, 20_____, and declare that I have read the foregoing instrument, that I understand its contents, and that I execute it as my free and voluntary act for the purposes therein expressed.`,
+        },
+        { kind: 'sig', label: 'Signature of Grantor' },
+        { kind: 'sig', label: 'Printed Name' },
+      ],
+    },
+    {
+      heading: 'NOTARY ACKNOWLEDGMENT',
+      rows: [
+        {
+          kind: 'text',
+          text: `**STATE OF TEXAS**\n**COUNTY OF** ____________________________\n\nThis instrument was acknowledged before me on this ______ day of __________________, 20_____, by **${name}**, the Grantor of **${trust}**.`,
+        },
+        { kind: 'sig', label: 'Notary Public, State of Texas' },
+        { kind: 'sig', label: 'My Commission Expires' },
+        { kind: 'seal', label: '[NOTARY SEAL]' },
+      ],
+    },
+  ]
+}
+
 export function isExecutionBlockSection(heading: string): boolean {
-  return /^(signature of testator|witnesses|self[-\s]?proving affidavit|notary acknowledgment)\b/i.test(
+  return /^(signature of testator|signature of grantor|witnesses|self[-\s]?proving affidavit|notary acknowledgment)\b/i.test(
     heading.trim(),
   )
 }
 
+function execRowsToParagraphs(section: ExecSection): string[] {
+  return section.rows.map((row) => {
+    if (row.kind === 'text') return row.text
+    if (row.kind === 'sigPair') return `${row.left} / ${row.right}`
+    if (row.kind === 'seal') return row.label
+    return `______________________________  ${row.label}`
+  })
+}
+
 export function normalizeWillExecutionBlock(will: WillContent): WillContent {
-  const exec = buildExecutionBlock(will.testatorName).map((section) => ({
+  const exec = buildWillExecutionBlock(will.testatorName).map((section) => ({
     heading: section.heading,
-    paragraphs: section.rows.map((row) => {
-      if (row.kind === 'text') return row.text
-      if (row.kind === 'sigPair') return `${row.left} / ${row.right}`
-      if (row.kind === 'seal') return row.label
-      return `______________________________  ${row.label}`
-    }),
+    paragraphs: execRowsToParagraphs(section),
   }))
   return {
     ...will,
@@ -101,14 +138,32 @@ export function normalizeWillExecutionBlock(will: WillContent): WillContent {
   }
 }
 
-function getRenderSections(willIn: WillContent): ExecSection[] {
+export function normalizeTrustExecutionBlock(trust: WillContent): WillContent {
+  const exec = buildRltExecutionBlock(trust.testatorName, trust.title).map((section) => ({
+    heading: section.heading,
+    paragraphs: execRowsToParagraphs(section),
+  }))
+  return {
+    ...trust,
+    sections: [
+      ...trust.sections.filter((s) => !isExecutionBlockSection(s.heading)),
+      ...exec,
+    ],
+  }
+}
+
+function getRenderSections(willIn: WillContent, kind: DocumentKind): ExecSection[] {
   const nonExec = willIn.sections
     .filter((s) => !isExecutionBlockSection(s.heading))
     .map((s) => ({
       heading: s.heading,
       rows: s.paragraphs.map<ExecRow>((text) => ({ kind: 'text', text })),
     }))
-  return [...nonExec, ...buildExecutionBlock(willIn.testatorName)]
+  const exec =
+    kind === 'will'
+      ? buildWillExecutionBlock(willIn.testatorName)
+      : buildRltExecutionBlock(willIn.testatorName, willIn.title)
+  return [...nonExec, ...exec]
 }
 
 function cleanLegalText(text: string): string {
@@ -274,17 +329,21 @@ function measurePreamble(
  * - two-column witness / affidavit signature pairs
  * - measured (responsive) page breaks — blocks move only when they do not fit
  */
-export async function renderWillToPdf(willIn: WillContent): Promise<Uint8Array> {
-  const sections = getRenderSections(willIn)
+export async function renderWillToPdf(
+  willIn: WillContent,
+  kind: DocumentKind = 'will',
+): Promise<Uint8Array> {
+  const sections = getRenderSections(willIn, kind)
   const pdf = await PDFDocument.create()
   const font = await pdf.embedFont(StandardFonts.TimesRoman)
   const fontBold = await pdf.embedFont(StandardFonts.TimesRomanBold)
   const fontItalic = await pdf.embedFont(StandardFonts.TimesRomanItalic)
 
-  const pageWidth = 612
-  const pageHeight = 792
-  const marginX = 72
-  const marginY = 72
+  // Hardcoded A4 (ISO 216) in PDF points
+  const pageWidth = 595.28
+  const pageHeight = 841.89
+  const marginX = 56.7
+  const marginY = 56.7
   const footerReserve = 28
   const bottomLimit = marginY + footerReserve
   const contentWidth = pageWidth - marginX * 2
@@ -424,7 +483,10 @@ export async function renderWillToPdf(willIn: WillContent): Promise<Uint8Array> 
   const drawSig = (label: string) => {
     // Page break handled by signature-cluster reservation in drawSection.
     const width = Math.min(320, contentWidth)
-    const x = marginX + (contentWidth - width) / 2
+    const rightAligned = /notary public|commission expires/i.test(label)
+    const x = rightAligned
+      ? marginX + contentWidth - width
+      : marginX + (contentWidth - width) / 2
     drawSigColumn(label, x, width)
     y -= SIG_BLOCK
   }
@@ -567,11 +629,13 @@ export async function renderWillToPdf(willIn: WillContent): Promise<Uint8Array> 
 
 export async function renderDocumentPdf(
   content: WillContent,
-  kind: 'will' | 'rlt' = 'will',
+  kind: DocumentKind = 'will',
 ): Promise<Uint8Array> {
   const title =
-    kind === 'rlt'
-      ? content.title || 'REVOCABLE LIVING TRUST'
-      : content.title || 'LAST WILL AND TESTAMENT'
-  return renderWillToPdf({ ...content, title })
+    content.title || DOCUMENT_KIND_LABEL[kind] || 'LEGAL DOCUMENT'
+  const withExec =
+    kind === 'will'
+      ? normalizeWillExecutionBlock(content)
+      : normalizeTrustExecutionBlock(content)
+  return renderWillToPdf({ ...withExec, title }, kind)
 }

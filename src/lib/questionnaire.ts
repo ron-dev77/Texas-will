@@ -1,3 +1,5 @@
+import { formatPhoneNumber, formatPhoneNumberIntl } from 'react-phone-number-input'
+
 export type FieldType =
   | 'shorttext'
   | 'longtext'
@@ -36,6 +38,10 @@ export type Section = {
   title: string
   intro: string
   fields: readonly Field[]
+  /** Hide this section unless the order includes a trust add-on. */
+  requiresTrust?: boolean
+  /** Final review/submit step (no questions required). */
+  isReview?: boolean
 }
 
 export type PersonRow = { name: string; date_of_birth?: string }
@@ -351,6 +357,7 @@ export const SECTIONS: readonly Section[] = [
     title: 'Living trust — trustees',
     intro:
       'You added the Revocable Living Trust to your order. Name your trust and who will manage it after you.',
+    requiresTrust: true,
     fields: [
       {
         id: 'trust_name',
@@ -413,6 +420,7 @@ export const SECTIONS: readonly Section[] = [
     title: 'Living trust — assets & gifts',
     intro:
       'Tell us what you’ll fund the trust with and how remaining trust property should pass on your death.',
+    requiresTrust: true,
     fields: [
       {
         id: 'trust_assets',
@@ -466,6 +474,156 @@ export const SECTIONS: readonly Section[] = [
     ],
   },
   {
+    id: 'medical_poa',
+    title: 'Medical power of attorney',
+    intro:
+      'Who should make health care decisions for you if you cannot speak for yourself? This feeds your Medical POA.',
+    fields: [
+      {
+        id: 'mpoa_agent_name',
+        label: 'Primary medical agent — full name',
+        type: 'shorttext',
+        required: true,
+        placeholder: 'Alex Rivera',
+        minLength: 2,
+        maxLength: 80,
+      },
+      {
+        id: 'mpoa_agent_relationship',
+        label: 'Relationship to you',
+        type: 'shorttext',
+        required: true,
+        placeholder: 'Spouse, child, friend…',
+        maxLength: 60,
+      },
+      {
+        id: 'mpoa_agent_phone',
+        label: 'Agent phone number',
+        type: 'phone',
+        required: true,
+        placeholder: '(512) 555-0100',
+      },
+      {
+        id: 'mpoa_alt_agent_name',
+        label: 'Alternate medical agent (optional)',
+        type: 'shorttext',
+        placeholder: 'Jordan Lee',
+        maxLength: 80,
+      },
+      {
+        id: 'mpoa_alt_agent_phone',
+        label: 'Alternate agent phone (optional)',
+        type: 'phone',
+        placeholder: '(512) 555-0199',
+      },
+    ],
+  },
+  {
+    id: 'durable_poa',
+    title: 'Durable power of attorney',
+    intro:
+      'Who may handle your finances and property if you are incapacitated (or sooner)? This feeds your Durable POA.',
+    fields: [
+      {
+        id: 'dpoa_agent_name',
+        label: 'Primary financial agent — full name',
+        type: 'shorttext',
+        required: true,
+        placeholder: 'Alex Rivera',
+        minLength: 2,
+        maxLength: 80,
+      },
+      {
+        id: 'dpoa_agent_relationship',
+        label: 'Relationship to you',
+        type: 'shorttext',
+        required: true,
+        placeholder: 'Spouse, child, friend…',
+        maxLength: 60,
+      },
+      {
+        id: 'dpoa_agent_phone',
+        label: 'Agent phone number',
+        type: 'phone',
+        required: true,
+        placeholder: '(512) 555-0100',
+      },
+      {
+        id: 'dpoa_alt_agent_name',
+        label: 'Alternate financial agent (optional)',
+        type: 'shorttext',
+        placeholder: 'Jordan Lee',
+        maxLength: 80,
+      },
+      {
+        id: 'dpoa_when_effective',
+        label: 'When should this power of attorney take effect?',
+        type: 'radio',
+        required: true,
+        options: [
+          { value: 'immediately', label: 'Immediately when I sign' },
+          { value: 'incapacity', label: 'Only if I become incapacitated' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'directive',
+    title: 'Directive to physicians',
+    intro:
+      'Your wishes about life-sustaining treatment if you are in a terminal or irreversible condition.',
+    fields: [
+      {
+        id: 'directive_preference',
+        label: 'If I am terminal or irreversible and cannot decide for myself…',
+        type: 'radio',
+        required: true,
+        options: [
+          {
+            value: 'no_prolong',
+            label: 'Do not prolong my life with life-sustaining treatment',
+          },
+          {
+            value: 'prolong',
+            label: 'I want life-sustaining treatment continued',
+          },
+          {
+            value: 'agent_decides',
+            label: 'Let my medical agent decide',
+          },
+        ],
+      },
+      {
+        id: 'directive_notes',
+        label: 'Additional wishes (optional)',
+        type: 'longtext',
+        placeholder: 'Pain relief, spiritual care, organ donation notes…',
+        maxLength: 600,
+      },
+    ],
+  },
+  {
+    id: 'hipaa',
+    title: 'HIPAA release',
+    intro:
+      'Who may receive your protected health information so doctors can speak with them?',
+    fields: [
+      {
+        id: 'hipaa_recipients',
+        label: 'People authorized to receive my medical information',
+        helper: 'Add each person by name.',
+        type: 'people',
+        required: true,
+      },
+      {
+        id: 'hipaa_include_agents',
+        label: 'Also authorize my Medical POA agent(s)?',
+        type: 'yesno',
+        required: true,
+      },
+    ],
+  },
+  {
     id: 'final_wishes',
     title: 'Final wishes',
     intro:
@@ -498,9 +656,19 @@ export const SECTIONS: readonly Section[] = [
     title: 'Review & submit',
     intro:
       'Review your answers below. When everything looks right, submit for attorney review.',
+    isReview: true,
     fields: [],
   },
 ]
+
+/** Sections shown in the questionnaire (hide trust steps unless purchased). */
+export function getActiveSections(
+  includeTrust: boolean,
+  sections: readonly Section[] = SECTIONS,
+): Section[] {
+  if (includeTrust) return [...sections]
+  return sections.filter((s) => !s.requiresTrust && s.id !== 'trust_trustees' && s.id !== 'trust_distributions')
+}
 
 export function isFieldVisible(field: Field, answers: Record<string, unknown>): boolean {
   const cond = field.showIf
@@ -671,6 +839,31 @@ export function sectionHasQualityErrors(
   )
 }
 
+function formatIsoDate(value: string): string {
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return value
+  return `${m[2]}/${m[3]}/${m[1]}`
+}
+
+/** Pretty-print E.164 phones for admin / review summaries. */
+export function formatPhoneDisplay(value: string): string {
+  const raw = value.trim()
+  if (!raw) return '—'
+  const national = formatPhoneNumber(raw)
+  if (national) return national
+  const intl = formatPhoneNumberIntl(raw)
+  if (intl) return intl
+  // Lightweight US fallback: +15125550147 → (512) 555-0147
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+  }
+  return raw
+}
+
 export function formatAnswerPreview(field: Field, value: unknown): string {
   if (value == null || value === '') return '—'
   if (field.type === 'yesno') return value === 'yes' ? 'Yes' : value === 'no' ? 'No' : '—'
@@ -678,9 +871,11 @@ export function formatAnswerPreview(field: Field, value: unknown): string {
     const opt = field.options?.find((o) => o.value === value)
     return opt?.label ?? String(value)
   }
+  if (field.type === 'phone' && typeof value === 'string') {
+    return formatPhoneDisplay(value)
+  }
   if (field.type === 'date' && typeof value === 'string') {
-    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-    if (m) return `${m[2]}/${m[3]}/${m[1]}`
+    return formatIsoDate(value)
   }
   if (field.type === 'people' && Array.isArray(value)) {
     return (
@@ -688,12 +883,10 @@ export function formatAnswerPreview(field: Field, value: unknown): string {
         .map((r: PersonRow) => {
           if (!r.name?.trim()) return ''
           if (!r.date_of_birth) return r.name
-          const m = r.date_of_birth.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-          const dob = m ? `${m[2]}/${m[3]}/${m[1]}` : r.date_of_birth
-          return `${r.name} (${dob})`
+          return `${r.name} (DOB ${formatIsoDate(r.date_of_birth)})`
         })
         .filter(Boolean)
-        .join('; ') || '—'
+        .join('\n') || '—'
     )
   }
   if ((field.type === 'gifts' || field.type === 'charitable_gifts') && Array.isArray(value)) {
@@ -703,8 +896,15 @@ export function formatAnswerPreview(field: Field, value: unknown): string {
           r.item?.trim() || r.recipient?.trim() ? `${r.item || '—'} → ${r.recipient || '—'}` : '',
         )
         .filter(Boolean)
-        .join('; ') || '—'
+        .join('\n') || '—'
     )
+  }
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return String(value)
+    }
   }
   return String(value)
 }

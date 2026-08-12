@@ -72,6 +72,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          form_id: string | null
           id: string
           is_active: boolean
           note: string | null
@@ -81,6 +82,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          form_id?: string | null
           id?: string
           is_active?: boolean
           note?: string | null
@@ -90,11 +92,68 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          form_id?: string | null
           id?: string
           is_active?: boolean
           note?: string | null
           schema?: Json
           version_no?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_questionnaire_versions_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "questionnaire_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      questionnaire_forms: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          schema: Json
+          skeleton_body: string | null
+          trust_skeleton_body: string | null
+          ancillary_skeletons: Json
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          schema?: Json
+          skeleton_body?: string | null
+          trust_skeleton_body?: string | null
+          ancillary_skeletons?: Json
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          schema?: Json
+          skeleton_body?: string | null
+          trust_skeleton_body?: string | null
+          ancillary_skeletons?: Json
+          slug?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -264,6 +323,7 @@ export type Database = {
           partner2_token: string
           plan_type: string
           promo_code: string | null
+          questionnaire_form_id: string | null
           review_started_at: string | null
           status: string
           stripe_payment_intent_id: string | null
@@ -290,6 +350,7 @@ export type Database = {
           partner2_token?: string
           plan_type: string
           promo_code?: string | null
+          questionnaire_form_id?: string | null
           review_started_at?: string | null
           status?: string
           stripe_payment_intent_id?: string | null
@@ -316,6 +377,7 @@ export type Database = {
           partner2_token?: string
           plan_type?: string
           promo_code?: string | null
+          questionnaire_form_id?: string | null
           review_started_at?: string | null
           status?: string
           stripe_payment_intent_id?: string | null
@@ -501,6 +563,7 @@ export type Database = {
           questionnaire_version_id: string | null
           revision_count: number
           sent_at: string | null
+          skeleton_body: string | null
           skeleton_version_id: string | null
           status: string
           updated_at: string
@@ -533,6 +596,7 @@ export type Database = {
           questionnaire_version_id?: string | null
           revision_count?: number
           sent_at?: string | null
+          skeleton_body?: string | null
           skeleton_version_id?: string | null
           status?: string
           updated_at?: string
@@ -565,6 +629,7 @@ export type Database = {
           questionnaire_version_id?: string | null
           revision_count?: number
           sent_at?: string | null
+          skeleton_body?: string | null
           skeleton_version_id?: string | null
           status?: string
           updated_at?: string

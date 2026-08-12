@@ -15,6 +15,10 @@ import Auth from '@/pages/Auth'
 import AdminLayout from '@/pages/admin/AdminLayout'
 import OrdersQueue from '@/pages/admin/OrdersQueue'
 import OrderDetail from '@/pages/admin/OrderDetail'
+import SkeletonEditor from '@/pages/admin/content/SkeletonEditor'
+import PromptsEditor from '@/pages/admin/content/PromptsEditor'
+import QuestionnaireEditor from '@/pages/admin/content/QuestionnaireEditor'
+import QuestionnaireFormEditor from '@/pages/admin/content/QuestionnaireFormEditor'
 
 export default function App() {
   return (
@@ -25,6 +29,11 @@ export default function App() {
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<OrdersQueue />} />
           <Route path="orders/:orderId" element={<OrderDetail />} />
+          <Route path="content" element={<Navigate to="/admin/content/skeleton" replace />} />
+          <Route path="content/skeleton" element={<SkeletonEditor />} />
+          <Route path="content/prompts" element={<PromptsEditor />} />
+          <Route path="content/questionnaire" element={<QuestionnaireEditor />} />
+          <Route path="content/questionnaire/:formId" element={<QuestionnaireFormEditor />} />
         </Route>
         <Route element={<MarketingLayout />}>
           <Route index element={<Home />} />
