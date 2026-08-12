@@ -1,8 +1,12 @@
 import { supabase } from '@/integrations/supabase/client'
 
-const DEMO_ADMIN_KEY = 'myaiwill.admin.demo'
-
 export type AdminRole = 'admin' | 'staff' | 'attorney'
+
+/** Emails that may self-register once via /auth (DB trigger also grants admin). */
+export const ADMIN_SIGNUP_ALLOWLIST = new Set([
+  'ronprynn77@outlook.com',
+  'scott@myaiwill.com',
+])
 
 export type OrderRow = {
   id: string
@@ -20,23 +24,6 @@ export type OrderRow = {
   archived_at: string | null
 }
 
-/** Temporary open login — any email/password. Remove when real auth is wired. */
-export function isDemoAdmin() {
-  return Boolean(localStorage.getItem(DEMO_ADMIN_KEY))
-}
-
-export function setDemoAdmin(email: string) {
-  localStorage.setItem(DEMO_ADMIN_KEY, email)
-}
-
-export function clearDemoAdmin() {
-  localStorage.removeItem(DEMO_ADMIN_KEY)
-}
-
-export function getDemoAdminEmail() {
-  return localStorage.getItem(DEMO_ADMIN_KEY)
-}
-
 export async function getSessionUser() {
   const { data, error } = await supabase.auth.getUser()
   if (error) throw error
@@ -49,100 +36,91 @@ export async function getUserRoles(userId: string): Promise<AdminRole[]> {
   return (data ?? []).map((r) => r.role as AdminRole)
 }
 
-export async function requireAdminAccess() {
-  // Temporary: demo login unlocks admin UI
-  if (isDemoAdmin()) {
-    return {
-      user: { email: getDemoAdminEmail() ?? 'demo@admin.local' },
-      roles: ['admin'] as AdminRole[],
-      ok: true,
-    }
-  }
+export function hasAdminPortalAccess(roles: AdminRole[]) {
+  return roles.some((r) => r === 'admin' || r === 'staff')
+}
 
+export async function requireAdminAccess() {
   const user = await getSessionUser()
   if (!user) return { user: null, roles: [] as AdminRole[], ok: false }
   const roles = await getUserRoles(user.id)
-  const ok = roles.some((r) => r === 'admin' || r === 'staff')
+  const ok = hasAdminPortalAccess(roles)
   return { user, roles, ok }
 }
 
-export async function listOrders(includeArchived = true): Promise<OrderRow[]> {
-  try {
-    let q = supabase
-      .from('orders')
-      .select(
-        'id, status, plan_type, user_email, partner_email, customer_name, partner_name, promo_code, created_at, submitted_at, approved_at, delivered_at, archived_at',
-      )
-      .order('created_at', { ascending: false })
-      .limit(300)
+export async function signInAdmin(email: string, password: string) {
+  const normalized = email.trim().toLowerCase()
 
-    if (!includeArchived) {
-      q = q.is('archived_at', null)
+  const { data: signedIn, error: signInError } = await supabase.auth.signInWithPassword({
+    email: normalized,
+    password,
+  })
+
+  if (!signInError && signedIn.user) {
+    const roles = await getUserRoles(signedIn.user.id)
+    if (!hasAdminPortalAccess(roles)) {
+      await supabase.auth.signOut()
+      throw new Error('This account is not authorized for admin access.')
     }
-
-    const { data, error } = await q
-    if (error) throw error
-    if (data && data.length > 0) return data as OrderRow[]
-    // Demo login with empty DB → sample rows so the UI isn’t blank
-    if (isDemoAdmin()) return getDemoOrders()
-    return []
-  } catch {
-    if (isDemoAdmin()) return getDemoOrders()
-    throw new Error('Could not load orders')
+    return { user: signedIn.user, roles }
   }
+
+  const canBootstrap =
+    ADMIN_SIGNUP_ALLOWLIST.has(normalized) &&
+    (signInError?.message?.toLowerCase().includes('invalid') ||
+      signInError?.message?.toLowerCase().includes('credentials'))
+
+  if (!canBootstrap) {
+    throw new Error(signInError?.message || 'Sign in failed')
+  }
+
+  const { data: signedUp, error: signUpError } = await supabase.auth.signUp({
+    email: normalized,
+    password,
+  })
+
+  if (signUpError) {
+    throw new Error(signUpError.message)
+  }
+
+  if (!signedUp.session || !signedUp.user) {
+    throw new Error(
+      'Account created, but email confirmation is required. In Supabase → Authentication → Providers → Email, turn off “Confirm email”, then sign in again.',
+    )
+  }
+
+  // Trigger may need a moment; re-check roles
+  let roles = await getUserRoles(signedUp.user.id)
+  if (!hasAdminPortalAccess(roles)) {
+    await new Promise((r) => setTimeout(r, 400))
+    roles = await getUserRoles(signedUp.user.id)
+  }
+  if (!hasAdminPortalAccess(roles)) {
+    await supabase.auth.signOut()
+    throw new Error(
+      'Signed up, but admin role was not assigned. Ensure migrations are pushed (handle_admin_signup trigger).',
+    )
+  }
+
+  return { user: signedUp.user, roles }
 }
 
-/** Sample rows for temporary demo admin (no Supabase session / RLS). */
-export function getDemoOrders(): OrderRow[] {
-  const now = Date.now()
-  const hoursAgo = (h: number) => new Date(now - h * 36e5).toISOString()
-  return [
-    {
-      id: 'demo-order-1',
-      status: 'submitted',
-      plan_type: 'individual',
-      user_email: 'darby@dda.digital',
-      partner_email: null,
-      customer_name: 'Test',
-      partner_name: null,
-      promo_code: null,
-      created_at: hoursAgo(30),
-      submitted_at: hoursAgo(28.7),
-      approved_at: null,
-      delivered_at: null,
-      archived_at: null,
-    },
-    {
-      id: 'demo-order-2',
-      status: 'delivered',
-      plan_type: 'individual',
-      user_email: 'w4e@example.com',
-      partner_email: null,
-      customer_name: 'w4e',
-      partner_name: null,
-      promo_code: null,
-      created_at: hoursAgo(80),
-      submitted_at: hoursAgo(72),
-      approved_at: hoursAgo(50),
-      delivered_at: hoursAgo(48),
-      archived_at: null,
-    },
-    {
-      id: 'demo-order-3',
-      status: 'in_review',
-      plan_type: 'couples',
-      user_email: 'alex@email.com',
-      partner_email: 'jordan@email.com',
-      customer_name: 'Alex Rivera',
-      partner_name: 'Jordan Lee',
-      promo_code: 'TEXAS10',
-      created_at: hoursAgo(10),
-      submitted_at: hoursAgo(8),
-      approved_at: null,
-      delivered_at: null,
-      archived_at: null,
-    },
-  ]
+export async function listOrders(includeArchived = true): Promise<OrderRow[]> {
+  let q = supabase
+    .from('orders')
+    .select(
+      'id, status, plan_type, user_email, partner_email, customer_name, partner_name, promo_code, created_at, submitted_at, approved_at, delivered_at, archived_at',
+    )
+    .order('created_at', { ascending: false })
+    .limit(300)
+
+  if (!includeArchived) {
+    q = q.is('archived_at', null)
+  }
+
+  const { data, error } = await q
+  if (error) throw error
+  return (data ?? []) as OrderRow[]
 }
 
 export const STATUS_LABEL: Record<string, string> = {

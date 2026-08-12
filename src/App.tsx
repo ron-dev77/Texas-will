@@ -14,6 +14,7 @@ import Questionnaire from '@/pages/Questionnaire'
 import Auth from '@/pages/Auth'
 import AdminLayout from '@/pages/admin/AdminLayout'
 import OrdersQueue from '@/pages/admin/OrdersQueue'
+import OrderDetail from '@/pages/admin/OrderDetail'
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="auth" element={<Auth />} />
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<OrdersQueue />} />
+          <Route path="orders/:orderId" element={<OrderDetail />} />
         </Route>
         <Route element={<MarketingLayout />}>
           <Route index element={<Home />} />

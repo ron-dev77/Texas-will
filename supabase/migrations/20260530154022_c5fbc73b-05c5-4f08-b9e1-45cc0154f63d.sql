@@ -1,3 +1,5 @@
+-- Required for gen_random_bytes / gen_random_uuid defaults
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 -- Helper: updated_at trigger function
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
@@ -52,8 +54,8 @@ CREATE TABLE public.orders (
   user_email TEXT NOT NULL,
   partner_email TEXT,
   add_ons JSONB NOT NULL DEFAULT '{}'::jsonb,
-  partner1_token TEXT NOT NULL DEFAULT encode(gen_random_bytes(24), 'hex'),
-  partner2_token TEXT NOT NULL DEFAULT encode(gen_random_bytes(24), 'hex'),
+  partner1_token TEXT NOT NULL DEFAULT encode(extensions.gen_random_bytes(24), 'hex'),
+  partner2_token TEXT NOT NULL DEFAULT encode(extensions.gen_random_bytes(24), 'hex'),
   partner1_submitted_at TIMESTAMPTZ,
   partner2_submitted_at TIMESTAMPTZ
 );

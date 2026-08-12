@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, MoreHorizontal, RefreshCw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -298,6 +299,7 @@ export default function OrdersQueue() {
 }
 
 function OrderRow({ order: o }: { order: OrderRow }) {
+  const navigate = useNavigate()
   const submittedAt = o.submitted_at ? new Date(o.submitted_at) : null
   const deadline = submittedAt ? new Date(submittedAt.getTime() + 24 * 60 * 60 * 1000) : null
   const hoursLeft = deadline ? (deadline.getTime() - Date.now()) / 36e5 : null
@@ -321,10 +323,11 @@ function OrderRow({ order: o }: { order: OrderRow }) {
   return (
     <tr
       className={cn(
-        'transition hover:bg-secondary/30',
+        'cursor-pointer transition hover:bg-secondary/30',
         urgent && 'bg-red-50/50',
         o.archived_at && 'opacity-60',
       )}
+      onClick={() => navigate(`/admin/orders/${o.id}`)}
     >
       <td className="px-4 py-3.5">
         <p className="font-medium text-foreground">{o.customer_name ?? o.user_email}</p>
@@ -375,8 +378,12 @@ function OrderRow({ order: o }: { order: OrderRow }) {
         <button
           type="button"
           className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-          aria-label="Order actions"
-          title="Order detail coming soon"
+          aria-label="Open order detail"
+          title="Open order detail"
+          onClick={(e) => {
+            e.stopPropagation()
+            navigate(`/admin/orders/${o.id}`)
+          }}
         >
           <MoreHorizontal className="h-4 w-4" />
         </button>

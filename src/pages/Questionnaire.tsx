@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from 'lucide-react'
 import { Wordmark } from '@/components/site/Wordmark'
@@ -11,6 +11,13 @@ import { PhoneField } from '@/components/ui/phone-field'
 import { cn } from '@/lib/utils'
 import { loadOrderDraft, type OrderDraft } from '@/lib/order'
 import {
+  ensureQuestionnaireSession,
+  saveQuestionnaireAnswers,
+  submitQuestionnaireToDb,
+  type Answers,
+  type QuestionnaireSession,
+} from '@/lib/questionnaire-db'
+import {
   SECTIONS,
   formatAnswerPreview,
   getVisibleFields,
@@ -21,8 +28,6 @@ import {
 } from '@/lib/questionnaire'
 
 const STORAGE_KEY = 'myaiwill.questionnaire.v1'
-
-type Answers = Record<string, unknown>
 
 const ROW_PAIRS: Record<string, string> = {
   date_of_birth: 'phone',
@@ -105,7 +110,13 @@ export default function Questionnaire() {
   const [animKey, setAnimKey] = useState(0)
   const [savedFlash, setSavedFlash] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [bootError, setBootError] = useState<string | null>(null)
+  const [ready, setReady] = useState(false)
   const [order, setOrder] = useState<OrderDraft | null>(null)
+  const [session, setSession] = useState<QuestionnaireSession | null>(null)
+  const sessionRef = useRef<QuestionnaireSession | null>(null)
+  const skipNextSave = useRef(true)
 
   const section = SECTIONS[sectionIdx]
   const totalSections = SECTIONS.length
@@ -116,8 +127,30 @@ export default function Questionnaire() {
   const progressPct = Math.round(((sectionIdx + 1) / totalSections) * 100)
 
   useEffect(() => {
-    setAnswers(loadAnswers())
-    setOrder(loadOrderDraft())
+    let cancelled = false
+    ;(async () => {
+      const draft = loadOrderDraft()
+      const local = loadAnswers()
+      setOrder(draft)
+      try {
+        const result = await ensureQuestionnaireSession(draft, local)
+        if (cancelled) return
+        sessionRef.current = result.session
+        setSession(result.session)
+        setAnswers(result.answers)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(result.answers))
+        setSubmitted(result.submitted)
+        setReady(true)
+      } catch (err) {
+        if (cancelled) return
+        setBootError(err instanceof Error ? err.message : 'Could not start questionnaire')
+        setAnswers(local)
+        setReady(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // Keep Yes → at least one empty row for list fields
@@ -151,13 +184,36 @@ export default function Questionnaire() {
     answers.has_charitable_gifts,
   ])
 
+  // Local mirror + debounced DB save
   useEffect(() => {
+    if (!ready) return
     localStorage.setItem(STORAGE_KEY, JSON.stringify(answers))
-    if (Object.keys(answers).length === 0) return
-    setSavedFlash(true)
-    const t = window.setTimeout(() => setSavedFlash(false), 1200)
+
+    if (skipNextSave.current) {
+      skipNextSave.current = false
+      return
+    }
+
+    const active = sessionRef.current
+    if (!active || Object.keys(answers).length === 0) return
+
+    const t = window.setTimeout(() => {
+      void saveQuestionnaireAnswers({
+        session: active,
+        answers,
+        currentSection: sectionIdx + 1,
+      })
+        .then(() => {
+          setSavedFlash(true)
+          window.setTimeout(() => setSavedFlash(false), 1200)
+        })
+        .catch((err) => {
+          console.error('Failed to save answers', err)
+        })
+    }, 700)
+
     return () => window.clearTimeout(t)
-  }, [answers])
+  }, [answers, ready, sectionIdx])
 
   const canContinue = isReview ? true : missing.length === 0
 
@@ -214,10 +270,23 @@ export default function Questionnaire() {
     setAnimKey((k) => k + 1)
   }
 
-  function handleContinue() {
-    if (!canContinue) return
+  async function handleContinue() {
+    if (!canContinue || submitting) return
     if (isReview) {
-      setSubmitted(true)
+      const active = sessionRef.current
+      if (!active) {
+        setBootError('No database session — answers were not saved. Check Supabase RLS / migration.')
+        return
+      }
+      setSubmitting(true)
+      try {
+        await submitQuestionnaireToDb({ session: active, answers })
+        setSubmitted(true)
+      } catch (err) {
+        setBootError(err instanceof Error ? err.message : 'Submit failed')
+      } finally {
+        setSubmitting(false)
+      }
       return
     }
     if (sectionIdx < totalSections - 1) goTo(sectionIdx + 1)
@@ -236,11 +305,20 @@ export default function Questionnaire() {
         <h1 className="mt-8 font-serif text-4xl text-foreground">Submitted for review</h1>
         <p className="mt-4 max-w-md text-muted-foreground">
           Thanks. A licensed Texas attorney reviews your will within 24 hours. Your answers are saved
-          on this device for now.
+          in the database.
         </p>
         <Button asChild className="mt-8 rounded-full px-8" size="lg">
           <Link to="/">Back to home</Link>
         </Button>
+      </div>
+    )
+  }
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-5 text-center">
+        <Wordmark />
+        <p className="mt-8 text-muted-foreground">Starting your questionnaire…</p>
       </div>
     )
   }
@@ -259,11 +337,16 @@ export default function Questionnaire() {
               </span>
             ) : null}
             <span className={cn('shrink-0 transition', savedFlash && 'text-accent')}>
-              {savedFlash ? 'Saved' : 'Autosaved'}
+              {savedFlash ? 'Saved to DB' : session ? 'Autosaving' : 'Local only'}
             </span>
           </div>
         </div>
       </header>
+      {bootError ? (
+        <div className="border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-center text-sm text-destructive">
+          {bootError}
+        </div>
+      ) : null}
 
       <main className="flex flex-1 items-center justify-center overflow-y-auto px-4 py-8 sm:px-6">
         <div
@@ -302,6 +385,7 @@ export default function Questionnaire() {
                   order={order}
                   onEdit={goTo}
                   onSubmit={handleContinue}
+                  submitting={submitting}
                 />
               ) : (
                 <div className="space-y-4">
@@ -348,8 +432,8 @@ export default function Questionnaire() {
 
                 <Button
                   type="button"
-                  disabled={!canContinue}
-                  onClick={handleContinue}
+                  disabled={!canContinue || submitting}
+                  onClick={() => void handleContinue()}
                   className="h-10 gap-1.5 rounded-full px-6 shadow-sm disabled:opacity-40"
                 >
                   Continue
@@ -373,7 +457,7 @@ export default function Questionnaire() {
           </section>
 
           <p className="mt-5 text-center text-[11px] text-muted-foreground">
-            Your answers save on this device. Close anytime — pick up where you left off.
+            Your answers autosave to the database. Close anytime — pick up where you left off.
           </p>
         </div>
       </main>
@@ -713,11 +797,13 @@ function ReviewPanel({
   order,
   onEdit,
   onSubmit,
+  submitting,
 }: {
   answers: Answers
   order: OrderDraft | null
   onEdit: (idx: number) => void
-  onSubmit: () => void
+  onSubmit: () => void | Promise<void>
+  submitting?: boolean
 }) {
   const planLabel =
     order?.plan === 'couples' ? 'Couples will' : order?.plan === 'individual' ? 'Individual will' : null
@@ -833,10 +919,11 @@ function ReviewPanel({
           <Button
             type="button"
             size="lg"
-            onClick={onSubmit}
-            className="h-12 shrink-0 gap-2 rounded-full bg-accent px-7 text-accent-foreground hover:bg-accent/90"
+            disabled={submitting}
+            onClick={() => void onSubmit()}
+            className="h-12 shrink-0 gap-2 rounded-full bg-accent px-7 text-accent-foreground hover:bg-accent/90 disabled:opacity-60"
           >
-            Submit for attorney review
+            {submitting ? 'Submitting…' : 'Submit for attorney review'}
             <ArrowRight className="h-4 w-4" strokeWidth={2} />
           </Button>
         </div>

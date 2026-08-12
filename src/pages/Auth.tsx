@@ -5,7 +5,8 @@ import { Wordmark } from '@/components/site/Wordmark'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { clearDemoAdmin, isDemoAdmin, setDemoAdmin } from '@/lib/admin'
+import { requireAdminAccess, signInAdmin } from '@/lib/admin'
+import { supabase } from '@/integrations/supabase/client'
 
 export default function Auth() {
   const navigate = useNavigate()
@@ -19,7 +20,18 @@ export default function Auth() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (isDemoAdmin()) navigate(redirectTo, { replace: true })
+    // Clear legacy demo-admin flag if present
+    localStorage.removeItem('myaiwill.admin.demo')
+
+    let alive = true
+    requireAdminAccess()
+      .then(({ ok }) => {
+        if (alive && ok) navigate(redirectTo, { replace: true })
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
   }, [navigate, redirectTo])
 
   async function onSubmit(e: React.FormEvent) {
@@ -27,14 +39,10 @@ export default function Auth() {
     setBusy(true)
     setError(null)
     try {
-      // Temporary: accept any email/password for local admin access
-      if (!email.trim() || password.length < 1) {
-        throw new Error('Email and password are required.')
-      }
-      setDemoAdmin(email.trim())
+      await signInAdmin(email, password)
       navigate(redirectTo, { replace: true })
     } catch (err) {
-      clearDemoAdmin()
+      await supabase.auth.signOut().catch(() => undefined)
       setError(err instanceof Error ? err.message : 'Sign in failed')
     } finally {
       setBusy(false)

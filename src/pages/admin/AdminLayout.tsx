@@ -4,7 +4,7 @@ import { LogOut } from 'lucide-react'
 import { Wordmark } from '@/components/site/Wordmark'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/integrations/supabase/client'
-import { clearDemoAdmin, requireAdminAccess, type AdminRole } from '@/lib/admin'
+import { requireAdminAccess, type AdminRole } from '@/lib/admin'
 
 export default function AdminLayout() {
   const navigate = useNavigate()
@@ -14,12 +14,13 @@ export default function AdminLayout() {
   const [roles, setRoles] = useState<AdminRole[]>([])
 
   useEffect(() => {
+    localStorage.removeItem('myaiwill.admin.demo')
     let alive = true
     requireAdminAccess()
       .then(({ user, roles: r, ok }) => {
         if (!alive) return
         setAllowed(ok)
-        setEmail(user && 'email' in user ? ((user as { email?: string | null }).email ?? null) : null)
+        setEmail(user?.email ?? null)
         setRoles(r)
         setChecking(false)
       })
@@ -34,7 +35,6 @@ export default function AdminLayout() {
   }, [])
 
   async function signOut() {
-    clearDemoAdmin()
     await supabase.auth.signOut().catch(() => undefined)
     navigate('/auth', { replace: true })
   }
