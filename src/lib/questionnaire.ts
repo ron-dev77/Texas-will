@@ -24,6 +24,10 @@ export type Field = {
   placeholder?: string
   options?: readonly { value: string; label: string }[]
   required?: boolean
+  /** Soft min length — checked on blur (progressive: shown before max). */
+  minLength?: number
+  /** Hard max length — prevents oversized PDF paragraphs. */
+  maxLength?: number
   showIf?: ShowIf
 }
 
@@ -50,6 +54,8 @@ export const SECTIONS: readonly Section[] = [
         type: 'shorttext',
         required: true,
         placeholder: 'Jane Marie Doe',
+        minLength: 3,
+        maxLength: 80,
       },
       {
         id: 'also_known_as',
@@ -57,6 +63,8 @@ export const SECTIONS: readonly Section[] = [
         helper: 'Maiden names, nicknames that appear on accounts.',
         type: 'shorttext',
         placeholder: 'Jane Doe, Janie',
+        minLength: 2,
+        maxLength: 80,
       },
       { id: 'date_of_birth', label: 'Date of birth', type: 'date', required: true },
       {
@@ -64,6 +72,8 @@ export const SECTIONS: readonly Section[] = [
         label: 'Phone number',
         type: 'phone',
         placeholder: '(512) 555-0100',
+        minLength: 10,
+        maxLength: 20,
       },
     ],
   },
@@ -79,6 +89,8 @@ export const SECTIONS: readonly Section[] = [
         type: 'shorttext',
         required: true,
         placeholder: '123 Main St',
+        minLength: 5,
+        maxLength: 100,
       },
       {
         id: 'address_city',
@@ -86,6 +98,8 @@ export const SECTIONS: readonly Section[] = [
         type: 'shorttext',
         required: true,
         placeholder: 'Austin',
+        minLength: 2,
+        maxLength: 40,
       },
       {
         id: 'address_county',
@@ -93,6 +107,8 @@ export const SECTIONS: readonly Section[] = [
         type: 'shorttext',
         required: true,
         placeholder: 'Travis',
+        minLength: 2,
+        maxLength: 40,
       },
       {
         id: 'address_zip',
@@ -100,6 +116,8 @@ export const SECTIONS: readonly Section[] = [
         type: 'shorttext',
         required: true,
         placeholder: '78701',
+        minLength: 5,
+        maxLength: 5,
       },
     ],
   },
@@ -127,6 +145,8 @@ export const SECTIONS: readonly Section[] = [
         label: "Spouse's full legal name",
         type: 'shorttext',
         placeholder: 'Jane Marie Doe',
+        minLength: 3,
+        maxLength: 80,
         showIf: { field: 'marital_status', in: ['married', 'domestic_partnership'] },
       },
       {
@@ -150,6 +170,8 @@ export const SECTIONS: readonly Section[] = [
         helper: 'Add each child with their full name and date of birth.',
         type: 'people',
         required: true,
+        minLength: 2,
+        maxLength: 80,
         showIf: { field: 'has_children', equals: 'yes' },
       },
       {
@@ -158,6 +180,8 @@ export const SECTIONS: readonly Section[] = [
         type: 'shorttext',
         required: true,
         placeholder: 'Alex Rivera',
+        minLength: 3,
+        maxLength: 80,
         showIf: { field: 'has_children', equals: 'yes' },
       },
       {
@@ -165,6 +189,8 @@ export const SECTIONS: readonly Section[] = [
         label: 'Relationship to your children',
         type: 'shorttext',
         placeholder: 'Sister, close friend, etc.',
+        minLength: 2,
+        maxLength: 40,
         showIf: { field: 'has_children', equals: 'yes' },
       },
       {
@@ -174,12 +200,16 @@ export const SECTIONS: readonly Section[] = [
         type: 'shorttext',
         required: true,
         placeholder: 'Jordan Lee',
+        minLength: 3,
+        maxLength: 80,
         showIf: { field: 'has_children', equals: 'yes' },
       },
       {
         id: 'guardian_notes',
         label: 'Anything the attorney should know? (optional)',
         type: 'longtext',
+        minLength: 10,
+        maxLength: 400,
         showIf: { field: 'has_children', equals: 'yes' },
       },
     ],
@@ -196,6 +226,8 @@ export const SECTIONS: readonly Section[] = [
         type: 'shorttext',
         required: true,
         placeholder: 'Alex Rivera',
+        minLength: 3,
+        maxLength: 80,
       },
       {
         id: 'executor_relationship',
@@ -203,12 +235,16 @@ export const SECTIONS: readonly Section[] = [
         type: 'shorttext',
         required: true,
         placeholder: 'Spouse, sibling, friend',
+        minLength: 2,
+        maxLength: 40,
       },
       {
         id: 'executor_email',
         label: "Executor's email",
         type: 'email',
         placeholder: 'alex@email.com',
+        minLength: 5,
+        maxLength: 80,
       },
       {
         id: 'alt_executor_name',
@@ -217,12 +253,16 @@ export const SECTIONS: readonly Section[] = [
         type: 'shorttext',
         required: true,
         placeholder: 'Jordan Lee',
+        minLength: 3,
+        maxLength: 80,
       },
       {
         id: 'alt_executor_relationship',
         label: 'Alternate executor — relationship to you',
         type: 'shorttext',
         placeholder: 'Sibling, friend, attorney',
+        minLength: 2,
+        maxLength: 40,
       },
     ],
   },
@@ -244,6 +284,8 @@ export const SECTIONS: readonly Section[] = [
         helper: 'Describe each item and who it goes to.',
         type: 'gifts',
         required: true,
+        minLength: 2,
+        maxLength: 120,
         showIf: { field: 'has_specific_gifts', equals: 'yes' },
       },
     ],
@@ -267,6 +309,8 @@ export const SECTIONS: readonly Section[] = [
           'Enter the dollar amount or percentage on the left, and the full legal name of the charity on the right.',
         type: 'charitable_gifts',
         required: true,
+        minLength: 2,
+        maxLength: 120,
         showIf: { field: 'has_charitable_gifts', equals: 'yes' },
       },
     ],
@@ -296,6 +340,8 @@ export const SECTIONS: readonly Section[] = [
         id: 'residuary_custom',
         label: 'Describe your custom split',
         type: 'longtext',
+        minLength: 15,
+        maxLength: 500,
         showIf: { field: 'residuary_plan', equals: 'custom' },
       },
     ],
@@ -313,6 +359,8 @@ export const SECTIONS: readonly Section[] = [
           'We\'ll default to "The [Your Full Name] Revocable Living Trust dated [Year]" if left blank.',
         type: 'shorttext',
         placeholder: 'The Jane Marie Doe Revocable Living Trust dated 2026',
+        minLength: 5,
+        maxLength: 120,
       },
       {
         id: 'trust_successor_trustee_name',
@@ -322,18 +370,24 @@ export const SECTIONS: readonly Section[] = [
         type: 'shorttext',
         required: true,
         placeholder: 'Alex Rivera',
+        minLength: 3,
+        maxLength: 80,
       },
       {
         id: 'trust_successor_trustee_relationship',
         label: 'Successor trustee — relationship to you',
         type: 'shorttext',
         placeholder: 'Spouse, sibling, adult child, close friend',
+        minLength: 2,
+        maxLength: 40,
       },
       {
         id: 'trust_successor_trustee_address',
         label: 'Successor trustee — mailing address',
         type: 'longtext',
         placeholder: '123 Main St, Austin, TX 78701',
+        minLength: 8,
+        maxLength: 200,
       },
       {
         id: 'trust_alternate_successor_trustee_name',
@@ -341,12 +395,16 @@ export const SECTIONS: readonly Section[] = [
         helper: "In case your primary successor trustee can't or won't serve.",
         type: 'shorttext',
         placeholder: 'Jordan Lee',
+        minLength: 3,
+        maxLength: 80,
       },
       {
         id: 'trust_alternate_successor_trustee_address',
         label: 'Alternate successor trustee — mailing address',
         type: 'longtext',
         placeholder: '456 Oak Ave, Dallas, TX 75201',
+        minLength: 8,
+        maxLength: 200,
       },
     ],
   },
@@ -365,12 +423,16 @@ export const SECTIONS: readonly Section[] = [
         required: true,
         placeholder:
           '123 Main St, Austin TX (primary residence) — approx $450,000.\nChase checking ending 1234 — approx $18,000.',
+        minLength: 15,
+        maxLength: 800,
       },
       {
         id: 'trust_specific_gifts',
         label: 'Specific distributions from the trust on your death',
         type: 'longtext',
         placeholder: '$10,000 to my sister Anne Doe.',
+        minLength: 5,
+        maxLength: 400,
       },
       {
         id: 'trust_residuary_plan',
@@ -389,6 +451,8 @@ export const SECTIONS: readonly Section[] = [
         id: 'trust_residuary_custom',
         label: "Describe the trust's residuary split",
         type: 'longtext',
+        minLength: 15,
+        maxLength: 500,
         showIf: { field: 'trust_residuary_plan', equals: 'custom' },
       },
       {
@@ -396,6 +460,8 @@ export const SECTIONS: readonly Section[] = [
         label: 'Hold shares in trust for minor beneficiaries until what age?',
         type: 'shorttext',
         placeholder: '25',
+        minLength: 1,
+        maxLength: 3,
       },
     ],
   },
@@ -422,6 +488,8 @@ export const SECTIONS: readonly Section[] = [
         label: 'Service or memorial wishes (optional)',
         type: 'longtext',
         placeholder: "Anything you'd want said, sung, or skipped.",
+        minLength: 5,
+        maxLength: 400,
       },
     ],
   },
@@ -489,6 +557,117 @@ export function missingRequired(
 ): Field[] {
   return getVisibleFields(section, answers).filter(
     (f) => f.required && !isFieldFilled(f, answers[f.id]),
+  )
+}
+
+/**
+ * Progressive quality check for blur / live fix:
+ * 1) required / format first
+ * 2) then min length
+ * 3) then max length (only after min is met)
+ * Returns one message at a time; null when valid.
+ */
+export function fieldQualityError(field: Field, value: unknown): string | null {
+  if (field.type === 'radio' || field.type === 'yesno') {
+    if (field.required && !isFieldFilled(field, value)) return 'Please make a selection'
+    return null
+  }
+
+  if (field.type === 'people') {
+    if (!Array.isArray(value) || value.length === 0) {
+      return field.required ? 'Add at least one person' : null
+    }
+    const min = field.minLength ?? 2
+    const max = field.maxLength ?? 80
+    for (const row of value as PersonRow[]) {
+      const name = (row?.name ?? '').trim()
+      if (!name) return 'Enter a full name'
+      if (name.length < min) return `Enter at least ${min} characters for each name`
+      if (name.length > max) return `Keep each name to ${max} characters or fewer`
+      if (field.id === 'children' && !(row?.date_of_birth ?? '').trim()) {
+        return 'Add a date of birth for each child'
+      }
+    }
+    return null
+  }
+
+  if (field.type === 'gifts' || field.type === 'charitable_gifts') {
+    if (!Array.isArray(value) || value.length === 0) {
+      return field.required ? 'Add at least one gift' : null
+    }
+    const min = field.minLength ?? 2
+    const max = field.maxLength ?? 120
+    for (const row of value as GiftRow[]) {
+      const item = (row?.item ?? '').trim()
+      const recipient = (row?.recipient ?? '').trim()
+      if (!item || !recipient) return 'Complete both columns for each gift'
+      if (item.length < min || recipient.length < min) {
+        return `Enter at least ${min} characters in each gift field`
+      }
+      if (item.length > max || recipient.length > max) {
+        return `Keep each gift field to ${max} characters or fewer`
+      }
+    }
+    return null
+  }
+
+  if (typeof value !== 'string') {
+    if (field.required) return 'This field is required'
+    return null
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    if (field.required) return 'This field is required'
+    return null // optional empty — no min/max yet
+  }
+
+  if (field.id === 'address_zip') {
+    if (!/^\d{5}$/.test(trimmed)) return 'Enter a valid 5-digit ZIP code'
+    return null
+  }
+
+  if (field.id === 'address_city' || field.id === 'address_county') {
+    if (!/^[A-Za-z][A-Za-z\s.'-]*$/.test(trimmed)) {
+      return 'Use letters only (spaces and hyphens are fine)'
+    }
+  }
+
+  if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return 'Enter a valid email address'
+  }
+
+  if (field.type === 'phone') {
+    const digits = trimmed.replace(/\D/g, '')
+    if (digits.length < 10) return 'Enter a complete 10-digit phone number'
+  }
+
+  if (field.id === 'trust_distribution_age') {
+    const n = Number(trimmed)
+    if (!/^\d{1,3}$/.test(trimmed) || n < 18 || n > 40) {
+      return 'Enter an age between 18 and 40'
+    }
+    return null
+  }
+
+  // Progressive: min first, then max
+  if (field.minLength != null && trimmed.length < field.minLength) {
+    return `Enter at least ${field.minLength} characters`
+  }
+  if (field.maxLength != null && trimmed.length > field.maxLength) {
+    return `Use no more than ${field.maxLength} characters`
+  }
+
+  return null
+}
+
+/** True when the field has a quality error that should block Continue. */
+export function sectionHasQualityErrors(
+  section: Section,
+  answers: Record<string, unknown>,
+): boolean {
+  return getVisibleFields(section, answers).some(
+    (f) => fieldQualityError(f, answers[f.id]) != null,
   )
 }
 

@@ -6,17 +6,20 @@ export interface WillContent {
   sections: { heading: string; paragraphs: string[] }[]
 }
 
+type RichRun = { text: string; bold: boolean }
+
 type ExecRow =
   | { kind: 'text'; text: string }
-  | { kind: 'sigUnder'; label: string }
-  | { kind: 'sigRight'; label: string }
+  | { kind: 'sig'; label: string }
+  | { kind: 'sigPair'; left: string; right: string }
+  | { kind: 'seal'; label: string }
 
 interface ExecSection {
   heading: string
   rows: ExecRow[]
 }
 
-/** Same legal wording as whisper — signature / witnesses / affidavit / notary. */
+/** Signature / witnesses / affidavit / notary — compact two-column witness lines. */
 function buildExecutionBlock(testatorName: string): ExecSection[] {
   const name = testatorName || '[Testator]'
   return [
@@ -25,10 +28,10 @@ function buildExecutionBlock(testatorName: string): ExecSection[] {
       rows: [
         {
           kind: 'text',
-          text: `I, ${name}, the Testator, sign my name to this instrument, this ______ day of __________________, 20_____, and being first duly sworn, do declare to the undersigned authority that I sign and execute this instrument as my Last Will and that I sign it willingly, that I execute it as my free and voluntary act for the purposes therein expressed, and that I am eighteen years of age or older, of sound mind, and under no constraint or undue influence.`,
+          text: `I, **${name}**, the Testator, sign my name to this instrument this ______ day of __________________, 20_____, and being first duly sworn, do declare to the undersigned authority that I sign and execute this instrument as my **Last Will**, that I sign it willingly, that I execute it as my free and voluntary act for the purposes therein expressed, and that I am eighteen years of age or older, of sound mind, and under no constraint or undue influence.`,
         },
-        { kind: 'sigUnder', label: 'Signature of Testator' },
-        { kind: 'sigUnder', label: 'Printed Name' },
+        { kind: 'sig', label: 'Signature of Testator' },
+        { kind: 'sig', label: 'Printed Name' },
       ],
     },
     {
@@ -36,31 +39,26 @@ function buildExecutionBlock(testatorName: string): ExecSection[] {
       rows: [
         {
           kind: 'text',
-          text: "We, the undersigned witnesses, each being competent to be a witness and sign our names to this instrument, being first duly sworn, do declare to the undersigned authority that the Testator signs and executes this instrument as the Testator's Last Will and that the Testator signs it willingly, and that each of us, in the presence and hearing of the Testator and in the presence of each other, hereby signs this Will as witness to the Testator's signing, and that to the best of our knowledge the Testator is eighteen years of age or older, of sound mind, and under no constraint or undue influence.",
+          text: "We, the undersigned witnesses, each being competent to act as a witness, sign our names to this instrument, being first duly sworn, and declare to the undersigned authority that the Testator signs and executes this instrument as the Testator's **Last Will**, that the Testator signs it willingly, and that each of us, in the presence and hearing of the Testator and of each other, hereby signs this Will as witness to the Testator's signing, and that to the best of our knowledge the Testator is eighteen years of age or older, of sound mind, and under no constraint or undue influence.",
         },
         {
           kind: 'text',
-          text: 'IMPORTANT: Neither witness may be a beneficiary named in this Will. Both witnesses must be present at the same time when the Testator signs.',
+          text: '**IMPORTANT:** Neither witness may be a beneficiary named in this Will. Both witnesses must be present at the same time when the Testator signs.',
         },
-        { kind: 'sigRight', label: 'Signature of Witness 1' },
-        { kind: 'sigRight', label: 'Printed Name' },
-        { kind: 'sigRight', label: 'Address' },
-        { kind: 'sigRight', label: 'Signature of Witness 2' },
-        { kind: 'sigRight', label: 'Printed Name' },
-        { kind: 'sigRight', label: 'Address' },
+        { kind: 'sigPair', left: 'Signature of Witness 1', right: 'Signature of Witness 2' },
+        { kind: 'sigPair', left: 'Printed Name', right: 'Printed Name' },
+        { kind: 'sigPair', left: 'Address', right: 'Address' },
       ],
     },
     {
       heading: 'SELF-PROVING AFFIDAVIT',
       rows: [
-        { kind: 'text', text: '(Texas Estates Code Section 251.104)' },
         {
           kind: 'text',
-          text: `STATE OF TEXAS\nCOUNTY OF ____________________________\n\nBefore me, the undersigned authority, on this day personally appeared ${name}, the Testator, and [WITNESS 1 FULL NAME] and [WITNESS 2 FULL NAME], Witnesses, known to me to be the Testator and the witnesses whose names are signed to the foregoing instrument, and all being duly sworn, the Testator declared to me and to the witnesses that the foregoing instrument is the Testator's Last Will and Testament and that the Testator had willingly signed and executed it as the Testator's free and voluntary act for the purposes therein expressed. Each of the witnesses stated that the witness signed the Will as witness in the presence and hearing of the Testator and that to the best of the witness's knowledge, the Testator was eighteen years of age or older, of sound mind, and under no constraint or undue influence.`,
+          text: `(Texas Estates Code Section **251.104**)\n\n**STATE OF TEXAS**\n**COUNTY OF** ____________________________\n\nBefore me, the undersigned authority, on this day personally appeared **${name}**, the Testator, and ____________________________ and ____________________________, Witnesses, known to me to be the Testator and the witnesses whose names are signed to the foregoing instrument, and all being duly sworn, the Testator declared to me and to the witnesses that the foregoing instrument is the Testator's **Last Will and Testament** and that the Testator had willingly signed and executed it as the Testator's free and voluntary act for the purposes therein expressed. Each of the witnesses stated that the witness signed the Will as witness in the presence and hearing of the Testator and that to the best of the witness's knowledge, the Testator was eighteen years of age or older, of sound mind, and under no constraint or undue influence.`,
         },
-        { kind: 'sigRight', label: 'Signature of Testator' },
-        { kind: 'sigRight', label: 'Signature of Witness 1' },
-        { kind: 'sigRight', label: 'Signature of Witness 2' },
+        { kind: 'sig', label: 'Signature of Testator' },
+        { kind: 'sigPair', left: 'Signature of Witness 1', right: 'Signature of Witness 2' },
       ],
     },
     {
@@ -70,9 +68,9 @@ function buildExecutionBlock(testatorName: string): ExecSection[] {
           kind: 'text',
           text: 'Subscribed and sworn to before me by the said __________________, Testator, and by the said __________________ and __________________, witnesses, this ______ day of __________________, 20_____.',
         },
-        { kind: 'sigRight', label: 'Notary Public, State of Texas' },
-        { kind: 'sigRight', label: 'My Commission Expires' },
-        { kind: 'text', text: '[NOTARY SEAL]' },
+        { kind: 'sig', label: 'Notary Public, State of Texas' },
+        { kind: 'sig', label: 'My Commission Expires' },
+        { kind: 'seal', label: '[NOTARY SEAL]' },
       ],
     },
   ]
@@ -87,9 +85,12 @@ export function isExecutionBlockSection(heading: string): boolean {
 export function normalizeWillExecutionBlock(will: WillContent): WillContent {
   const exec = buildExecutionBlock(will.testatorName).map((section) => ({
     heading: section.heading,
-    paragraphs: section.rows.map((row) =>
-      row.kind === 'text' ? row.text : `______________________________  ${row.label}`,
-    ),
+    paragraphs: section.rows.map((row) => {
+      if (row.kind === 'text') return row.text
+      if (row.kind === 'sigPair') return `${row.left} / ${row.right}`
+      if (row.kind === 'seal') return row.label
+      return `______________________________  ${row.label}`
+    }),
   }))
   return {
     ...will,
@@ -110,56 +111,168 @@ function getRenderSections(willIn: WillContent): ExecSection[] {
   return [...nonExec, ...buildExecutionBlock(willIn.testatorName)]
 }
 
-function wrapWords(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
-  const paragraphs = text.split(/\n/)
-  const out: string[] = []
-  for (const para of paragraphs) {
-    if (!para.trim()) {
-      out.push('')
-      continue
-    }
-    const words = para.split(/\s+/).filter(Boolean)
-    let current = ''
-    for (const word of words) {
-      const trial = current ? `${current} ${word}` : word
-      if (font.widthOfTextAtSize(trial, size) <= maxWidth) current = trial
-      else {
-        if (current) out.push(current)
-        current = word
-      }
-    }
-    if (current) out.push(current)
-  }
-  return out
+function cleanLegalText(text: string): string {
+  return text.replace(/[—–]/g, '-').replace(/ {2,}/g, ' ')
 }
 
-function estimateSectionHeight(
-  section: ExecSection,
-  font: PDFFont,
-  sizes: { body: number; heading: number; label: number },
+/** Parse **bold** markers into runs. */
+function parseRich(text: string): RichRun[] {
+  const cleaned = cleanLegalText(text)
+  const runs: RichRun[] = []
+  const re = /\*\*(.+?)\*\*/g
+  let last = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(cleaned))) {
+    if (m.index > last) runs.push({ text: cleaned.slice(last, m.index), bold: false })
+    runs.push({ text: m[1], bold: true })
+    last = m.index + m[0].length
+  }
+  if (last < cleaned.length) runs.push({ text: cleaned.slice(last), bold: false })
+  if (runs.length === 0) runs.push({ text: cleaned, bold: false })
+  return runs.filter((r) => r.text.length > 0)
+}
+
+function fontFor(run: RichRun, regular: PDFFont, bold: PDFFont) {
+  return run.bold ? bold : regular
+}
+
+/** Wrap rich runs into visual lines (array of run segments per line). */
+function wrapRichLines(
+  text: string,
+  regular: PDFFont,
+  bold: PDFFont,
+  size: number,
+  maxWidth: number,
+): RichRun[][] {
+  const paragraphs = text.split(/\n/)
+  const allLines: RichRun[][] = []
+
+  for (const para of paragraphs) {
+    if (!para.trim()) {
+      allLines.push([])
+      continue
+    }
+    const runs = parseRich(para)
+    // Flatten to words preserving bold
+    type Word = { text: string; bold: boolean; spaceBefore: boolean }
+    const words: Word[] = []
+    for (const run of runs) {
+      const parts = run.text.split(/(\s+)/)
+      for (const part of parts) {
+        if (!part) continue
+        if (/^\s+$/.test(part)) continue
+        const needsSpace =
+          words.length > 0 && !words[words.length - 1].text.endsWith('\n')
+        words.push({ text: part, bold: run.bold, spaceBefore: needsSpace })
+      }
+    }
+
+    let line: RichRun[] = []
+    let lineWidth = 0
+    const spaceW = regular.widthOfTextAtSize(' ', size)
+
+    const pushWord = (w: Word) => {
+      const f = w.bold ? bold : regular
+      const wWidth = f.widthOfTextAtSize(w.text, size)
+      const addSpace = line.length > 0 ? spaceW : 0
+      if (line.length > 0 && lineWidth + addSpace + wWidth > maxWidth) {
+        allLines.push(line)
+        line = [{ text: w.text, bold: w.bold }]
+        lineWidth = wWidth
+      } else {
+        if (line.length > 0) {
+          line.push({ text: ' ' + w.text, bold: w.bold })
+          lineWidth += addSpace + wWidth
+        } else {
+          line.push({ text: w.text, bold: w.bold })
+          lineWidth = wWidth
+        }
+      }
+    }
+
+    for (const w of words) pushWord(w)
+    if (line.length) allLines.push(line)
+  }
+
+  return allLines
+}
+
+function measureRichBlock(
+  text: string,
+  regular: PDFFont,
+  bold: PDFFont,
+  size: number,
+  lineHeight: number,
+  maxWidth: number,
+  extraGap: number,
+): number {
+  const lines = wrapRichLines(text, regular, bold, size, maxWidth)
+  let h = extraGap
+  for (const line of lines) {
+    h += line.length === 0 ? lineHeight * 0.5 : lineHeight
+  }
+  return h
+}
+
+const SIG_BLOCK = 72 // top gap + line + label + after
+const SIG_PAIR_BLOCK = 72
+const SEAL_BLOCK = 56
+
+function measureRow(
+  row: ExecRow,
+  regular: PDFFont,
+  bold: PDFFont,
+  bodySize: number,
+  lineHeight: number,
   contentWidth: number,
 ): number {
-  let h = sizes.heading + 16
+  if (row.kind === 'text') {
+    return measureRichBlock(row.text, regular, bold, bodySize, lineHeight, contentWidth, 10)
+  }
+  if (row.kind === 'sigPair') return SIG_PAIR_BLOCK
+  if (row.kind === 'seal') return SEAL_BLOCK
+  return SIG_BLOCK
+}
+
+function measureSection(
+  section: ExecSection,
+  regular: PDFFont,
+  bold: PDFFont,
+  headingSize: number,
+  bodySize: number,
+  lineHeight: number,
+  contentWidth: number,
+): number {
+  let h = 14 + headingSize + 12
   for (const row of section.rows) {
-    if (row.kind === 'text') {
-      const lines = wrapWords(row.text, font, sizes.body, contentWidth)
-      h += lines.length * (sizes.body + 4) + 10
-    } else if (row.kind === 'sigUnder') {
-      h += 42
-    } else {
-      h += sizes.label + 18
-    }
+    h += measureRow(row, regular, bold, bodySize, lineHeight, contentWidth)
+  }
+  return h
+}
+
+/** Height of heading + text rows until first signature (glued preamble). */
+function measurePreamble(
+  section: ExecSection,
+  regular: PDFFont,
+  bold: PDFFont,
+  headingSize: number,
+  bodySize: number,
+  lineHeight: number,
+  contentWidth: number,
+): number {
+  let h = 14 + headingSize + 12
+  for (const row of section.rows) {
+    if (row.kind !== 'text') break
+    h += measureRow(row, regular, bold, bodySize, lineHeight, contentWidth)
   }
   return h
 }
 
 /**
- * Professional US Letter PDF:
- * - justified body text
- * - page break before execution block
- * - signature lines right-aligned
- * - keep-together for signature sections
- * - page numbers
+ * Classic Texas will layout with:
+ * - **bold** emphasis in body copy
+ * - two-column witness / affidavit signature pairs
+ * - measured (responsive) page breaks — blocks move only when they do not fit
  */
 export async function renderWillToPdf(willIn: WillContent): Promise<Uint8Array> {
   const sections = getRenderSections(willIn)
@@ -170,203 +283,282 @@ export async function renderWillToPdf(willIn: WillContent): Promise<Uint8Array> 
 
   const pageWidth = 612
   const pageHeight = 792
-  const margin = 72
-  const contentWidth = pageWidth - margin * 2
-  const bodySize = 12
-  const labelSize = 10
-  const headingSize = 12
-  const titleSize = 16
-  const lineHeight = bodySize + 4
+  const marginX = 72
+  const marginY = 72
+  const footerReserve = 28
+  const bottomLimit = marginY + footerReserve
+  const contentWidth = pageWidth - marginX * 2
+  const usableHeight = pageHeight - marginY - bottomLimit
+  const bodySize = 11.5
+  const labelSize = 9
+  const headingSize = 11.5
+  const titleSize = 15
+  const nameSize = 13
+  const lineHeight = 16
 
-  const SIG_WIDTH_UNDER = 220
-  const SIG_WIDTH_RIGHT = 200
+  const colGap = 24
+  const colWidth = (contentWidth - colGap) / 2
+  // Theme ivory: --background / --ivory oklch(0.975 0.012 85) ≈ #F7F3EA
+  const pageBg = rgb(247 / 255, 243 / 255, 234 / 255)
+  const ink = rgb(0.14, 0.16, 0.2)
 
   const pages: PDFPage[] = []
-  let page = pdf.addPage([pageWidth, pageHeight])
-  pages.push(page)
-  let y = pageHeight - margin
-
-  const newPage = () => {
-    page = pdf.addPage([pageWidth, pageHeight])
-    pages.push(page)
-    y = pageHeight - margin
+  const startPage = () => {
+    const p = pdf.addPage([pageWidth, pageHeight])
+    p.drawRectangle({ x: 0, y: 0, width: pageWidth, height: pageHeight, color: pageBg })
+    pages.push(p)
+    return p
   }
 
-  const ensureRoom = (needed: number) => {
-    if (y - needed < margin + 28) newPage()
+  let page = startPage()
+  let y = pageHeight - marginY
+
+  const spaceLeft = () => y - bottomLimit
+
+  const newPage = () => {
+    page = startPage()
+    y = pageHeight - marginY
+  }
+
+  /** Move to next page only when needed height will not fit here. */
+  const need = (height: number) => {
+    if (height <= 0) return
+    if (spaceLeft() < height && height <= usableHeight) newPage()
   }
 
   const drawCentered = (text: string, f: PDFFont, size: number, gap = 8) => {
+    need(size + gap)
     const width = f.widthOfTextAtSize(text, size)
-    ensureRoom(size + gap)
     page.drawText(text, {
       x: (pageWidth - width) / 2,
       y: y - size,
       size,
       font: f,
-      color: rgb(0, 0, 0),
+      color: ink,
     })
     y -= size + gap
   }
 
-  const drawJustifiedLine = (line: string, isLast: boolean, size: number) => {
-    ensureRoom(lineHeight)
-    const words = line.split(/\s+/).filter(Boolean)
-    if (words.length <= 1 || isLast) {
-      page.drawText(line, {
-        x: margin,
-        y: y - size,
-        size,
-        font,
-        color: rgb(0, 0, 0),
-      })
+  const lineWidthOf = (runs: RichRun[]) =>
+    runs.reduce((w, r) => w + fontFor(r, font, fontBold).widthOfTextAtSize(r.text, bodySize), 0)
+
+  const drawRichLine = (runs: RichRun[], justify: boolean, allowBreak = true) => {
+    if (allowBreak) need(lineHeight)
+    const natural = lineWidthOf(runs)
+    const words = runs.map((r) => ({ ...r, text: r.text }))
+
+    if (!justify || natural >= contentWidth * 0.98 || natural < contentWidth * 0.75) {
+      let x = marginX
+      for (const r of words) {
+        const f = fontFor(r, font, fontBold)
+        page.drawText(r.text, { x, y: y - bodySize, size: bodySize, font: f, color: ink })
+        x += f.widthOfTextAtSize(r.text, bodySize)
+      }
       y -= lineHeight
       return
     }
-    const textWidth = font.widthOfTextAtSize(line, size)
-    const extra = contentWidth - textWidth
-    const gaps = words.length - 1
-    const bump = extra / gaps
-    let x = margin
-    for (let i = 0; i < words.length; i++) {
-      page.drawText(words[i], {
-        x,
-        y: y - size,
-        size,
-        font,
-        color: rgb(0, 0, 0),
-      })
-      if (i < gaps) {
-        x += font.widthOfTextAtSize(words[i], size) + font.widthOfTextAtSize(' ', size) + bump
+
+    type Tok = { text: string; bold: boolean; isSpace: boolean }
+    const toks: Tok[] = []
+    for (const r of words) {
+      const m = r.text.match(/^(\s*)([\s\S]*)$/)
+      if (m && m[1]) toks.push({ text: m[1], bold: false, isSpace: true })
+      if (m && m[2]) toks.push({ text: m[2], bold: r.bold, isSpace: false })
+    }
+    const gaps = toks.filter((t) => t.isSpace)
+    const contentW = toks
+      .filter((t) => !t.isSpace)
+      .reduce((w, t) => w + fontFor(t, font, fontBold).widthOfTextAtSize(t.text, bodySize), 0)
+    const extra = Math.max(0, contentWidth - contentW)
+    const bump = gaps.length > 0 ? extra / gaps.length : 0
+
+    let x = marginX
+    for (const t of toks) {
+      if (t.isSpace) {
+        x += bump
+        continue
       }
+      const f = fontFor(t, font, fontBold)
+      page.drawText(t.text, { x, y: y - bodySize, size: bodySize, font: f, color: ink })
+      x += f.widthOfTextAtSize(t.text, bodySize)
     }
     y -= lineHeight
   }
 
-  const drawWrappedJustified = (text: string, extraGap = 10) => {
-    const lines = wrapWords(text, font, bodySize, contentWidth)
+  const drawRichParagraph = (text: string, extraGap = 10, allowBreak = true) => {
+    const lines = wrapRichLines(text, font, fontBold, bodySize, contentWidth)
+    const solid = lines.filter((l) => l.length > 0)
+    if (allowBreak && solid.length > 1) need(Math.min(2, solid.length) * lineHeight)
+
     lines.forEach((line, idx) => {
-      if (line === '') {
-        y -= lineHeight * 0.6
+      if (line.length === 0) {
+        y -= lineHeight * 0.45
         return
       }
-      drawJustifiedLine(line, idx === lines.length - 1, bodySize)
+      const isLastSolid =
+        idx === lines.length - 1 || lines.slice(idx + 1).every((l) => l.length === 0)
+      drawRichLine(line, !isLastSolid, allowBreak)
     })
     y -= extraGap
   }
 
-  /** Signature line + label flush to the right margin. */
-  const drawSigUnder = (label: string) => {
-    const block = 8 + 2 + labelSize + 14
-    ensureRoom(block)
+  const drawSigColumn = (label: string, x: number, width: number) => {
+    const topGap = 30
+    page.drawLine({
+      start: { x, y: y - topGap },
+      end: { x: x + width, y: y - topGap },
+      thickness: 1,
+      color: ink,
+    })
+    const labelW = fontItalic.widthOfTextAtSize(label, labelSize)
+    page.drawText(label, {
+      x: x + Math.max(0, (width - labelW) / 2),
+      y: y - topGap - 6 - labelSize,
+      size: labelSize,
+      font: fontItalic,
+      color: ink,
+    })
+  }
+
+  /** Full-width signature on its own row (never shares a band with other content). */
+  const drawSig = (label: string) => {
+    // Page break handled by signature-cluster reservation in drawSection.
+    const width = Math.min(320, contentWidth)
+    const x = marginX + (contentWidth - width) / 2
+    drawSigColumn(label, x, width)
+    y -= SIG_BLOCK
+  }
+
+  const drawSigPair = (left: string, right: string) => {
+    drawSigColumn(left, marginX, colWidth)
+    drawSigColumn(right, marginX + colWidth + colGap, colWidth)
+    y -= SIG_PAIR_BLOCK
+  }
+
+  /** Seal sits alone on the next line — left aligned, never beside a signature. */
+  const drawSeal = (label: string) => {
     y -= 10
-    const lineX = margin + contentWidth - SIG_WIDTH_UNDER
-    page.drawLine({
-      start: { x: lineX, y },
-      end: { x: lineX + SIG_WIDTH_UNDER, y },
-      thickness: 0.9,
-      color: rgb(0, 0, 0),
-    })
-    y -= 4
-    const labelW = font.widthOfTextAtSize(label, labelSize)
     page.drawText(label, {
-      x: lineX + SIG_WIDTH_UNDER - labelW,
-      y: y - labelSize,
-      size: labelSize,
-      font,
-      color: rgb(0.15, 0.15, 0.15),
+      x: marginX,
+      y: y - bodySize,
+      size: bodySize,
+      font: fontBold,
+      color: ink,
     })
-    y -= labelSize + 14
+    y -= SEAL_BLOCK - 10
   }
 
-  /** Line on the right; label immediately to the left of the line. */
-  const drawSigRight = (label: string) => {
-    const rowHeight = labelSize + 16
-    ensureRoom(rowHeight)
-    const baselineY = y - labelSize
-    const lineX = margin + contentWidth - SIG_WIDTH_RIGHT
-    const labelW = font.widthOfTextAtSize(label, labelSize)
-    const labelX = Math.max(margin, lineX - 10 - labelW)
-    page.drawText(label, {
-      x: labelX,
-      y: baselineY,
-      size: labelSize,
+  const drawSection = (section: ExecSection, isExec: boolean) => {
+    const totalH = measureSection(
+      section,
       font,
-      color: rgb(0.15, 0.15, 0.15),
-    })
-    page.drawLine({
-      start: { x: lineX, y: baselineY - 1 },
-      end: { x: lineX + SIG_WIDTH_RIGHT, y: baselineY - 1 },
-      thickness: 0.9,
-      color: rgb(0, 0, 0),
-    })
-    y -= rowHeight
-  }
+      fontBold,
+      headingSize,
+      bodySize,
+      lineHeight,
+      contentWidth,
+    )
+    const preambleH = measurePreamble(
+      section,
+      font,
+      fontBold,
+      headingSize,
+      bodySize,
+      lineHeight,
+      contentWidth,
+    )
 
-  const drawSection = (section: ExecSection, forceKeepTogether: boolean) => {
-    if (forceKeepTogether) {
-      const needed = estimateSectionHeight(
-        section,
-        font,
-        { body: bodySize, heading: headingSize, label: labelSize },
-        contentWidth,
-      )
-      ensureRoom(Math.min(needed, pageHeight - margin * 2 - 40))
-    }
+    // Responsive: keep small execution sections (e.g. notary) whole when possible.
+    // Otherwise reserve heading + opening text so titles are not orphaned.
+    const reserve = isExec
+      ? totalH <= usableHeight * 0.88
+        ? totalH
+        : Math.min(preambleH + SIG_BLOCK + SEAL_BLOCK, usableHeight * 0.9)
+      : Math.min(
+          Math.max(headingSize + lineHeight * 3 + 30, Math.min(totalH, usableHeight * 0.35)),
+          usableHeight * 0.5,
+        )
 
-    y -= 4
-    ensureRoom(headingSize + 20)
+    need(reserve)
+
+    y -= 12
+    need(headingSize + 8)
     page.drawText(section.heading, {
-      x: margin,
+      x: marginX,
       y: y - headingSize,
       size: headingSize,
       font: fontBold,
-      color: rgb(0, 0, 0),
+      color: ink,
     })
     y -= headingSize + 10
 
-    for (const row of section.rows) {
-      if (row.kind === 'text') drawWrappedJustified(row.text, 10)
-      else if (row.kind === 'sigUnder') drawSigUnder(row.label)
-      else drawSigRight(row.label)
+    let beforeSigs = true
+    let i = 0
+    const rows = section.rows
+    while (i < rows.length) {
+      const row = rows[i]
+      if (row.kind === 'text') {
+        drawRichParagraph(row.text, 10, !(isExec && beforeSigs))
+        i += 1
+        continue
+      }
+
+      // Keep signature / seal lines together — never orphan "Commission Expires" + seal.
+      beforeSigs = false
+      let end = i
+      let clusterH = 0
+      while (end < rows.length && rows[end].kind !== 'text') {
+        clusterH += measureRow(rows[end], font, fontBold, bodySize, lineHeight, contentWidth)
+        end += 1
+      }
+      need(Math.min(clusterH, usableHeight * 0.95))
+      for (let j = i; j < end; j++) {
+        const r = rows[j]
+        if (r.kind === 'sigPair') drawSigPair(r.left, r.right)
+        else if (r.kind === 'seal') drawSeal(r.label)
+        else if (r.kind === 'sig') drawSig(r.label)
+      }
+      i = end
     }
   }
 
-  // Title — avoid redundant "of Name" duplication under a long title; keep classic form
-  drawCentered(willIn.title, fontBold, titleSize, 6)
-  drawCentered(willIn.testatorName, fontItalic, 13, 16)
-
-  // Thin rule under title
-  ensureRoom(12)
-  page.drawLine({
-    start: { x: margin + 40, y },
-    end: { x: pageWidth - margin - 40, y },
-    thickness: 0.6,
-    color: rgb(0, 0, 0),
-  })
-  y -= 18
+  const docTitle = (willIn.title || 'LAST WILL AND TESTAMENT').toUpperCase()
+  const partyName = (willIn.testatorName || '').toUpperCase()
+  drawCentered(docTitle, fontBold, titleSize, 10)
+  drawCentered('of', fontItalic, 11, 10)
+  drawCentered(partyName, fontBold, nameSize, 26)
 
   let hitExecution = false
   for (const section of sections) {
-    const isExec = isExecutionBlockSection(section.heading)
+    const heading = section.heading
+      .replace(/[—–−]/g, '.')
+      .replace(/\.\s*\./g, '.')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+      .toUpperCase()
+    const normalized = { ...section, heading }
+    const isExec = isExecutionBlockSection(heading)
+
     if (isExec && !hitExecution) {
       hitExecution = true
-      newPage() // execution / signature pages start clean
+      // Start execution block on this page only if a meaningful chunk fits.
+      const firstExecReserve = headingSize + lineHeight * 6 + SIG_BLOCK
+      if (spaceLeft() < firstExecReserve) newPage()
+      else y -= 18
     }
-    drawSection(section, isExec)
+
+    drawSection(normalized, isExec)
   }
 
-  // Page numbers
-  const total = pages.length
   pages.forEach((p, i) => {
-    const label = `Page ${i + 1} of ${total}`
+    const label = `${i + 1}`
     const w = font.widthOfTextAtSize(label, 9)
     p.drawText(label, {
       x: (pageWidth - w) / 2,
-      y: 36,
+      y: 40,
       size: 9,
       font,
-      color: rgb(0.35, 0.35, 0.35),
+      color: ink,
     })
   })
 

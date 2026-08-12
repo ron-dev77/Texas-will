@@ -19,6 +19,7 @@ import {
 } from '@/lib/questionnaire-db'
 import {
   SECTIONS,
+  fieldQualityError,
   formatAnswerPreview,
   getVisibleFields,
   missingRequired,
@@ -115,6 +116,8 @@ export default function Questionnaire() {
   const [ready, setReady] = useState(false)
   const [order, setOrder] = useState<OrderDraft | null>(null)
   const [session, setSession] = useState<QuestionnaireSession | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
   const sessionRef = useRef<QuestionnaireSession | null>(null)
   const skipNextSave = useRef(true)
 
@@ -215,7 +218,25 @@ export default function Questionnaire() {
     return () => window.clearTimeout(t)
   }, [answers, ready, sectionIdx])
 
-  const canContinue = isReview ? true : missing.length === 0
+  function setFieldError(id: string, message: string | null) {
+    setFieldErrors((prev) => {
+      if (!message) {
+        if (!(id in prev)) return prev
+        const next = { ...prev }
+        delete next[id]
+        return next
+      }
+      if (prev[id] === message) return prev
+      return { ...prev, [id]: message }
+    })
+  }
+
+  function validateField(field: Field, value: unknown, markTouched = false) {
+    if (markTouched) setTouched((t) => ({ ...t, [field.id]: true }))
+    const msg = fieldQualityError(field, value)
+    setFieldError(field.id, msg)
+    return msg
+  }
 
   function update(id: string, value: unknown) {
     setAnswers((prev) => {
@@ -262,16 +283,30 @@ export default function Questionnaire() {
       }
       return next
     })
+
+    // After blur: live-update progressive error (min → max) and clear when fixed
+    const field = visibleFields.find((f) => f.id === id)
+    if (field) {
+      setTouched((t) => {
+        if (t[id]) {
+          const msg = fieldQualityError(field, value)
+          setFieldError(id, msg)
+        }
+        return t
+      })
+    }
   }
 
   function goTo(next: number) {
     const clamped = Math.max(0, Math.min(totalSections - 1, next))
     setSectionIdx(clamped)
     setAnimKey((k) => k + 1)
+    setFieldErrors({})
+    setTouched({})
   }
 
   async function handleContinue() {
-    if (!canContinue || submitting) return
+    if (submitting) return
     if (isReview) {
       const active = sessionRef.current
       if (!active) {
@@ -289,6 +324,19 @@ export default function Questionnaire() {
       }
       return
     }
+
+    // On Continue: surface quality errors for this step (still one msg per field)
+    const nextErrors: Record<string, string> = {}
+    const nextTouched: Record<string, boolean> = { ...touched }
+    for (const field of visibleFields) {
+      const msg = fieldQualityError(field, answers[field.id])
+      nextTouched[field.id] = true
+      if (msg) nextErrors[field.id] = msg
+    }
+    setTouched(nextTouched)
+    setFieldErrors(nextErrors)
+    if (missing.length > 0 || Object.keys(nextErrors).length > 0) return
+
     if (sectionIdx < totalSections - 1) goTo(sectionIdx + 1)
   }
 
@@ -403,7 +451,9 @@ export default function Questionnaire() {
                           key={field.id}
                           field={field}
                           value={answers[field.id]}
+                          error={fieldErrors[field.id]}
                           onChange={(v) => update(field.id, v)}
+                          onBlurValidate={() => validateField(field, answers[field.id], true)}
                         />
                       ))}
                     </div>
@@ -427,12 +477,16 @@ export default function Questionnaire() {
                 </Button>
 
                 <p className="hidden text-xs text-muted-foreground sm:block">
-                  {missing.length > 0 ? `${missing.length} required left` : 'Looks good'}
+                  {missing.length > 0
+                    ? `${missing.length} required left`
+                    : Object.keys(fieldErrors).length > 0
+                      ? 'Fix the highlighted fields'
+                      : 'Looks good'}
                 </p>
 
                 <Button
                   type="button"
-                  disabled={!canContinue || submitting}
+                  disabled={submitting}
                   onClick={() => void handleContinue()}
                   className="h-10 gap-1.5 rounded-full px-6 shadow-sm disabled:opacity-40"
                 >
@@ -468,11 +522,15 @@ export default function Questionnaire() {
 function FieldCell({
   field,
   value,
+  error,
   onChange,
+  onBlurValidate,
 }: {
   field: Field
   value: unknown
+  error?: string
   onChange: (v: unknown) => void
+  onBlurValidate: () => void
 }) {
   if (field.type === 'yesno') {
     return (
@@ -485,8 +543,15 @@ function FieldCell({
           {field.helper ? (
             <p className="mt-0.5 text-[11.5px] leading-snug text-muted-foreground">{field.helper}</p>
           ) : null}
+          {error ? <p className="mt-1 text-[11.5px] text-destructive">{error}</p> : null}
         </div>
-        <FieldControl field={field} value={value} onChange={onChange} />
+        <FieldControl
+          field={field}
+          value={value}
+          error={error}
+          onChange={onChange}
+          onBlurValidate={onBlurValidate}
+        />
       </div>
     )
   }
@@ -498,9 +563,17 @@ function FieldCell({
         {field.required ? <span className="ml-0.5 text-destructive">*</span> : null}
       </Label>
       <div className="mt-1.5">
-        <FieldControl field={field} value={value} onChange={onChange} />
+        <FieldControl
+          field={field}
+          value={value}
+          error={error}
+          onChange={onChange}
+          onBlurValidate={onBlurValidate}
+        />
       </div>
-      {field.helper ? (
+      {error ? (
+        <p className="mt-1.5 text-[11.5px] leading-snug text-destructive">{error}</p>
+      ) : field.helper ? (
         <p className="mt-1.5 text-[11.5px] leading-snug text-muted-foreground">{field.helper}</p>
       ) : null}
     </div>
@@ -510,11 +583,15 @@ function FieldCell({
 function FieldControl({
   field,
   value,
+  error,
   onChange,
+  onBlurValidate,
 }: {
   field: Field
   value: unknown
+  error?: string
   onChange: (v: unknown) => void
+  onBlurValidate: () => void
 }) {
   if (field.type === 'radio' || field.type === 'yesno') {
     const options =
@@ -533,6 +610,7 @@ function FieldControl({
           'flex flex-wrap gap-2',
           field.type === 'yesno' && 'shrink-0 justify-end',
         )}
+        onBlur={onBlurValidate}
       >
         {options.map((opt) => {
           const selected = value === opt.value
@@ -540,7 +618,11 @@ function FieldControl({
             <button
               key={opt.value}
               type="button"
-              onClick={() => onChange(opt.value)}
+              onClick={() => {
+                onChange(opt.value)
+                // radios/yesno: validate immediately after choose
+                window.setTimeout(onBlurValidate, 0)
+              }}
               className={cn(
                 'rounded-full border px-3.5 py-1.5 text-left text-[13px] transition',
                 shortLabels && 'min-w-[4.5rem] text-center',
@@ -548,6 +630,7 @@ function FieldControl({
                 selected
                   ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                   : 'border-border/70 bg-secondary/40 text-muted-foreground hover:border-foreground/20 hover:bg-secondary/70 hover:text-foreground',
+                error && !selected && 'border-destructive/40',
               )}
             >
               {opt.label}
@@ -563,9 +646,14 @@ function FieldControl({
       <Textarea
         id={field.id}
         value={typeof value === 'string' ? value : ''}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value.slice(0, field.maxLength ?? 2000))}
+        onBlur={onBlurValidate}
+        maxLength={field.maxLength}
         placeholder={field.placeholder}
-        className="min-h-[72px] resize-y rounded-2xl border-border/60 bg-secondary/30 text-sm shadow-none focus-visible:bg-background"
+        className={cn(
+          'min-h-[72px] resize-y rounded-2xl border-border/60 bg-secondary/30 text-sm shadow-none focus-visible:bg-background',
+          error && 'border-destructive/50 focus-visible:ring-destructive/30',
+        )}
       />
     )
   }
@@ -575,7 +663,10 @@ function FieldControl({
       <PeopleEditor
         value={(Array.isArray(value) ? value : []) as PersonRow[]}
         onChange={onChange}
+        onBlurValidate={onBlurValidate}
         requireDob={field.id === 'children'}
+        maxLength={field.maxLength ?? 80}
+        error={error}
       />
     )
   }
@@ -585,8 +676,11 @@ function FieldControl({
       <GiftsEditor
         value={(Array.isArray(value) ? value : []) as GiftRow[]}
         onChange={onChange}
+        onBlurValidate={onBlurValidate}
         itemLabel={field.type === 'charitable_gifts' ? 'Amount or %' : 'Item / description'}
         recipientLabel={field.type === 'charitable_gifts' ? 'Charity name' : 'Who receives it'}
+        maxLength={field.maxLength ?? 120}
+        error={error}
       />
     )
   }
@@ -596,7 +690,10 @@ function FieldControl({
       <DateField
         id={field.id}
         value={typeof value === 'string' ? value : ''}
-        onChange={onChange}
+        onChange={(v) => {
+          onChange(v)
+          window.setTimeout(onBlurValidate, 0)
+        }}
         placeholder={field.placeholder ?? 'mm/dd/yyyy'}
       />
     )
@@ -608,6 +705,7 @@ function FieldControl({
         id={field.id}
         value={typeof value === 'string' ? value : ''}
         onChange={onChange}
+        onBlur={onBlurValidate}
         placeholder={field.placeholder ?? '(512) 555-0100'}
       />
     )
@@ -617,68 +715,69 @@ function FieldControl({
   const str = typeof value === 'string' ? value : ''
 
   function handleTextChange(raw: string) {
+    let next = raw
     if (field.id === 'address_zip') {
-      onChange(raw.replace(/\D/g, '').slice(0, 5))
-      return
+      next = raw.replace(/\D/g, '').slice(0, 5)
+    } else if (field.id === 'address_city' || field.id === 'address_county') {
+      next = raw.replace(/[^A-Za-z\s.'-]/g, '')
+    } else if (field.id === 'trust_distribution_age') {
+      next = raw.replace(/\D/g, '').slice(0, 3)
     }
-    if (field.id === 'address_city' || field.id === 'address_county') {
-      // Letters, spaces, apostrophes, periods, hyphens only
-      onChange(raw.replace(/[^A-Za-z\s.'-]/g, ''))
-      return
-    }
-    onChange(raw)
+    if (field.maxLength != null) next = next.slice(0, field.maxLength)
+    onChange(next)
   }
 
   const isZip = field.id === 'address_zip'
-  const zipInvalid = isZip && str.length > 0 && !/^\d{5}$/.test(str)
 
   return (
-    <div>
-      <Input
-        id={field.id}
-        type={inputType}
-        inputMode={isZip ? 'numeric' : undefined}
-        maxLength={isZip ? 5 : undefined}
-        autoComplete={
-          field.id === 'address_city'
-            ? 'address-level2'
-            : field.id === 'address_zip'
-              ? 'postal-code'
-              : undefined
+    <Input
+      id={field.id}
+      type={inputType}
+      inputMode={isZip || field.id === 'trust_distribution_age' ? 'numeric' : undefined}
+      maxLength={field.maxLength ?? (isZip ? 5 : undefined)}
+      autoComplete={
+        field.id === 'address_city'
+          ? 'address-level2'
+          : field.id === 'address_zip'
+            ? 'postal-code'
+            : undefined
+      }
+      value={str}
+      onChange={(e) => handleTextChange(e.target.value)}
+      onBlur={onBlurValidate}
+      onKeyDown={(e) => {
+        if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return
+        if (isZip && !/[0-9]/.test(e.key)) e.preventDefault()
+        if (
+          (field.id === 'address_city' || field.id === 'address_county') &&
+          !/[A-Za-z\s.'-]/.test(e.key)
+        ) {
+          e.preventDefault()
         }
-        value={str}
-        onChange={(e) => handleTextChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key.length !== 1 || e.ctrlKey || e.metaKey || e.altKey) return
-          if (isZip && !/[0-9]/.test(e.key)) e.preventDefault()
-          if (
-            (field.id === 'address_city' || field.id === 'address_county') &&
-            !/[A-Za-z\s.'-]/.test(e.key)
-          ) {
-            e.preventDefault()
-          }
-        }}
-        placeholder={field.placeholder}
-        className={cn(
-          'h-10 rounded-2xl border-border/60 bg-secondary/30 text-sm shadow-none focus-visible:bg-background',
-          zipInvalid && 'border-destructive/50 focus-visible:ring-destructive/30',
-        )}
-      />
-      {zipInvalid ? (
-        <p className="mt-1 text-[11px] text-destructive">Enter a valid 5-digit ZIP code</p>
-      ) : null}
-    </div>
+      }}
+      placeholder={field.placeholder}
+      className={cn(
+        'h-10 rounded-2xl border-border/60 bg-secondary/30 text-sm shadow-none focus-visible:bg-background',
+        error && 'border-destructive/50 focus-visible:ring-destructive/30',
+      )}
+    />
   )
 }
 
 function PeopleEditor({
   value,
   onChange,
+  onBlurValidate,
   requireDob,
+  maxLength,
+  error,
 }: {
   value: PersonRow[]
   onChange: (v: PersonRow[]) => void
+  onBlurValidate: () => void
   requireDob: boolean
+  maxLength: number
+  error?: string
 }) {
   const rows = value.length > 0 ? value : [{ name: '', date_of_birth: '' }]
 
@@ -693,14 +792,22 @@ function PeopleEditor({
         <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_150px_36px] sm:items-center">
           <Input
             value={row.name}
-            onChange={(e) => setRow(i, { name: e.target.value })}
+            maxLength={maxLength}
+            onChange={(e) => setRow(i, { name: e.target.value.slice(0, maxLength) })}
+            onBlur={onBlurValidate}
             placeholder="Full name"
-            className="h-9 rounded-xl border-border/60 bg-background text-sm"
+            className={cn(
+              'h-9 rounded-xl border-border/60 bg-background text-sm',
+              error && 'border-destructive/40',
+            )}
           />
           {requireDob ? (
             <DateField
               value={row.date_of_birth ?? ''}
-              onChange={(iso) => setRow(i, { date_of_birth: iso })}
+              onChange={(iso) => {
+                setRow(i, { date_of_birth: iso })
+                window.setTimeout(onBlurValidate, 0)
+              }}
               inputClassName="h-9 rounded-xl bg-background"
             />
           ) : (
@@ -735,13 +842,19 @@ function PeopleEditor({
 function GiftsEditor({
   value,
   onChange,
+  onBlurValidate,
   itemLabel,
   recipientLabel,
+  maxLength,
+  error,
 }: {
   value: GiftRow[]
   onChange: (v: GiftRow[]) => void
+  onBlurValidate: () => void
   itemLabel: string
   recipientLabel: string
+  maxLength: number
+  error?: string
 }) {
   const rows = value.length > 0 ? value : [{ item: '', recipient: '' }]
 
@@ -756,15 +869,25 @@ function GiftsEditor({
         <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_36px] sm:items-center">
           <Input
             value={row.item}
-            onChange={(e) => setRow(i, { item: e.target.value })}
+            maxLength={maxLength}
+            onChange={(e) => setRow(i, { item: e.target.value.slice(0, maxLength) })}
+            onBlur={onBlurValidate}
             placeholder={itemLabel}
-            className="h-9 rounded-xl border-border/60 bg-background text-sm"
+            className={cn(
+              'h-9 rounded-xl border-border/60 bg-background text-sm',
+              error && 'border-destructive/40',
+            )}
           />
           <Input
             value={row.recipient}
-            onChange={(e) => setRow(i, { recipient: e.target.value })}
+            maxLength={maxLength}
+            onChange={(e) => setRow(i, { recipient: e.target.value.slice(0, maxLength) })}
+            onBlur={onBlurValidate}
             placeholder={recipientLabel}
-            className="h-9 rounded-xl border-border/60 bg-background text-sm"
+            className={cn(
+              'h-9 rounded-xl border-border/60 bg-background text-sm',
+              error && 'border-destructive/40',
+            )}
           />
           <Button
             type="button"

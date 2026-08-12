@@ -16,6 +16,7 @@ type PhoneFieldProps = {
   id?: string
   value: string
   onChange: (value: string) => void
+  onBlur?: () => void
   placeholder?: string
   className?: string
 }
@@ -24,6 +25,7 @@ export function PhoneField({
   id,
   value,
   onChange,
+  onBlur,
   placeholder = '(512) 555-0100',
   className,
 }: PhoneFieldProps) {
@@ -43,6 +45,7 @@ export function PhoneField({
         placeholder={placeholder}
         numberInputProps={{
           className: 'PhoneInputInput',
+          onBlur,
         }}
       />
     </div>

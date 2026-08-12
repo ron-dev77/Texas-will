@@ -37,6 +37,7 @@ export default function OrderDetailPage() {
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
   const [actionMsg, setActionMsg] = useState<string | null>(null)
 
   async function load() {
@@ -80,46 +81,57 @@ export default function OrderDetailPage() {
   const partnerTrust = data?.wills.find(
     (w) => w.partner_number === partner && w.document_kind === 'rlt',
   )
-  const activeDoc: WillDocRow | undefined = docKind === 'rlt' ? partnerTrust : partnerWill
 
-  async function refreshPdf(content: WillContent, kind: 'will' | 'rlt') {
-    const normalized = kind === 'will' ? normalizeWillExecutionBlock(content) : content
-    const bytes = await renderDocumentPdf(normalized, kind)
-    const copy = new Uint8Array(bytes)
-    const blob = new Blob([copy], { type: 'application/pdf' })
-    const url = URL.createObjectURL(blob)
-    setPdfUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev)
-      return url
-    })
-    return bytes
-  }
+  /** Live preview from answers only — does not write to the database. */
+  const previewContent = useMemo((): WillContent | null => {
+    if (!answersRow) return null
+    const draft =
+      docKind === 'rlt'
+        ? buildTrustFromAnswers(answersRow.answers)
+        : buildWillFromAnswers(answersRow.answers)
+    return docKind === 'will' ? normalizeWillExecutionBlock(draft) : draft
+  }, [answersRow, docKind])
 
   useEffect(() => {
-    if (!activeDoc?.will_content) {
-      setPdfUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev)
-        return null
-      })
+    if (tab !== 'documents' || !previewContent) {
       return
     }
-    void refreshPdf(activeDoc.will_content, docKind).catch((err) => {
-      console.error(err)
-      setActionMsg(err instanceof Error ? err.message : 'Could not render PDF')
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDoc?.id, activeDoc?.version, docKind])
+    let cancelled = false
+    setPreviewLoading(true)
+    void renderDocumentPdf(previewContent, docKind)
+      .then((bytes) => {
+        if (cancelled) return
+        const copy = new Uint8Array(bytes)
+        const blob = new Blob([copy], { type: 'application/pdf' })
+        const url = URL.createObjectURL(blob)
+        setPdfUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev)
+          return url
+        })
+      })
+      .catch((err) => {
+        if (cancelled) return
+        console.error(err)
+        setActionMsg(err instanceof Error ? err.message : 'Could not render preview')
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [tab, previewContent, docKind])
 
-  async function regenerate(kind: 'will' | 'rlt') {
+  async function saveDocument(kind: 'will' | 'rlt') {
     if (!data || !answersRow) {
       setActionMsg('No questionnaire answers for this partner yet.')
       return
     }
     if (kind === 'will' && partnerWill && !notes.trim()) {
-      setActionMsg('Add attorney notes before regenerating an existing will.')
+      setActionMsg('Add attorney notes before saving an updated will.')
       return
     }
-    setBusy(kind === 'will' ? 'regen-will' : 'regen-trust')
+    setBusy(kind === 'will' ? 'save-will' : 'save-trust')
     setActionMsg(null)
     try {
       const draft =
@@ -137,15 +149,14 @@ export default function OrderDetailPage() {
       await updateOrderStatus({
         orderId,
         status: 'in_review',
-        note: `Regenerated ${kind === 'will' ? 'will' : 'trust'} (v${saved.version})${notes.trim() ? `: ${notes.trim()}` : ''}`,
+        note: `Saved ${kind === 'will' ? 'will' : 'trust'} (v${saved.version})${notes.trim() ? `: ${notes.trim()}` : ''}`,
       })
-      await refreshPdf(content, kind)
       setNotes('')
       setDocKind(kind)
-      setActionMsg(kind === 'will' ? 'Will regenerated' : 'Trust regenerated')
+      setActionMsg(kind === 'will' ? 'Will saved to order' : 'Trust saved to order')
       await load()
     } catch (err) {
-      setActionMsg(err instanceof Error ? err.message : 'Regeneration failed')
+      setActionMsg(err instanceof Error ? err.message : 'Save failed')
     } finally {
       setBusy(null)
     }
@@ -174,7 +185,7 @@ export default function OrderDetailPage() {
     if (!pdfUrl) return
     const a = document.createElement('a')
     a.href = pdfUrl
-    a.download = `${data?.order.customer_name ?? 'Will'} - ${docKind === 'rlt' ? 'Trust' : 'Last Will and Testament'}.pdf`
+    a.download = `${data?.order.customer_name ?? 'Will'} - ${docKind === 'rlt' ? 'Trust' : 'Last Will and Testament'} (preview).pdf`
     a.click()
   }
 
@@ -296,12 +307,52 @@ export default function OrderDetailPage() {
           </div>
 
           <section className="rounded-lg border border-border bg-card p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-serif text-xl">
+                  {docKind === 'rlt' ? 'Trust preview' : 'Will preview'}
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Live preview from questionnaire answers. Nothing is saved until you click Save.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-full gap-1.5"
+                disabled={!pdfUrl || previewLoading}
+                onClick={() => void downloadPdf()}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download preview
+              </Button>
+            </div>
+            {previewLoading ? (
+              <div className="mt-4 flex h-64 flex-col items-center justify-center rounded-md border border-dashed border-border bg-background text-sm text-muted-foreground">
+                <Loader2 className="mb-2 h-6 w-6 animate-spin opacity-50" />
+                Building preview…
+              </div>
+            ) : pdfUrl ? (
+              <iframe
+                title="Document preview"
+                src={pdfUrl}
+                className="mt-4 h-[720px] w-full rounded-md border border-border bg-white"
+              />
+            ) : (
+              <div className="mt-4 flex h-64 flex-col items-center justify-center rounded-md border border-dashed border-border bg-background text-sm text-muted-foreground">
+                <FileText className="mb-2 h-8 w-8 opacity-40" />
+                No answers yet for this partner — preview will appear when the questionnaire is filled.
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-lg border border-border bg-card p-5 sm:p-6">
             <h2 className="font-serif text-xl">Attorney notes</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Describe the changes you want, then regenerate the{' '}
-              {docKind === 'rlt' ? 'trust' : 'will'} (currently selected:{' '}
+              Optional notes for the file. Save stores a copy on the order (currently viewing:{' '}
               <strong>{docKind === 'rlt' ? 'Revocable Living Trust' : 'Last Will and Testament'}</strong>
-              ). Click <strong>Delivered</strong> when all documents look right.
+              ). Click <strong>Delivered</strong> when review is complete.
             </p>
             <Textarea
               className="mt-3 min-h-28"
@@ -312,23 +363,23 @@ export default function OrderDetailPage() {
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 type="button"
-                disabled={busy !== null}
-                onClick={() => void regenerate('will')}
+                disabled={busy !== null || !answersRow}
+                onClick={() => void saveDocument('will')}
                 className="rounded-full"
               >
-                {busy === 'regen-will' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Regenerate will
+                {busy === 'save-will' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Save will
               </Button>
               {includeTrust ? (
                 <Button
                   type="button"
                   variant="secondary"
-                  disabled={busy !== null}
-                  onClick={() => void regenerate('rlt')}
+                  disabled={busy !== null || !answersRow}
+                  onClick={() => void saveDocument('rlt')}
                   className="rounded-full"
                 >
-                  {busy === 'regen-trust' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Regenerate trust
+                  {busy === 'save-trust' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Save trust
                 </Button>
               ) : null}
               <Button
@@ -349,50 +400,6 @@ export default function OrderDetailPage() {
                 Mark needs revision
               </Button>
             </div>
-          </section>
-
-          <section className="rounded-lg border border-border bg-card p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-serif text-xl">
-                {docKind === 'rlt' ? 'Trust preview' : 'Will preview'}
-              </h2>
-              <div className="flex gap-2">
-                {!activeDoc?.will_content ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="rounded-full"
-                    disabled={busy !== null}
-                    onClick={() => void regenerate(docKind)}
-                  >
-                    Generate draft
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="rounded-full gap-1.5"
-                  disabled={!pdfUrl}
-                  onClick={() => void downloadPdf()}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Download PDF
-                </Button>
-              </div>
-            </div>
-            {pdfUrl ? (
-              <iframe
-                title="Document PDF"
-                src={pdfUrl}
-                className="mt-4 h-[720px] w-full rounded-md border border-border bg-white"
-              />
-            ) : (
-              <div className="mt-4 flex h-64 flex-col items-center justify-center rounded-md border border-dashed border-border text-sm text-muted-foreground">
-                <FileText className="mb-2 h-8 w-8 opacity-40" />
-                No document yet — generate a draft from the questionnaire answers.
-              </div>
-            )}
           </section>
         </div>
       ) : null}
@@ -425,8 +432,8 @@ function DocCard({
       <p className="font-medium text-foreground">{title}</p>
       <p className="mt-1 text-xs text-muted-foreground">
         {doc
-          ? `v${doc.version} · ${STATUS_LABEL[doc.status] ?? doc.status}${doc.draft_generated_at ? ` · ${new Date(doc.draft_generated_at).toLocaleString()}` : ''}`
-          : 'Not generated yet'}
+          ? `Saved v${doc.version} · ${STATUS_LABEL[doc.status] ?? doc.status}${doc.draft_generated_at ? ` · ${new Date(doc.draft_generated_at).toLocaleString()}` : ''}`
+          : 'Preview only · not saved yet'}
       </p>
     </button>
   )
