@@ -661,13 +661,34 @@ export const SECTIONS: readonly Section[] = [
   },
 ]
 
-/** Sections shown in the questionnaire (hide trust steps unless purchased). */
+/** Sections shown in the questionnaire (hide trust / unselected package docs). */
 export function getActiveSections(
   includeTrust: boolean,
   sections: readonly Section[] = SECTIONS,
+  documents: readonly string[] = ['will'],
 ): Section[] {
-  if (includeTrust) return [...sections]
-  return sections.filter((s) => !s.requiresTrust && s.id !== 'trust_trustees' && s.id !== 'trust_distributions')
+  const docs = new Set(documents.length ? documents : ['will'])
+  const willOnly = new Set([
+    'children',
+    'executor',
+    'specific_gifts',
+    'charitable',
+    'residuary',
+    'final_wishes',
+  ])
+
+  return sections.filter((s) => {
+    if (s.requiresTrust || s.id === 'trust_trustees' || s.id === 'trust_distributions') {
+      return includeTrust
+    }
+    if (s.id === 'medical_poa') return docs.has('mpoa')
+    if (s.id === 'durable_poa') return docs.has('dpoa')
+    if (s.id === 'directive') return docs.has('directive')
+    if (s.id === 'hipaa') return docs.has('hipaa')
+    if (willOnly.has(s.id)) return docs.has('will')
+    // Shared identity / residence / marital / review — always keep when any doc selected
+    return true
+  })
 }
 
 export function isFieldVisible(field: Field, answers: Record<string, unknown>): boolean {

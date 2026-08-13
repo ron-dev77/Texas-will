@@ -1,2 +1,12 @@
 # Set this to your Supabase project ref after creating the project.
 # project_id = "your-project-ref"
+
+# Public customer flows (no user JWT required)
+[functions.checkout]
+verify_jwt = false
+
+[functions.questionnaire]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false

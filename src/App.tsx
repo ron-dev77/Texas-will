@@ -10,6 +10,7 @@ import Contact from '@/pages/Contact'
 import Terms from '@/pages/Terms'
 import Privacy from '@/pages/Privacy'
 import Disclaimer from '@/pages/Disclaimer'
+import Notary from '@/pages/Notary'
 import Questionnaire from '@/pages/Questionnaire'
 import Auth from '@/pages/Auth'
 import AdminLayout from '@/pages/admin/AdminLayout'
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="faq" element={<Faq />} />
           <Route path="about" element={<About />} />
           <Route path="contact" element={<Contact />} />
+          <Route path="notary" element={<Notary />} />
           <Route path="terms" element={<Terms />} />
           <Route path="privacy" element={<Privacy />} />
           <Route path="disclaimer" element={<Disclaimer />} />

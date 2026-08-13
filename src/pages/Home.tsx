@@ -16,6 +16,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PlanPairCards } from '@/components/site/PlanPairCards'
 import { ScrollReveal } from '@/components/site/ScrollReveal'
 import { FAQS } from '@/lib/faqs'
 import { cn } from '@/lib/utils'
@@ -100,44 +101,8 @@ export default function Home() {
             </p>
 
             {/* Pricing — high visibility */}
-            <div className="mx-auto mt-9 grid max-w-xl animate-in fade-in slide-in-from-bottom-3 gap-3 delay-150 duration-700 fill-mode-both sm:grid-cols-2">
-              <Link
-                to="/pricing?plan=individual#checkout"
-                className="group rounded-2xl border border-border/80 bg-card px-5 py-5 text-left shadow-[0_8px_30px_-18px_rgba(15,23,42,0.35)] transition duration-300 hover:-translate-y-1 hover:border-accent/40 hover:shadow-[0_18px_40px_-20px_rgba(15,23,42,0.35)]"
-              >
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Individual
-                </div>
-                <div className="mt-1 flex items-end gap-1.5">
-                  <span className="font-serif text-4xl font-semibold leading-none text-foreground sm:text-5xl">
-                    $249
-                  </span>
-                  <span className="mb-1 text-sm font-medium text-accent">flat</span>
-                </div>
-                <div className="mt-2 flex items-center gap-1 text-sm text-muted-foreground transition group-hover:text-foreground">
-                  Start my will
-                  <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
-                </div>
-              </Link>
-
-              <Link
-                to="/pricing?plan=couples#checkout"
-                className="group rounded-2xl border border-primary/15 bg-primary px-5 py-5 text-left text-primary-foreground shadow-[0_8px_30px_-18px_rgba(15,23,42,0.45)] transition duration-300 hover:-translate-y-1 hover:bg-primary/95"
-              >
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-foreground/70">
-                  Couples
-                </div>
-                <div className="mt-1 flex items-end gap-1.5">
-                  <span className="font-serif text-4xl font-semibold leading-none sm:text-5xl">
-                    $399
-                  </span>
-                  <span className="mb-1 text-sm font-medium text-accent">flat</span>
-                </div>
-                <div className="mt-2 flex items-center gap-1 text-sm text-primary-foreground/80 transition group-hover:text-primary-foreground">
-                  Start our wills
-                  <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" />
-                </div>
-              </Link>
+            <div className="mx-auto mt-9 max-w-xl animate-in fade-in slide-in-from-bottom-3 delay-150 duration-700 fill-mode-both">
+              <PlanPairCards surface="light" compact />
             </div>
 
             <div className="mx-auto mt-5 flex max-w-xl flex-wrap items-center justify-center gap-x-5 gap-y-2 animate-in fade-in delay-200 duration-700 fill-mode-both">
@@ -584,46 +549,8 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="relative mx-auto mt-10 grid max-w-2xl gap-3 sm:grid-cols-2">
-              <Link
-                to="/pricing?plan=individual#checkout"
-                className="group rounded-2xl border border-white/10 bg-white px-6 py-6 text-left text-foreground shadow-lg transition duration-300 hover:-translate-y-1 hover:shadow-xl"
-              >
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Individual
-                </div>
-                <div className="mt-1 flex items-end gap-1.5">
-                  <span className="font-serif text-4xl font-semibold leading-none">
-                    $249
-                  </span>
-                  <span className="mb-1 text-sm font-medium text-accent">flat</span>
-                </div>
-                <div className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium">
-                  Start my will
-                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                </div>
-              </Link>
-
-              <Link
-                to="/pricing?plan=couples#checkout"
-                className="group rounded-2xl border border-accent/40 bg-accent px-6 py-6 text-left text-accent-foreground shadow-lg transition duration-300 hover:-translate-y-1 hover:bg-accent/95 hover:shadow-xl"
-              >
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-foreground/80">
-                  Couples
-                </div>
-                <div className="mt-1 flex items-end gap-1.5">
-                  <span className="font-serif text-4xl font-semibold leading-none">
-                    $399
-                  </span>
-                  <span className="mb-1 text-sm font-medium text-accent-foreground/90">
-                    flat
-                  </span>
-                </div>
-                <div className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium">
-                  Start our wills
-                  <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                </div>
-              </Link>
+            <div className="relative mx-auto mt-10 max-w-2xl">
+              <PlanPairCards surface="onDark" />
             </div>
 
             <div className="relative mx-auto mt-7 flex max-w-2xl flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-primary-foreground/70">

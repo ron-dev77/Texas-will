@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import type { OrderDraft } from '@/lib/order'
+import { normalizeOrderDocuments, saveOrderDraft } from '@/lib/order'
 
 export const SESSION_STORAGE_KEY = 'myaiwill.questionnaire.session.v1'
 
@@ -11,6 +12,16 @@ export type QuestionnaireSession = {
 }
 
 export type Answers = Record<string, unknown>
+
+export type QuestionnaireDraftMeta = {
+  plan: 'individual' | 'couples'
+  includeTrust: boolean
+  documents: string[]
+  email: string
+  partnerEmail?: string
+  total: number
+  expiresAt: string | null
+}
 
 function loadSession(): QuestionnaireSession | null {
   try {
@@ -37,25 +48,49 @@ async function invokeQuestionnaire<T>(body: Record<string, unknown>): Promise<T>
   return data as T
 }
 
-/** Create or resume order + answers via secure Edge Function (service role + partner token). */
+function draftFromMeta(meta: QuestionnaireDraftMeta | undefined): OrderDraft | null {
+  if (!meta) return null
+  const draft: OrderDraft = {
+    plan: meta.plan,
+    email: meta.email,
+    partnerEmail: meta.partnerEmail,
+    includeTrust: meta.includeTrust,
+    documents: normalizeOrderDocuments(meta.documents),
+    total: meta.total,
+    lsrConsent: true,
+  }
+  saveOrderDraft(draft)
+  return draft
+}
+
+/** Open via email token and/or resume an existing paid session. Never creates unpaid orders. */
 export async function ensureQuestionnaireSession(
   draft: OrderDraft | null,
   localAnswers: Answers,
-): Promise<{ session: QuestionnaireSession; answers: Answers; submitted: boolean }> {
+  token?: string | null,
+): Promise<{
+  session: QuestionnaireSession
+  answers: Answers
+  submitted: boolean
+  order: OrderDraft | null
+}> {
   const existing = loadSession()
   const result = await invokeQuestionnaire<{
     session: QuestionnaireSession
     answers: Answers
     submitted: boolean
+    draft?: QuestionnaireDraftMeta
   }>({
     action: 'ensure',
     draft,
     localAnswers,
     session: existing,
+    token: token || undefined,
   })
 
   saveSession(result.session)
-  return result
+  const order = draftFromMeta(result.draft) ?? draft
+  return { ...result, order }
 }
 
 export async function saveQuestionnaireAnswers(params: {

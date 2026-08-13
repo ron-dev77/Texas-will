@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from 'lucide-react'
 import { Wordmark } from '@/components/site/Wordmark'
 import { Button } from '@/components/ui/button'
@@ -109,6 +109,8 @@ function shortLabelFor(field: Field) {
 }
 
 export default function Questionnaire() {
+  const [searchParams] = useSearchParams()
+  const tokenFromUrl = searchParams.get('token')
   const [sectionIdx, setSectionIdx] = useState(0)
   const [answers, setAnswers] = useState<Answers>({})
   const [animKey, setAnimKey] = useState(0)
@@ -126,8 +128,13 @@ export default function Questionnaire() {
   const skipNextSave = useRef(true)
 
   const activeSections = useMemo(
-    () => getActiveSections(Boolean(order?.includeTrust), formSections),
-    [order?.includeTrust, formSections],
+    () =>
+      getActiveSections(
+        Boolean(order?.includeTrust),
+        formSections,
+        order?.documents ?? ['will'],
+      ),
+    [order?.includeTrust, order?.documents, formSections],
   )
   const section = activeSections[Math.min(sectionIdx, activeSections.length - 1)] ?? activeSections[0]
   const totalSections = activeSections.length
@@ -158,19 +165,19 @@ export default function Questionnaire() {
       try {
         const [schemaResult, result] = await Promise.all([
           getActiveQuestionnaireSchema(),
-          ensureQuestionnaireSession(draft, local),
+          ensureQuestionnaireSession(draft, local, tokenFromUrl),
         ])
         if (cancelled) return
         setFormSections(schemaResult.sections)
         sessionRef.current = result.session
         setSession(result.session)
+        if (result.order) setOrder(result.order)
         setAnswers(result.answers)
         localStorage.setItem(STORAGE_KEY, JSON.stringify(result.answers))
         setSubmitted(result.submitted)
         setReady(true)
       } catch (err) {
         if (cancelled) return
-        // Still try to load schema even if session boot fails
         try {
           const schemaResult = await getActiveQuestionnaireSchema()
           if (!cancelled) setFormSections(schemaResult.sections)
@@ -185,7 +192,7 @@ export default function Questionnaire() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [tokenFromUrl])
 
   // Keep Yes → at least one empty row for list fields
   useEffect(() => {
@@ -241,7 +248,7 @@ export default function Questionnaire() {
           setSavedFlash(true)
           window.setTimeout(() => setSavedFlash(false), 1200)
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           console.error('Failed to save answers', err)
         })
     }, 700)
@@ -422,8 +429,14 @@ export default function Questionnaire() {
         </div>
       </header>
       {bootError ? (
-        <div className="border-b border-destructive/30 bg-destructive/10 px-5 py-2 text-center text-sm text-destructive">
-          {bootError}
+        <div className="border-b border-destructive/30 bg-destructive/10 px-5 py-3 text-center text-sm text-destructive">
+          <p>{bootError}</p>
+          <p className="mt-1 text-xs text-destructive/80">
+            <Link to="/pricing#checkout" className="underline underline-offset-2">
+              Return to pricing
+            </Link>{' '}
+            if you still need to pay.
+          </p>
         </div>
       ) : null}
 
@@ -965,9 +978,11 @@ function ReviewPanel({
   const planLabel =
     order?.plan === 'couples' ? 'Couples will' : order?.plan === 'individual' ? 'Individual will' : null
 
-  const sections = getActiveSections(Boolean(order?.includeTrust), formSections).filter(
-    (s) => !s.isReview && s.id !== 'review',
-  )
+  const sections = getActiveSections(
+    Boolean(order?.includeTrust),
+    formSections,
+    order?.documents ?? ['will'],
+  ).filter((s) => !s.isReview && s.id !== 'review')
 
   return (
     <div className="space-y-5">

@@ -3,13 +3,17 @@ import { resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 
 /**
- * One-time bootstrap: create allowlisted admin Auth user.
+ * One-time bootstrap: create allowlisted admin Auth user in the database.
+ * The /auth admin page never creates users — it only signs in existing verified admins.
+ *
  * Usage:
  *   $env:ADMIN_EMAIL="ronprynn77@outlook.com"
  *   $env:ADMIN_PASSWORD="your-password"
  *   node scripts/bootstrap-admin.mjs
  *
  * Loads VITE_SUPABASE_* from .env.local. Do not commit passwords.
+ * After create, confirm email in Supabase Auth if required, and ensure
+ * user_roles / admin_users were granted (handle_admin_signup trigger).
  */
 
 function loadEnvFile(file) {

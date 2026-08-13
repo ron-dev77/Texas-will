@@ -29,7 +29,7 @@ import {
   type WillVersionRow,
 } from '@/lib/admin-order'
 import { VisualSkeletonWorkspace } from '@/components/admin/VisualSkeletonWorkspace'
-import { formatAnswerPreview, getVisibleFields, SECTIONS, type Section } from '@/lib/questionnaire'
+import { formatAnswerPreview, getActiveSections, getVisibleFields, SECTIONS, type Section } from '@/lib/questionnaire'
 
 type TabId = 'answers' | 'will_layout' | 'trust_layout' | 'ancillary_layout' | 'documents' | 'timeline'
 /** live = answers draft; current = latest saved row; otherwise a history version id */
@@ -493,7 +493,15 @@ export default function OrderDetailPage() {
       ) : null}
 
       {tab === 'answers' ? (
-        <AnswersTab answers={answersRow} includeTrust={includeTrust} />
+        <AnswersTab
+          answers={answersRow}
+          includeTrust={includeTrust}
+          documents={
+            Array.isArray(data?.order.add_ons?.documents)
+              ? (data.order.add_ons.documents as string[])
+              : ['will']
+          }
+        />
       ) : null}
 
       {tab === 'will_layout' && willSkeletonDoc ? (
@@ -875,9 +883,11 @@ function DocCard({
 function AnswersTab({
   answers,
   includeTrust,
+  documents = ['will'],
 }: {
   answers?: AnswersRow
   includeTrust?: boolean
+  documents?: string[]
 }) {
   const [schema, setSchema] = useState<Section[]>([...SECTIONS])
 
@@ -891,12 +901,9 @@ function AnswersTab({
     return <p className="text-sm text-muted-foreground">No answers submitted for this partner.</p>
   }
 
-  const sections = schema.filter((s) => {
-    if (s.isReview || s.id === 'review') return false
-    if (!includeTrust && (s.requiresTrust || s.id === 'trust_trustees' || s.id === 'trust_distributions'))
-      return false
-    return true
-  })
+  const sections = getActiveSections(Boolean(includeTrust), schema, documents).filter(
+    (s) => !s.isReview && s.id !== 'review',
+  )
 
   const knownIds = new Set(sections.flatMap((s) => s.fields.map((f) => f.id)))
   const extraKeys = Object.keys(answers.answers).filter((k) => {

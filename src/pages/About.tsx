@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PlanPairCards } from '@/components/site/PlanPairCards'
 import { ScrollReveal } from '@/components/site/ScrollReveal'
 import ceoPhoto from '@/assets/ceo.webp'
 
@@ -226,39 +227,8 @@ export default function About() {
                 </p>
               </div>
 
-              <div className="relative mx-auto mt-10 grid max-w-2xl gap-3 sm:grid-cols-2">
-                <Link
-                  to="/pricing?plan=individual#checkout"
-                  className="group rounded-2xl border border-white/10 bg-white px-6 py-6 text-left text-foreground shadow-lg transition duration-300 hover:-translate-y-1 hover:shadow-xl"
-                >
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Individual
-                  </div>
-                  <div className="mt-1 flex items-end gap-1.5">
-                    <span className="font-serif text-4xl font-semibold leading-none">$249</span>
-                    <span className="mb-1 text-sm font-medium text-accent">flat</span>
-                  </div>
-                  <div className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium">
-                    Start my will
-                    <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                  </div>
-                </Link>
-                <Link
-                  to="/pricing?plan=couples#checkout"
-                  className="group rounded-2xl border border-accent/40 bg-accent px-6 py-6 text-left text-accent-foreground shadow-lg transition duration-300 hover:-translate-y-1 hover:bg-accent/95 hover:shadow-xl"
-                >
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-foreground/80">
-                    Couples
-                  </div>
-                  <div className="mt-1 flex items-end gap-1.5">
-                    <span className="font-serif text-4xl font-semibold leading-none">$399</span>
-                    <span className="mb-1 text-sm font-medium text-accent-foreground/90">flat</span>
-                  </div>
-                  <div className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium">
-                    Start our wills
-                    <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                  </div>
-                </Link>
+              <div className="relative mx-auto mt-10 max-w-2xl">
+                <PlanPairCards surface="onDark" />
               </div>
             </div>
           </ScrollReveal>

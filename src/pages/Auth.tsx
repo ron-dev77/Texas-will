@@ -56,7 +56,9 @@ export default function Auth() {
           <Wordmark />
         </Link>
         <h1 className="mt-6 font-serif text-2xl text-foreground">Admin sign in</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Staff access for the review queue</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Sign in with an existing verified staff account. New accounts are not created here.
+        </p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div>

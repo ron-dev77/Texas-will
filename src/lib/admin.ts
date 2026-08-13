@@ -2,7 +2,11 @@ import { supabase } from '@/integrations/supabase/client'
 
 export type AdminRole = 'admin' | 'staff' | 'attorney'
 
-/** Emails that may self-register once via /auth (DB trigger also grants admin). */
+/**
+ * Bootstrap allowlist for scripts/bootstrap-admin.mjs only.
+ * Admin login never creates users — accounts must already exist in Auth
+ * and have a row in user_roles / admin_users.
+ */
 export const ADMIN_SIGNUP_ALLOWLIST = new Set([
   'ronprynn77@outlook.com',
   'scott@myaiwill.com',
@@ -44,66 +48,58 @@ export function hasAdminPortalAccess(roles: AdminRole[]) {
 export async function requireAdminAccess() {
   const user = await getSessionUser()
   if (!user) return { user: null, roles: [] as AdminRole[], ok: false }
+  if (!user.email_confirmed_at) {
+    await supabase.auth.signOut().catch(() => undefined)
+    return { user: null, roles: [] as AdminRole[], ok: false }
+  }
   const roles = await getUserRoles(user.id)
   const ok = hasAdminPortalAccess(roles)
+  if (!ok) {
+    await supabase.auth.signOut().catch(() => undefined)
+    return { user, roles, ok: false }
+  }
   return { user, roles, ok }
 }
 
+/**
+ * Admin portal login only — never creates a user.
+ * Requires an existing Auth user that is email-verified and has admin/staff role.
+ */
 export async function signInAdmin(email: string, password: string) {
   const normalized = email.trim().toLowerCase()
 
-  const { data: signedIn, error: signInError } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: normalized,
     password,
   })
 
-  if (!signInError && signedIn.user) {
-    const roles = await getUserRoles(signedIn.user.id)
-    if (!hasAdminPortalAccess(roles)) {
-      await supabase.auth.signOut()
-      throw new Error('This account is not authorized for admin access.')
+  if (error || !data.user) {
+    const msg = (error?.message || '').toLowerCase()
+    if (msg.includes('invalid') || msg.includes('credentials') || msg.includes('email not confirmed')) {
+      if (msg.includes('email not confirmed')) {
+        throw new Error(
+          'This account is not verified yet. Confirm the email in Supabase Auth, then sign in.',
+        )
+      }
+      throw new Error('Invalid email or password.')
     }
-    return { user: signedIn.user, roles }
+    throw new Error(error?.message || 'Sign in failed')
   }
 
-  const canBootstrap =
-    ADMIN_SIGNUP_ALLOWLIST.has(normalized) &&
-    (signInError?.message?.toLowerCase().includes('invalid') ||
-      signInError?.message?.toLowerCase().includes('credentials'))
-
-  if (!canBootstrap) {
-    throw new Error(signInError?.message || 'Sign in failed')
-  }
-
-  const { data: signedUp, error: signUpError } = await supabase.auth.signUp({
-    email: normalized,
-    password,
-  })
-
-  if (signUpError) {
-    throw new Error(signUpError.message)
-  }
-
-  if (!signedUp.session || !signedUp.user) {
-    throw new Error(
-      'Account created, but email confirmation is required. In Supabase → Authentication → Providers → Email, turn off “Confirm email”, then sign in again.',
-    )
-  }
-
-  // Trigger may need a moment; re-check roles
-  let roles = await getUserRoles(signedUp.user.id)
-  if (!hasAdminPortalAccess(roles)) {
-    await new Promise((r) => setTimeout(r, 400))
-    roles = await getUserRoles(signedUp.user.id)
-  }
-  if (!hasAdminPortalAccess(roles)) {
+  if (!data.user.email_confirmed_at) {
     await supabase.auth.signOut()
     throw new Error(
-      'Signed up, but admin role was not assigned. Ensure migrations are pushed (handle_admin_signup trigger).',
+      'This account is not verified yet. Confirm the email in Supabase Auth, then sign in.',
     )
   }
 
-  return { user: signedUp.user, roles }
+  const roles = await getUserRoles(data.user.id)
+  if (!hasAdminPortalAccess(roles)) {
+    await supabase.auth.signOut()
+    throw new Error('This account is not authorized for admin access.')
+  }
+
+  return { user: data.user, roles }
 }
 
 export async function listOrders(includeArchived = true): Promise<OrderRow[]> {

@@ -323,6 +323,7 @@ export type Database = {
           partner2_token: string
           plan_type: string
           promo_code: string | null
+          questionnaire_expires_at: string | null
           questionnaire_form_id: string | null
           review_started_at: string | null
           status: string
@@ -350,6 +351,7 @@ export type Database = {
           partner2_token?: string
           plan_type: string
           promo_code?: string | null
+          questionnaire_expires_at?: string | null
           questionnaire_form_id?: string | null
           review_started_at?: string | null
           status?: string
@@ -377,6 +379,7 @@ export type Database = {
           partner2_token?: string
           plan_type?: string
           promo_code?: string | null
+          questionnaire_expires_at?: string | null
           questionnaire_form_id?: string | null
           review_started_at?: string | null
           status?: string
