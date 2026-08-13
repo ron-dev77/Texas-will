@@ -26,10 +26,18 @@ export function stripePriceIdsFromEnv(): {
   couples: string | null
   trust: string | null
 } {
+  const clean = (raw: string | undefined) => {
+    const v = raw?.trim() || ''
+    if (!v) return null
+    // Ignore placeholder values from .env.example
+    if (v.includes('your_') || v.includes('xxxx') || v.includes('replace')) return null
+    if (!v.startsWith('price_')) return null
+    return v
+  }
   return {
-    individual: Deno.env.get('STRIPE_PRICE_INDIVIDUAL')?.trim() || null,
-    couples: Deno.env.get('STRIPE_PRICE_COUPLES')?.trim() || null,
-    trust: Deno.env.get('STRIPE_PRICE_TRUST')?.trim() || null,
+    individual: clean(Deno.env.get('STRIPE_PRICE_INDIVIDUAL')),
+    couples: clean(Deno.env.get('STRIPE_PRICE_COUPLES')),
+    trust: clean(Deno.env.get('STRIPE_PRICE_TRUST')),
   }
 }
 

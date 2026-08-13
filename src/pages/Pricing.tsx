@@ -352,7 +352,7 @@ export default function Pricing() {
                         checked={allOptionalSelected}
                         onCheckedChange={(v) => toggleAllOptionalDocuments(v === true)}
                       />
-                      All optional docs
+                      Select all
                     </label>
                   </div>
 

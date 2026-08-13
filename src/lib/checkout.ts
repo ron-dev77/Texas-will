@@ -18,13 +18,53 @@ export type FinalizeCheckoutResult = {
   partnerEmail: string | null
 }
 
+async function readFunctionError(error: unknown, data: unknown): Promise<string> {
+  if (data && typeof data === 'object' && 'error' in data && (data as { error: unknown }).error) {
+    return String((data as { error: string }).error)
+  }
+
+  const err = error as {
+    message?: string
+    context?: Response
+  }
+
+  try {
+    const ctx = err?.context
+    if (ctx && typeof ctx.json === 'function') {
+      const body = await ctx.clone().json()
+      if (body && typeof body === 'object' && 'error' in body && body.error) {
+        return String((body as { error: string }).error)
+      }
+      if (body && typeof body === 'object' && 'message' in body && body.message) {
+        return String((body as { message: string }).message)
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  const msg = err?.message || 'Checkout service error'
+  if (msg.toLowerCase().includes('non-2xx')) {
+    return (
+      'Checkout could not start. Deploy the `checkout` edge function and set ' +
+      'STRIPE_SECRET_KEY (and real price IDs) in Supabase secrets.'
+    )
+  }
+  return msg
+}
+
 async function invokeCheckout<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke('checkout', { body })
   if (error) {
-    throw new Error(error.message || 'Checkout service error')
+    throw new Error(await readFunctionError(error, data))
   }
   if (data && typeof data === 'object' && 'error' in data && data.error) {
     throw new Error(String((data as { error: string }).error))
+  }
+  if (!data) {
+    throw new Error(
+      'Checkout returned empty response. Deploy `checkout` and set STRIPE_SECRET_KEY in Supabase.',
+    )
   }
   return data as T
 }
