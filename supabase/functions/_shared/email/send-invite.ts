@@ -31,6 +31,8 @@ export async function sendQuestionnaireInvites(
     partner1Token: string
     partner2Token: string
     expiresAt: string
+    planCents?: number
+    trustCents?: number
   },
 ): Promise<InviteSendResult> {
   const origin = appOrigin().replace(/\/$/, '')
@@ -43,6 +45,8 @@ export async function sendQuestionnaireInvites(
     amountPaidCents: params.amountPaidCents,
     expiresAt: params.expiresAt,
     appOrigin: origin,
+    planCents: params.planCents,
+    trustCents: params.trustCents,
   }
 
   if (!isPlaceholderEmail(params.userEmail)) {

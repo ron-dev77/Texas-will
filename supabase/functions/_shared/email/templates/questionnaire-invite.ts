@@ -10,6 +10,9 @@ export type QuestionnaireInviteContext = {
   questionnaireUrl: string
   expiresAt: string
   appOrigin: string
+  /** Optional breakdown for display (cents). */
+  planCents?: number
+  trustCents?: number
 }
 
 /** Post-payment invite with secure questionnaire link (30-day token). */
@@ -19,12 +22,19 @@ export function buildQuestionnaireInviteEmail(ctx: QuestionnaireInviteContext): 
   text: string
 } {
   const plan = ctx.planType === 'couples' ? 'Couples plan' : 'Individual plan'
-  const trust = ctx.includeTrust ? ' · Living trust add-on' : ''
+  const planCents =
+    ctx.planCents ??
+    (ctx.planType === 'couples' ? 39900 : 24900)
+  const trustCents = ctx.includeTrust ? (ctx.trustCents ?? 5000) : 0
   const expires = formatWhen(ctx.expiresAt)
   const who =
     ctx.partnerLabel === 'partner'
       ? 'Your partner completed payment for your Couples My AI Will package. This link is yours alone.'
       : 'Thank you for your payment. Your secure questionnaire link is ready.'
+
+  const breakdownText = ctx.includeTrust
+    ? `${plan} ${formatMoneyCents(planCents)} + Living Trust add-on ${formatMoneyCents(trustCents)} = ${formatMoneyCents(ctx.amountPaidCents)}`
+    : `${plan} ${formatMoneyCents(ctx.amountPaidCents)}`
 
   const subject = 'Your My AI Will questionnaire is ready'
   const text = [
@@ -32,8 +42,9 @@ export function buildQuestionnaireInviteEmail(ctx: QuestionnaireInviteContext): 
     '',
     who,
     '',
-    `Plan: ${plan}${trust}`,
+    `Plan: ${plan}${ctx.includeTrust ? ' · Living Trust add-on (+$50)' : ''}`,
     `Amount paid: ${formatMoneyCents(ctx.amountPaidCents)}`,
+    `Breakdown: ${breakdownText}`,
     `Complete by: ${expires} CT (30 days from payment)`,
     '',
     'Open your questionnaire:',
@@ -59,8 +70,18 @@ export function buildQuestionnaireInviteEmail(ctx: QuestionnaireInviteContext): 
       </p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px;background:#fafaf9;border:1px solid #e7e5e4;border-radius:8px;font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:#44403c;">
         <tr><td style="padding:14px 16px;">
-          <div><strong>Plan</strong> · ${escapeHtml(plan)}${escapeHtml(trust)}</div>
+          <div><strong>Plan</strong> · ${escapeHtml(plan)}</div>
+          ${
+            ctx.includeTrust
+              ? `<div style="margin-top:6px;"><strong>Add-on</strong> · Living Trust +${escapeHtml(formatMoneyCents(trustCents))}</div>`
+              : ''
+          }
           <div style="margin-top:6px;"><strong>Paid</strong> · ${escapeHtml(formatMoneyCents(ctx.amountPaidCents))}</div>
+          ${
+            ctx.includeTrust
+              ? `<div style="margin-top:6px;font-size:12px;color:#78716c;">${escapeHtml(formatMoneyCents(planCents))} plan + ${escapeHtml(formatMoneyCents(trustCents))} trust</div>`
+              : ''
+          }
           <div style="margin-top:6px;"><strong>Complete by</strong> · ${escapeHtml(expires)} CT</div>
           <div style="margin-top:6px;font-size:12px;color:#78716c;">Order ${escapeHtml(ctx.orderId.slice(0, 8))}…</div>
         </td></tr>

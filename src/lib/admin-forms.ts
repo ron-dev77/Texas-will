@@ -14,7 +14,7 @@ import {
   type DocumentKind,
   isAncillaryKind,
 } from '@/lib/document-kinds'
-import { BUNDLED_ANCILLARY_SKELETONS } from '@/lib/ancillary-skeletons'
+import { BUNDLED_ANCILLARY_SKELETONS, needsAncillaryTemplateRefresh } from '@/lib/ancillary-skeletons'
 
 export type AncillarySkeletonsMap = Partial<Record<AncillaryKind, string>>
 
@@ -308,45 +308,7 @@ export async function ensureDefaultForm(): Promise<QuestionnaireFormRow> {
     const bundledAnc = defaultAncillarySkeletonsMap()
     const staleAnc = ANCILLARY_KINDS.filter((k) => {
       const body = anc[k]?.trim() ?? ''
-      if (!body) return true
-      // Directive: short title + long heading, or left-aligned witnesses.
-      if (k === 'directive') {
-        if (/"title":\s*"DIRECTIVE TO PHYSICIANS"\s*,/.test(body)) return true
-        if (/"heading":\s*"DIRECTIVE TO PHYSICIANS/.test(body)) return true
-        if (/"label":\s*"Witness 1"[\s\S]{0,120}"align":\s*"left"/.test(body)) return true
-        if (/"label":\s*"Witness 1"[\s\S]{0,80}"align":\s*"center"/.test(body)) return true
-        // Missing explicit right align on Witness 1
-        if (/"label":\s*"Witness 1"/.test(body) && !/"label":\s*"Witness 1"[\s\S]{0,120}"align":\s*"right"/.test(body)) {
-          return true
-        }
-      }
-      if (k === 'dpoa') {
-        if (/"heading":\s*"STATUTORY DURABLE POWER OF ATTORNEY"/.test(body)) return true
-        if (
-          /"label":\s*"Notary Public, State of Texas"/.test(body) &&
-          !/"label":\s*"Notary Public, State of Texas"[\s\S]{0,120}"align":\s*"right"/.test(body)
-        ) {
-          return true
-        }
-      }
-      if (k === 'mpoa') {
-        if (/"heading":\s*"MEDICAL POWER OF ATTORNEY"/.test(body)) return true
-        if (
-          /"label":\s*"Notary Public, State of Texas"/.test(body) &&
-          !/"label":\s*"Notary Public, State of Texas"[\s\S]{0,120}"align":\s*"right"/.test(body)
-        ) {
-          return true
-        }
-      }
-      if (k === 'hipaa') {
-        if (/"heading":\s*"AUTHORIZATION FOR RELEASE/.test(body)) return true
-        // Old single-line title (no line break)
-        if (
-          /"title":\s*"AUTHORIZATION FOR RELEASE OF PROTECTED HEALTH INFORMATION"/.test(body)
-        ) {
-          return true
-        }
-      }
+      if (needsAncillaryTemplateRefresh(body)) return true
       return false
     })
     if (staleAnc.length > 0) {

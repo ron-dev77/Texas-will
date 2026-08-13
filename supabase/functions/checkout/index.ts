@@ -86,9 +86,9 @@ Deno.serve(async (req) => {
         return json({ error: 'Select at least one document.' }, 400)
       }
 
-      const stripe = stripeClient()
-      const priced = await resolveCheckoutAmount(stripe, plan, includeTrust)
+      const priced = resolveCheckoutAmount(plan, includeTrust)
       const amountCents = priced.amountCents
+      const stripe = stripeClient()
 
       const { data: activeForm } = await sb
         .from('questionnaire_forms')
@@ -106,6 +106,8 @@ Deno.serve(async (req) => {
             trust: includeTrust,
             documents,
             stripe_price_ids: priced.priceIds,
+            plan_cents: priced.planCents,
+            trust_cents: priced.trustCents,
           },
           amount_paid: amountCents,
           status: 'pending_payment',
@@ -127,12 +129,14 @@ Deno.serve(async (req) => {
           order_id: order.id,
           plan,
           include_trust: includeTrust ? '1' : '0',
+          plan_cents: String(priced.planCents),
+          trust_cents: String(priced.trustCents),
           stripe_price_ids: priced.priceIds.join(','),
         },
         description:
           plan === 'couples'
-            ? `My AI Will — Couples${includeTrust ? ' + Trust' : ''}`
-            : `My AI Will — Individual${includeTrust ? ' + Trust' : ''}`,
+            ? `My AI Will — Couples${includeTrust ? ' + Trust add-on' : ''}`
+            : `My AI Will — Individual${includeTrust ? ' + Trust add-on' : ''}`,
       })
 
       const { error: linkErr } = await sb

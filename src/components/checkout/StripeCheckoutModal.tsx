@@ -223,7 +223,9 @@ export function StripeCheckoutModal({
       title="Secure payment"
       description={
         draft
-          ? `${draft.plan === 'couples' ? 'Couples' : 'Individual'} plan · $${draft.total}`
+          ? draft.includeTrust
+            ? `${draft.plan === 'couples' ? 'Couples' : 'Individual'} $${draft.plan === 'couples' ? 399 : 249} + Trust $50 = $${draft.total}`
+            : `${draft.plan === 'couples' ? 'Couples' : 'Individual'} plan · $${draft.total}`
           : undefined
       }
       className="max-w-lg"

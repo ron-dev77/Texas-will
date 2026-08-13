@@ -419,11 +419,10 @@ export function VisualSkeletonWorkspace({
                     <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                       <input
                         type="checkbox"
-                        checked={block.pageBreakBefore || block.kind === 'page_break'}
-                        disabled={block.kind === 'page_break'}
+                        checked={Boolean(block.pageBreakBefore)}
                         onChange={(e) => updateBlock(block.id, { pageBreakBefore: e.target.checked })}
                       />
-                      Page break before
+                      Start on new page
                     </label>
                     <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
                       Blank lines
@@ -540,7 +539,10 @@ export function VisualSkeletonWorkspace({
                       </p>
                     )}
                     {block.kind === 'page_break' && (
-                      <p className="text-xs text-muted-foreground">Forces a new A4 page here.</p>
+                      <p className="text-xs text-muted-foreground">
+                        When checked, starts a new A4 page. Uncheck to keep content on this page.
+                        Breaks are also skipped automatically if remaining content still fits.
+                      </p>
                     )}
                   </div>
                 </section>

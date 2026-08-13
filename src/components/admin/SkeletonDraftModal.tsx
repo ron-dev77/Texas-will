@@ -181,11 +181,10 @@ export function SkeletonDraftModal({
                 <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <input
                     type="checkbox"
-                    checked={block.pageBreakBefore || block.kind === 'page_break'}
-                    disabled={block.kind === 'page_break'}
+                    checked={Boolean(block.pageBreakBefore)}
                     onChange={(e) => updateBlock(block.id, { pageBreakBefore: e.target.checked })}
                   />
-                  Page break
+                  Start on new page
                 </label>
                 <Button
                   type="button"

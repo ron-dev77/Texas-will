@@ -13,6 +13,11 @@ import {
 import { cn } from '@/lib/utils'
 import { savePaidOrderDraft } from '@/lib/checkout'
 import {
+  computeTotalDollars,
+  planPriceDollars,
+  trustAddonDollars,
+} from '@/lib/pricing'
+import {
   type OrderDraft,
   type PackageDocId,
   type Plan,
@@ -109,8 +114,9 @@ export default function Pricing() {
     setDocuments(on ? [...PACKAGE_DOC_IDS] : ['will'])
   }
 
-  const base = plan === 'individual' ? 249 : 399
-  const total = base + (includeTrust ? 50 : 0)
+  const base = planPriceDollars(plan)
+  const trustFee = trustAddonDollars()
+  const total = computeTotalDollars(plan, includeTrust)
 
   const valid = useMemo(
     () => emailOk && partnerOk && partnerDifferent && lsrConsent && hasWill,
@@ -196,7 +202,15 @@ export default function Pricing() {
             ) : null}
 
             <p className="mt-8 text-xs text-muted-foreground">
-              Order {paid.orderId.slice(0, 8)}… · ${paid.total} paid
+              Order {paid.orderId.slice(0, 8)}… · $
+              {paid.total}
+              {paid.plan === 'individual' || paid.plan === 'couples'
+                ? ` paid (${paid.plan === 'couples' ? '$399' : '$249'}${
+                    paid.total > (paid.plan === 'couples' ? 399 : 249)
+                      ? ' + $50 Living Trust add-on'
+                      : ''
+                  })`
+                : ' paid'}
             </p>
             <Button asChild variant="outline" className="mt-6 rounded-full">
               <Link to="/">Back to home</Link>
@@ -516,18 +530,37 @@ export default function Pricing() {
 
               <div className="border-t border-border/60 bg-primary px-6 py-6 text-primary-foreground sm:px-8 sm:py-7">
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="text-xs uppercase tracking-wider text-primary-foreground/65">
                       {plan === 'individual' ? 'Individual' : 'Couples'}
-                      {includeTrust ? ' + living trust' : ''}
                       {documents.length > 1 ? ` · ${documents.length} docs` : ''}
                     </div>
-                    <div className="mt-1 font-serif text-4xl font-semibold">${total}</div>
-                    {includeTrust ? (
-                      <p className="mt-1 text-xs text-primary-foreground/60">
-                        ${base} + $50 trust
-                      </p>
-                    ) : null}
+                    <div className="mt-2 space-y-1 text-sm text-primary-foreground/75">
+                      <div className="flex justify-between gap-6 sm:max-w-xs">
+                        <span>{plan === 'individual' ? 'Individual plan' : 'Couples plan'}</span>
+                        <span className="font-medium text-primary-foreground">${base}</span>
+                      </div>
+                      {includeTrust ? (
+                        <div className="flex justify-between gap-6 sm:max-w-xs">
+                          <span>Living Trust add-on</span>
+                          <span className="font-medium text-primary-foreground">+${trustFee}</span>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-primary-foreground/50">
+                          No trust add-on selected
+                        </div>
+                      )}
+                      <div className="flex justify-between gap-6 border-t border-primary-foreground/15 pt-2 sm:max-w-xs">
+                        <span className="font-medium text-primary-foreground">Total</span>
+                        <span className="font-serif text-3xl font-semibold text-primary-foreground">
+                          ${total}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[11px] text-primary-foreground/50">
+                      Optional papers (POA, Directive, HIPAA) are included — they do not change the
+                      total. Only the Living Trust adds ${trustFee}.
+                    </p>
                   </div>
                   <Button
                     size="lg"

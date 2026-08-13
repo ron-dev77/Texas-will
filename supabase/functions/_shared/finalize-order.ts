@@ -54,7 +54,11 @@ export async function finalizePaidOrder(
   }
 
   const plan: CheckoutPlan = order.plan_type === 'couples' ? 'couples' : 'individual'
-  const addOns = (order.add_ons ?? {}) as { trust?: boolean }
+  const addOns = (order.add_ons ?? {}) as {
+    trust?: boolean
+    plan_cents?: number
+    trust_cents?: number
+  }
   const expiresAt = order.questionnaire_expires_at || expiresIn30Days()
 
   if (order.status === 'pending_payment' || order.status === 'failed') {
@@ -91,6 +95,10 @@ export async function finalizePaidOrder(
         partner1Token: order.partner1_token,
         partner2Token: order.partner2_token,
         expiresAt,
+        planCents: Number(addOns.plan_cents ?? (plan === 'couples' ? 39900 : 24900)),
+        trustCents: Boolean(addOns.trust)
+          ? Number(addOns.trust_cents ?? 5000)
+          : 0,
       })
       await sb
         .from('orders')

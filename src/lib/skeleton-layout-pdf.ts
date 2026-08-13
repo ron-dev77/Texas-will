@@ -284,13 +284,77 @@ export async function renderSkeletonLayoutPdf(
     y -= lineHeight * n
   }
 
-  const drawBlock = (block: SkeletonBlock) => {
-    if (block.kind === 'page_break' || block.pageBreakBefore) {
-      newPage()
+  const title = (doc.title || 'LAST WILL AND TESTAMENT').toUpperCase().replace(/\s+/g, ' ').trim()
+  const normalizeHeading = (raw: string) =>
+    fillSkeletonTokens(raw, answers, options)
+      .toUpperCase()
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  const titlesOverlap = (a: string, b: string) => a === b || a.includes(b) || b.includes(a)
+
+  // Document title + one or more overlapping heading blocks → draw a single title only.
+  let displayTitle = title
+  const skipTitleBlockIdx = new Set<number>()
+  for (let i = 0; i < doc.blocks.length; i++) {
+    const b = doc.blocks[i]
+    if ((b.kind !== 'heading' && b.kind !== 'section') || !b.heading.trim()) continue
+    const h = normalizeHeading(b.heading)
+    if (!titlesOverlap(h, title) && !titlesOverlap(h, displayTitle)) continue
+    skipTitleBlockIdx.add(i)
+    if (h.length > displayTitle.length) displayTitle = h
+  }
+
+  /** Rough height of blocks from `fromIdx` until the next enabled page break / end. */
+  const estimateTrailingHeight = (fromIdx: number): number => {
+    let h = 0
+    for (let j = fromIdx; j < doc.blocks.length; j++) {
+      if (skipTitleBlockIdx.has(j)) continue
+      const b = doc.blocks[j]
+      if (j > fromIdx && b.pageBreakBefore) break
+      if (b.kind === 'page_break') {
+        if (j === fromIdx) continue
+        if (b.pageBreakBefore) break
+        continue
+      }
+      if (b.kind === 'spacer') {
+        h += lineHeight * Math.max(1, b.blankLinesAfter || 2)
+        continue
+      }
+      if (b.kind === 'signature' || b.kind === 'signature_pair') {
+        h += 52 + lineHeight * (b.blankLinesAfter || 0)
+        continue
+      }
+      const text =
+        b.kind === 'heading'
+          ? b.heading
+          : b.kind === 'paragraph'
+            ? b.body
+            : `${b.heading}\n${b.body}`
+      const filled = fillSkeletonTokens(text || '', answers, options)
+      const lines = Math.max(1, Math.ceil(filled.length / 90) + filled.split('\n').length)
+      h += lines * (b.kind === 'heading' ? headingSize + 4 : lineHeight)
+      h += lineHeight * (b.blankLinesAfter || 0)
+    }
+    return h
+  }
+
+  const drawBlock = (block: SkeletonBlock, index: number) => {
+    const wantsBreak = Boolean(block.pageBreakBefore)
+    if (wantsBreak) {
+      // Soft-skip forced breaks when remaining content still fits on this page —
+      // avoids a nearly empty last page from a default page break.
+      const remainingApprox = estimateTrailingHeight(index)
+      if (remainingApprox <= 0 || remainingApprox > spaceLeft()) {
+        newPage()
+      }
       if (block.kind === 'page_break') {
         applyBlankLines(block.blankLinesAfter)
         return
       }
+    } else if (block.kind === 'page_break') {
+      // Unchecked page-break block: ignore (no forced new page).
+      return
     }
 
     if (block.kind === 'spacer') {
@@ -339,32 +403,11 @@ export async function renderSkeletonLayoutPdf(
     applyBlankLines(block.blankLinesAfter)
   }
 
-  const title = (doc.title || 'LAST WILL AND TESTAMENT').toUpperCase().replace(/\s+/g, ' ').trim()
-  const normalizeHeading = (raw: string) =>
-    fillSkeletonTokens(raw, answers, options)
-      .toUpperCase()
-      .replace(/\s+/g, ' ')
-      .trim()
-
-  const titlesOverlap = (a: string, b: string) => a === b || a.includes(b) || b.includes(a)
-
-  // Document title + one or more overlapping heading blocks → draw a single title only.
-  let displayTitle = title
-  const skipTitleBlockIdx = new Set<number>()
-  for (let i = 0; i < doc.blocks.length; i++) {
-    const b = doc.blocks[i]
-    if ((b.kind !== 'heading' && b.kind !== 'section') || !b.heading.trim()) continue
-    const h = normalizeHeading(b.heading)
-    if (!titlesOverlap(h, title) && !titlesOverlap(h, displayTitle)) continue
-    skipTitleBlockIdx.add(i)
-    if (h.length > displayTitle.length) displayTitle = h
-  }
-
   drawAlignedText(displayTitle, fontBold, titleSize, 'center', 14)
 
   for (let i = 0; i < doc.blocks.length; i++) {
     if (skipTitleBlockIdx.has(i)) continue
-    drawBlock(doc.blocks[i])
+    drawBlock(doc.blocks[i], i)
   }
 
   pages.forEach((p, i) => {
