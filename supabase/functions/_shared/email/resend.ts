@@ -69,6 +69,13 @@ export async function sendResendEmail(input: SendEmailInput): Promise<SendEmailR
   const replyTo = input.replyTo?.trim() || bareEmail(from)
   if (replyTo) payload.reply_to = replyTo
   if (input.tags?.length) payload.tags = input.tags
+  if (input.attachments?.length) {
+    payload.attachments = input.attachments.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+      ...(a.contentType ? { content_type: a.contentType } : {}),
+    }))
+  }
 
   const res = await fetch(RESEND_API, {
     method: 'POST',

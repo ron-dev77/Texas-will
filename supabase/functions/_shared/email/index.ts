@@ -7,6 +7,10 @@ export {
   listRegisteredAdminEmails,
 } from './send-submission.ts'
 export { sendQuestionnaireInvites } from './send-invite.ts'
+export {
+  sendDocumentsReadyEmails,
+  markDocumentsSent,
+} from './send-documents-ready.ts'
 export { buildClientDocumentsReadyEmail } from './templates/client-documents-ready.ts'
 export type { DocumentsReadyEmailContext } from './templates/client-documents-ready.ts'
 export { notaryFinderPageUrl, notaryMapsSearchUrl } from './notary.ts'

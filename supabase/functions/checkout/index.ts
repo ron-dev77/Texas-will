@@ -40,11 +40,12 @@ function stripeClient() {
 }
 
 function normalizeDocs(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return ['will']
-  const next = raw
-    .map((d) => String(d))
-    .filter((id) => (PACKAGE_DOC_IDS as readonly string[]).includes(id))
-  return next.length > 0 ? next : ['will']
+  const allowed = new Set(PACKAGE_DOC_IDS as readonly string[])
+  const fromRaw = Array.isArray(raw)
+    ? raw.map((d) => String(d)).filter((id) => allowed.has(id) && id !== 'will')
+    : []
+  // Will is always required. Trust is never in this list (paid add-on separately).
+  return ['will', ...fromRaw]
 }
 
 Deno.serve(async (req) => {

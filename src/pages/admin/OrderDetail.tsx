@@ -28,6 +28,13 @@ import {
   type WillDocRow,
   type WillVersionRow,
 } from '@/lib/admin-order'
+import {
+  deliverDocumentsToClient,
+  orderedDocumentKindsForDelivery,
+  pdfBytesToBase64,
+  pdfFilenameFor,
+} from '@/lib/admin-deliver'
+import { Checkbox } from '@/components/ui/checkbox'
 import { VisualSkeletonWorkspace } from '@/components/admin/VisualSkeletonWorkspace'
 import { formatAnswerPreview, getActiveSections, getVisibleFields, SECTIONS, type Section } from '@/lib/questionnaire'
 
@@ -75,6 +82,8 @@ export default function OrderDetailPage() {
   >({})
   const [layoutSchema, setLayoutSchema] = useState<Section[]>([...SECTIONS])
   const [layoutBusy, setLayoutBusy] = useState(false)
+  const [sendKinds, setSendKinds] = useState<DocumentKind[]>(['will'])
+  const [sendPartners, setSendPartners] = useState<(1 | 2)[]>([1])
 
   async function load() {
     setLoading(true)
@@ -82,6 +91,16 @@ export default function OrderDetailPage() {
     try {
       const detail = await getOrderDetail(orderId)
       setData(detail)
+      const addOns = (detail.order.add_ons ?? {}) as { documents?: unknown; trust?: boolean }
+      const kinds = orderedDocumentKindsForDelivery({
+        documents: addOns.documents,
+        includeTrust: Boolean(addOns.trust),
+      })
+      setSendKinds(kinds.length ? kinds : ['will'])
+      const partners: (1 | 2)[] = detail.answers.some((a) => a.partner_number === 2)
+        ? [1, 2]
+        : [1]
+      setSendPartners(partners)
       if (detail.order.status === 'submitted' || detail.order.status === 'ready_for_review') {
         void updateOrderStatus({ orderId, status: 'in_review', note: 'Opened by admin' }).catch(
           () => undefined,
@@ -310,22 +329,148 @@ export default function OrderDetailPage() {
     }
   }
 
-  async function markStatus(status: 'delivered' | 'needs_revision') {
+  async function markStatus(status: 'delivered' | 'needs_revision' | 'approved') {
     setBusy(status)
     setActionMsg(null)
     try {
       await updateOrderStatus({
         orderId,
         status,
-        note: status === 'delivered' ? 'Marked delivered by admin' : 'Needs revision',
+        note:
+          status === 'delivered'
+            ? 'Marked delivered by admin'
+            : status === 'approved'
+              ? 'Approved by admin (not emailed yet)'
+              : 'Needs revision',
+        patch: status === 'approved' ? { approved_at: new Date().toISOString() } : undefined,
       })
       await load()
-      setActionMsg(status === 'delivered' ? 'Marked delivered' : 'Marked needs revision')
+      setActionMsg(
+        status === 'delivered'
+          ? 'Marked delivered'
+          : status === 'approved'
+            ? 'Marked approved'
+            : 'Marked needs revision',
+      )
     } catch (err) {
       setActionMsg(err instanceof Error ? err.message : 'Update failed')
     } finally {
       setBusy(null)
     }
+  }
+
+  async function buildPdfForKind(
+    kind: DocumentKind,
+    partnerNumber: 1 | 2,
+  ): Promise<Uint8Array | null> {
+    if (!data) return null
+    const answersForPartner = data.answers.find((a) => a.partner_number === partnerNumber)
+    if (!answersForPartner) return null
+
+    const trustOn = Boolean((data.order.add_ons as { trust?: boolean } | null)?.trust)
+    let skel = skeletonByKind[kind]
+    if (!skel || partnerNumber !== partner) {
+      const doc = data.wills.find(
+        (w) => w.partner_number === partnerNumber && w.document_kind === kind,
+      )
+      const resolved = await resolveSkeletonForOrder({
+        orderFormId: data.order.questionnaire_form_id,
+        orderSkeletonBody: doc?.skeleton_body,
+        kind,
+      })
+      skel = parseSkeletonBody(resolved.body)
+    }
+
+    if (skel) {
+      return renderSkeletonLayoutPdf(
+        skel,
+        answersForPartner.answers,
+        kind === 'will' ? { includeTrust: trustOn } : {},
+      )
+    }
+
+    const content = buildDocumentFromAnswers(kind, answersForPartner.answers, {
+      includeTrust: trustOn,
+    })
+    return renderDocumentPdf(content, kind)
+  }
+
+  async function approveAndSendDocuments() {
+    if (!data) return
+    if (sendKinds.length === 0) {
+      setActionMsg('Select at least one document to send.')
+      return
+    }
+    if (sendPartners.length === 0) {
+      setActionMsg('Select at least one partner to send to.')
+      return
+    }
+
+    setBusy('send')
+    setActionMsg(null)
+    try {
+      const couples = data.order.plan_type === 'couples'
+      const attachments: {
+        kind: DocumentKind
+        partnerNumber: 1 | 2
+        filename: string
+        label: string
+        contentBase64: string
+      }[] = []
+
+      for (const partnerNumber of sendPartners) {
+        for (const kind of sendKinds) {
+          if (kind === 'rlt' && !includeTrust) continue
+          const bytes = await buildPdfForKind(kind, partnerNumber)
+          if (!bytes) {
+            throw new Error(
+              `Could not build ${DOCUMENT_KIND_LABEL[kind]} for partner ${partnerNumber} (missing answers?).`,
+            )
+          }
+          attachments.push({
+            kind,
+            partnerNumber,
+            filename: pdfFilenameFor(kind, partnerNumber, couples),
+            label: DOCUMENT_KIND_LABEL[kind],
+            contentBase64: await pdfBytesToBase64(bytes),
+          })
+        }
+      }
+
+      if (attachments.length === 0) {
+        throw new Error('No PDFs were generated to send.')
+      }
+
+      const result = await deliverDocumentsToClient({
+        orderId,
+        attachments,
+        markDelivered: true,
+      })
+      await load()
+      setActionMsg(
+        `Sent ${result.sentCount} PDF${result.sentCount === 1 ? '' : 's'} and marked delivered.`,
+      )
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'Send failed')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  function toggleSendKind(kind: DocumentKind, on: boolean) {
+    setSendKinds((prev) => {
+      if (on) return prev.includes(kind) ? prev : [...prev, kind]
+      if (kind === 'will') return prev // will required in delivery package when purchased
+      return prev.filter((k) => k !== kind)
+    })
+  }
+
+  function toggleSendPartner(pn: 1 | 2, on: boolean) {
+    setSendPartners((prev) => {
+      if (on) return prev.includes(pn) ? prev : [...prev, pn]
+      if (prev.length <= 1) return prev
+      return prev.filter((p) => p !== pn)
+    })
   }
 
   async function saveLayoutOnly(kind: DocumentKind) {
@@ -773,11 +918,11 @@ export default function OrderDetailPage() {
           </section>
 
           <section className="rounded-lg border border-border bg-card p-5 sm:p-6">
-            <h2 className="font-serif text-xl">Attorney notes</h2>
+            <h2 className="font-serif text-xl">Review &amp; deliver</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Optional notes for the file. Save stores a copy on the order (currently viewing:{' '}
-              <strong>{DOCUMENT_KIND_LABEL[docKind]}</strong>
-              ). Click <strong>Delivered</strong> when review is complete.
+              Update status as you review, then approve &amp; send only the documents this customer
+              purchased (will required; others optional; trust if paid). PDFs attach to the
+              documents-ready email.
             </p>
             <Textarea
               className="mt-3 min-h-28"
@@ -786,6 +931,61 @@ export default function OrderDetailPage() {
               placeholder="e.g. Change the executor to John Smith. Strengthen the residuary clause."
               disabled={viewingHistorical}
             />
+
+            <div className="mt-4 space-y-3 rounded-xl border border-border/70 bg-secondary/30 p-4">
+              <p className="text-sm font-medium text-foreground">Documents to email</p>
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {orderedDocumentKindsForDelivery({
+                  documents: (data?.order.add_ons as { documents?: unknown } | null)?.documents,
+                  includeTrust,
+                }).map((kind) => {
+                  const checked = sendKinds.includes(kind)
+                  return (
+                    <li key={kind}>
+                      <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+                        <Checkbox
+                          checked={checked}
+                          disabled={kind === 'will'}
+                          onCheckedChange={(v) => toggleSendKind(kind, v === true)}
+                          className="mt-0.5"
+                        />
+                        <span>
+                          {DOCUMENT_KIND_LABEL[kind]}
+                          {kind === 'will' ? (
+                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                              Required
+                            </span>
+                          ) : kind === 'rlt' ? (
+                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                              +$50 add-on
+                            </span>
+                          ) : null}
+                        </span>
+                      </label>
+                    </li>
+                  )
+                })}
+              </ul>
+              {isCouples ? (
+                <div className="flex flex-wrap gap-4 border-t border-border/60 pt-3">
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={sendPartners.includes(1)}
+                      onCheckedChange={(v) => toggleSendPartner(1, v === true)}
+                    />
+                    Partner 1 ({order.user_email})
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={sendPartners.includes(2)}
+                      onCheckedChange={(v) => toggleSendPartner(2, v === true)}
+                    />
+                    Partner 2 ({order.partner_email ?? 'no email'})
+                  </label>
+                </div>
+              ) : null}
+            </div>
+
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 type="button"
@@ -822,11 +1022,31 @@ export default function OrderDetailPage() {
               ) : null}
               <Button
                 type="button"
+                variant="secondary"
                 disabled={busy !== null}
-                onClick={() => void markStatus('delivered')}
+                onClick={() => void markStatus('approved')}
+                className="rounded-full"
+              >
+                {busy === 'approved' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Mark approved
+              </Button>
+              <Button
+                type="button"
+                disabled={busy !== null || sendKinds.length === 0}
+                onClick={() => void approveAndSendDocuments()}
                 className="rounded-full bg-emerald-700 text-white hover:bg-emerald-800"
               >
-                Delivered
+                {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Approve &amp; send documents
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy !== null}
+                onClick={() => void markStatus('delivered')}
+                className="rounded-full"
+              >
+                Mark delivered (no email)
               </Button>
               <Button
                 type="button"

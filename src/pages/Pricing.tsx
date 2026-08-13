@@ -18,6 +18,8 @@ import {
   type Plan,
   PACKAGE_DOC_IDS,
   PACKAGE_DOC_LABEL,
+  OPTIONAL_PACKAGE_DOC_IDS,
+  normalizeOrderDocuments,
 } from '@/lib/order'
 
 const INCLUDED = [
@@ -86,8 +88,8 @@ export default function Pricing() {
     window.setTimeout(scrollToCheckout, 80)
   }
 
-  const allDocsSelected = PACKAGE_DOC_IDS.every((id) => documents.includes(id))
-  const hasDocuments = documents.length > 0
+  const allOptionalSelected = OPTIONAL_PACKAGE_DOC_IDS.every((id) => documents.includes(id))
+  const hasWill = documents.includes('will')
   const emailOk = EMAIL_RE.test(email.trim())
   const partnerOk = plan === 'individual' || EMAIL_RE.test(partnerEmail.trim())
   const partnerDifferent =
@@ -95,14 +97,15 @@ export default function Pricing() {
     partnerEmail.trim().toLowerCase() !== email.trim().toLowerCase()
 
   function toggleDocument(id: PackageDocId, on: boolean) {
+    if (id === 'will') return // Will is required — never uncheck
     setDocuments((prev) => {
-      if (on) return prev.includes(id) ? prev : [...prev, id]
-      if (prev.length <= 1 && prev.includes(id)) return prev
-      return prev.filter((d) => d !== id)
+      const base = normalizeOrderDocuments(prev)
+      if (on) return base.includes(id) ? base : [...base, id]
+      return base.filter((d) => d !== id)
     })
   }
 
-  function toggleAllDocuments(on: boolean) {
+  function toggleAllOptionalDocuments(on: boolean) {
     setDocuments(on ? [...PACKAGE_DOC_IDS] : ['will'])
   }
 
@@ -110,8 +113,8 @@ export default function Pricing() {
   const total = base + (includeTrust ? 50 : 0)
 
   const valid = useMemo(
-    () => emailOk && partnerOk && partnerDifferent && lsrConsent && hasDocuments,
-    [emailOk, partnerOk, partnerDifferent, lsrConsent, hasDocuments],
+    () => emailOk && partnerOk && partnerDifferent && lsrConsent && hasWill,
+    [emailOk, partnerOk, partnerDifferent, lsrConsent, hasWill],
   )
 
   function openPayment() {
@@ -122,7 +125,7 @@ export default function Pricing() {
       email: email.trim().toLowerCase(),
       partnerEmail: plan === 'couples' ? partnerEmail.trim().toLowerCase() : undefined,
       includeTrust,
-      documents,
+      documents: normalizeOrderDocuments(documents),
       total,
       lsrConsent,
     }
@@ -328,17 +331,16 @@ export default function Pricing() {
 
             <div className="overflow-hidden rounded-[1.75rem] border border-border/70 bg-card shadow-[0_18px_50px_-32px_rgba(15,23,42,0.28)]">
               <div className="space-y-4 p-6 sm:p-8">
-                <div
-                  className={cn(
-                    'space-y-3 rounded-2xl border p-4 transition',
-                    hasDocuments ? 'border-border/70' : 'border-destructive/40 bg-destructive/5',
-                  )}
-                >
+                <div className="space-y-3 rounded-2xl border border-border/70 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <p className="text-sm font-medium text-foreground">Documents to include</p>
+                      <p className="text-sm font-medium text-foreground">
+                        Which documents do you want included?
+                      </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        Select at least one. Your will is selected by default.
+                        Your will is required. Other papers are optional and included in the same
+                        plan price — no +$50 per paper. The +$50 add-on is only for the Living Trust
+                        below.
                       </p>
                     </div>
                     <label
@@ -347,22 +349,24 @@ export default function Pricing() {
                     >
                       <Checkbox
                         id="all-docs"
-                        checked={allDocsSelected}
-                        onCheckedChange={(v) => toggleAllDocuments(v === true)}
+                        checked={allOptionalSelected}
+                        onCheckedChange={(v) => toggleAllOptionalDocuments(v === true)}
                       />
-                      All documents
+                      All optional docs
                     </label>
                   </div>
 
                   <ul className="grid gap-2 sm:grid-cols-2">
                     {PACKAGE_DOC_IDS.map((id) => {
                       const checked = documents.includes(id)
+                      const isWill = id === 'will'
                       return (
                         <li key={id}>
                           <label
                             htmlFor={`doc-${id}`}
                             className={cn(
-                              'flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 transition',
+                              'flex items-start gap-2.5 rounded-xl border px-3 py-2.5 transition',
+                              isWill ? 'cursor-default' : 'cursor-pointer',
                               checked
                                 ? 'border-primary/25 bg-primary/[0.06]'
                                 : 'border-border/60 hover:border-primary/20',
@@ -371,25 +375,27 @@ export default function Pricing() {
                             <Checkbox
                               id={`doc-${id}`}
                               checked={checked}
+                              disabled={isWill}
                               onCheckedChange={(v) => toggleDocument(id, v === true)}
                               className="mt-0.5"
                             />
                             <span className="text-sm leading-snug text-foreground">
                               {PACKAGE_DOC_LABEL[id]}
-                              {id === 'will' ? (
+                              {isWill ? (
                                 <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                                  Included in your plan
+                                  Required · included in your plan
                                 </span>
-                              ) : null}
+                              ) : (
+                                <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                                  Optional · same plan price
+                                </span>
+                              )}
                             </span>
                           </label>
                         </li>
                       )
                     })}
                   </ul>
-                  {showErrors && !hasDocuments ? (
-                    <p className="text-xs text-destructive">Choose at least one document.</p>
-                  ) : null}
                 </div>
 
                 <label
@@ -409,10 +415,11 @@ export default function Pricing() {
                   />
                   <div>
                     <div className="text-base font-medium text-foreground">
-                      Add a Revocable Living Trust <span className="text-accent">+$50</span>
+                      Do you want to add a Revocable Living Trust?{' '}
+                      <span className="text-accent">+$50 add-on</span>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Optional.{' '}
+                      Optional paid add-on only — not included in the document list above.{' '}
                       <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
                         Recommended
                       </span>{' '}

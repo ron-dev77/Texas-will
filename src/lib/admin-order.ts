@@ -280,6 +280,9 @@ export async function updateOrderStatus(params: {
     patch.delivered_at = now
     patch.approved_at = now
   }
+  if (params.status === 'approved' && !patch.approved_at) {
+    patch.approved_at = now
+  }
 
   const { error } = await supabase.from('orders').update(patch).eq('id', params.orderId)
   if (error) throw new Error(error.message)

@@ -8,6 +8,8 @@ export type DocumentsReadyEmailContext = {
   /** From questionnaire address_zip when available */
   zip: string | null
   appOrigin: string
+  /** Human-readable names of PDFs attached to this email */
+  documentLabels: string[]
 }
 
 /**
@@ -26,11 +28,26 @@ export function buildClientDocumentsReadyEmail(ctx: DocumentsReadyEmailContext):
     ? `We pre-filled ZIP ${ctx.zip.trim()} from your questionnaire — you can change it on the page.`
     : 'Enter your ZIP code on the page to search Google Maps for notaries near you.'
 
+  const docsList =
+    ctx.documentLabels.length > 0
+      ? ctx.documentLabels.map((d) => `• ${d}`).join('\n')
+      : '• Your reviewed package'
+
+  const docsHtml =
+    ctx.documentLabels.length > 0
+      ? `<ul style="margin:8px 0 0;padding-left:18px;">${ctx.documentLabels
+          .map((d) => `<li style="margin:4px 0;">${escapeHtml(d)}</li>`)
+          .join('')}</ul>`
+      : `<p style="margin:8px 0 0;">Your reviewed package is attached.</p>`
+
   const subject = 'Your My AI Will documents are ready'
   const text = [
     `Hi ${name},`,
     '',
-    'Your reviewed documents are ready. Please download and review them carefully.',
+    'Your reviewed documents are ready. Please download the attached PDFs and review them carefully.',
+    '',
+    'Attached:',
+    docsList,
     '',
     'Important — notarization:',
     'Texas wills typically include a self-proving affidavit that should be notarized when you sign with your witnesses.',
@@ -47,14 +64,19 @@ export function buildClientDocumentsReadyEmail(ctx: DocumentsReadyEmailContext):
 
   const html = emailLayout({
     title: subject,
-    preheader: 'Your documents are ready — find a notary for the self-proving affidavit.',
+    preheader: 'Your documents are ready — PDFs attached. Find a notary for the self-proving affidavit.',
     bodyHtml: `
       <h1 style="margin:0 0 12px;font-size:26px;font-weight:normal;line-height:1.25;">
         Your documents are ready
       </h1>
       <p style="margin:0 0 16px;font-size:16px;line-height:1.55;font-family:system-ui,-apple-system,sans-serif;color:#44403c;">
-        Hi ${escapeHtml(name)}, your reviewed My AI Will package is ready. Please download and review everything carefully.
+        Hi ${escapeHtml(name)}, your reviewed My AI Will package is ready.
+        Please download the attached PDF${ctx.documentLabels.length === 1 ? '' : 's'} and review everything carefully.
       </p>
+      <div style="margin:0 0 20px;padding:16px;background:#fafaf9;border:1px solid #e7e5e4;border-radius:8px;font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:#44403c;line-height:1.55;">
+        <strong style="display:block;">Attached documents</strong>
+        ${docsHtml}
+      </div>
       <div style="margin:0 0 20px;padding:16px;background:#fafaf9;border:1px solid #e7e5e4;border-radius:8px;font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:#44403c;line-height:1.55;">
         <strong style="display:block;margin-bottom:6px;">Next step: notarize the self-proving affidavit</strong>
         When you sign with your witnesses, have a notary complete the self-proving affidavit.

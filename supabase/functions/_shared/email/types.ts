@@ -2,6 +2,14 @@
 
 export type EmailAddress = string | { email: string; name?: string }
 
+export type EmailAttachment = {
+  /** File name shown to the recipient, e.g. Last-Will-and-Testament.pdf */
+  filename: string
+  /** Base64-encoded file contents (no data: prefix) */
+  content: string
+  contentType?: string
+}
+
 export type SendEmailInput = {
   to: EmailAddress | EmailAddress[]
   subject: string
@@ -9,6 +17,7 @@ export type SendEmailInput = {
   text?: string
   replyTo?: string
   tags?: { name: string; value: string }[]
+  attachments?: EmailAttachment[]
 }
 
 export type SendEmailResult =
