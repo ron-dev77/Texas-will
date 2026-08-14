@@ -135,10 +135,8 @@ export async function listOrders(includeArchived = true): Promise<OrderRow[]> {
   throw first.error
 }
 
-const DELETABLE_STATUSES = new Set(['pending_payment', 'paid', 'failed'])
-
-export function canDeleteOrder(order: Pick<OrderRow, 'status' | 'archived_at'>) {
-  return Boolean(order.archived_at) || DELETABLE_STATUSES.has(order.status)
+export function canDeleteOrder(_order: Pick<OrderRow, 'status' | 'archived_at'>) {
+  return true
 }
 
 export async function archiveOrder(orderId: string, archived: boolean): Promise<void> {
@@ -165,16 +163,10 @@ export async function archiveOrder(orderId: string, archived: boolean): Promise<
 export async function deleteOrder(orderId: string): Promise<void> {
   const { data: order, error: oErr } = await supabase
     .from('orders')
-    .select('status, archived_at')
+    .select('id')
     .eq('id', orderId)
     .single()
   if (oErr || !order) throw new Error(oErr?.message ?? 'Order not found')
-
-  if (!canDeleteOrder(order)) {
-    throw new Error(
-      'Submitted, delivered, or in-review orders must be archived before delete. Archive it first.',
-    )
-  }
 
   // Best-effort child cleanup (most FKs cascade, but grants/RLS may still require explicit deletes)
   await supabase.from('will_status_events').delete().eq('order_id', orderId)

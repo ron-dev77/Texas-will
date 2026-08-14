@@ -10,7 +10,6 @@ import {
   STATUS_LABEL,
   STATUS_TONE,
   archiveOrder,
-  canDeleteOrder,
   deleteOrder,
   listOrders,
   requireAdminAccess,
@@ -428,7 +427,6 @@ function RowActions({
   const menuRef = useRef<HTMLDivElement>(null)
 
   const isArchived = Boolean(o.archived_at)
-  const canDelete = canDeleteOrder(o)
 
   function placeMenu() {
     const btn = buttonRef.current
@@ -598,26 +596,14 @@ function RowActions({
                 <button
                   type="button"
                   role="menuitem"
-                  disabled={!canDelete}
-                  className={cn(
-                    'flex w-full px-3 py-2 text-left text-sm',
-                    canDelete
-                      ? 'text-red-600 hover:bg-red-50'
-                      : 'cursor-not-allowed text-red-600/40',
-                  )}
+                  className="flex w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
                   onClick={() => {
-                    if (!canDelete) return
                     setOpen(false)
                     setConfirmOpen(true)
                   }}
                 >
                   Delete order…
                 </button>
-                {!canDelete ? (
-                  <p className="px-3 pb-2 pt-1 text-[11px] text-muted-foreground">
-                    Archive submitted/delivered orders before deleting.
-                  </p>
-                ) : null}
               </>
             ) : null}
           </div>,
