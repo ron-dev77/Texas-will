@@ -7,7 +7,6 @@ import {
   Menu,
   MessageSquareText,
   PanelLeftClose,
-  Sparkles,
   X,
 } from 'lucide-react'
 import { Wordmark } from '@/components/site/Wordmark'
@@ -18,9 +17,8 @@ import { requireAdminAccess, type AdminRole } from '@/lib/admin'
 
 const NAV = [
   { to: '/admin', end: true, label: 'Orders', icon: ClipboardList },
-  { to: '/admin/content/skeleton', end: false, label: 'Document skeleton', icon: FileText },
-  { to: '/admin/content/prompts', end: false, label: 'AI prompts', icon: Sparkles },
   { to: '/admin/content/questionnaire', end: false, label: 'Questionnaire', icon: MessageSquareText },
+  { to: '/admin/content/skeleton', end: false, label: 'Document templates', icon: FileText },
 ] as const
 
 export default function AdminLayout() {

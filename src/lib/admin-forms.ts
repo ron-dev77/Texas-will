@@ -10,6 +10,7 @@ import { BUNDLED_WILL_SKELETON } from '@/lib/admin-content'
 import { needsDefaultWillSkeletonRefresh } from '@/lib/content-defaults/default-will-skeleton'
 import {
   ANCILLARY_KINDS,
+  DOCUMENT_KIND_LABEL,
   type AncillaryKind,
   type DocumentKind,
   isAncillaryKind,
@@ -383,6 +384,62 @@ export async function listForms(): Promise<QuestionnaireFormSummary[]> {
   return (data ?? []) as QuestionnaireFormSummary[]
 }
 
+export type FormTemplateRow = QuestionnaireFormSummary & {
+  templateStatus: ReturnType<typeof formSkeletonsReadySync>
+  kindStatus: Record<DocumentKind, 'ready' | 'missing'>
+}
+
+/** List questionnaires with per-document template readiness for the hub UI. */
+export async function listFormsWithTemplateStatus(): Promise<FormTemplateRow[]> {
+  await ensureDefaultForm()
+  const { data, error } = await supabase
+    .from('questionnaire_forms')
+    .select(
+      'id, name, slug, description, is_default, is_active, created_at, updated_at, created_by, skeleton_body, trust_skeleton_body, ancillary_skeletons',
+    )
+    .order('is_default', { ascending: false })
+    .order('updated_at', { ascending: false })
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((row) => {
+    const mapped = mapFormRow(row as Parameters<typeof mapFormRow>[0])
+    const templateStatus = formSkeletonsReadySync(mapped)
+    const minLen = 40
+    const anc = mapped.ancillary_skeletons ?? {}
+    const kindStatus = {
+      will:
+        mapped.skeleton_body?.trim() && mapped.skeleton_body.trim().length >= minLen
+          ? ('ready' as const)
+          : ('missing' as const),
+      rlt:
+        mapped.trust_skeleton_body?.trim() && mapped.trust_skeleton_body.trim().length >= minLen
+          ? ('ready' as const)
+          : ('missing' as const),
+      mpoa: anc.mpoa?.trim() && anc.mpoa.trim().length >= minLen ? ('ready' as const) : ('missing' as const),
+      dpoa: anc.dpoa?.trim() && anc.dpoa.trim().length >= minLen ? ('ready' as const) : ('missing' as const),
+      directive:
+        anc.directive?.trim() && anc.directive.trim().length >= minLen
+          ? ('ready' as const)
+          : ('missing' as const),
+      hipaa:
+        anc.hipaa?.trim() && anc.hipaa.trim().length >= minLen ? ('ready' as const) : ('missing' as const),
+    } satisfies Record<DocumentKind, 'ready' | 'missing'>
+    return {
+      id: mapped.id,
+      name: mapped.name,
+      slug: mapped.slug,
+      description: mapped.description,
+      is_default: mapped.is_default,
+      is_active: mapped.is_active,
+      created_at: mapped.created_at,
+      updated_at: mapped.updated_at,
+      created_by: mapped.created_by,
+      templateStatus,
+      kindStatus,
+    }
+  })
+}
+
 export async function getForm(id: string): Promise<QuestionnaireFormRow> {
   const { data, error } = await supabase
     .from('questionnaire_forms')
@@ -579,8 +636,45 @@ export async function updateForm(params: {
   return { form: mapFormRow(data), version_no }
 }
 
+export async function formSkeletonsReady(
+  form: Pick<
+    QuestionnaireFormRow,
+    'skeleton_body' | 'trust_skeleton_body' | 'ancillary_skeletons'
+  >,
+): Promise<{ ok: boolean; missing: string[] }> {
+  return formSkeletonsReadySync(form)
+}
+
+export function formSkeletonsReadySync(
+  form: Pick<
+    QuestionnaireFormRow,
+    'skeleton_body' | 'trust_skeleton_body' | 'ancillary_skeletons'
+  >,
+): { ok: boolean; missing: string[] } {
+  const missing: string[] = []
+  const minLen = 40
+  if (!form.skeleton_body?.trim() || form.skeleton_body.trim().length < minLen) {
+    missing.push('Will')
+  }
+  if (!form.trust_skeleton_body?.trim() || form.trust_skeleton_body.trim().length < minLen) {
+    missing.push('Trust')
+  }
+  const anc = form.ancillary_skeletons ?? {}
+  for (const k of ANCILLARY_KINDS) {
+    const body = anc[k]?.trim() ?? ''
+    if (body.length < minLen) missing.push(DOCUMENT_KIND_LABEL[k])
+  }
+  return { ok: missing.length === 0, missing }
+}
+
 export async function activateForm(id: string): Promise<void> {
   const form = await getForm(id)
+  const ready = formSkeletonsReadySync(form)
+  if (!ready.ok) {
+    throw new Error(
+      `Link document templates before activating. Missing: ${ready.missing.join(', ')}. Open Document templates for this form.`,
+    )
+  }
   await supabase.from('questionnaire_forms').update({ is_active: false }).eq('is_active', true)
   const { error } = await supabase
     .from('questionnaire_forms')
@@ -686,131 +780,318 @@ export async function saveFormSkeleton(params: {
   return mapFormRow(data)
 }
 
+/** Bump when bundled trust copy changes so default forms auto-refresh. */
+export const TRUST_TEMPLATE = 'trust-v2'
+
 export const BUNDLED_TRUST_SKELETON = `<!-- texas-will-skeleton-v2 -->
-{
-  "version": 2,
-  "title": "REVOCABLE LIVING TRUST",
-  "pageSize": "A4",
-  "blocks": [
-    {
-      "id": "t2",
-      "kind": "paragraph",
-      "heading": "",
-      "body": "This Revocable Living Trust is made by **{{legal_full_name}}**, as Grantor and initial Trustee, under the laws of the **State of Texas**.",
-      "label": "",
-      "leftLabel": "",
-      "rightLabel": "",
-      "align": "left",
-      "blankLinesAfter": 1,
-      "pageBreakBefore": false
-    },
-    {
-      "id": "t3",
-      "kind": "paragraph",
-      "heading": "",
-      "body": "The trust shall be known as **{{trust_name}}** (or, if blank, The {{legal_full_name}} Revocable Living Trust).",
-      "label": "",
-      "leftLabel": "",
-      "rightLabel": "",
-      "align": "left",
-      "blankLinesAfter": 1,
-      "pageBreakBefore": false
-    },
-    {
-      "id": "t4",
-      "kind": "paragraph",
-      "heading": "",
-      "body": "If the Grantor ceases to serve as Trustee, **{{trust_successor_trustee_name}}** shall serve as successor Trustee.",
-      "label": "",
-      "leftLabel": "",
-      "rightLabel": "",
-      "align": "left",
-      "blankLinesAfter": 2,
-      "pageBreakBefore": false
-    },
-    {
-      "id": "t5",
-      "kind": "heading",
-      "heading": "SIGNATURE OF GRANTOR",
-      "body": "",
-      "label": "",
-      "leftLabel": "",
-      "rightLabel": "",
-      "align": "center",
-      "blankLinesAfter": 1,
-      "pageBreakBefore": false
-    },
-    {
-      "id": "t6",
-      "kind": "paragraph",
-      "heading": "",
-      "body": "I, **{{legal_full_name}}**, the Grantor, sign my name to this Revocable Living Trust on this ______ day of __________________, 20_____, and declare that I execute it as my free and voluntary act.",
-      "label": "",
-      "leftLabel": "",
-      "rightLabel": "",
-      "align": "left",
-      "blankLinesAfter": 1,
-      "pageBreakBefore": false
-    },
-    {
-      "id": "t7",
-      "kind": "signature",
-      "heading": "",
-      "body": "",
-      "label": "Signature of Grantor",
-      "leftLabel": "",
-      "rightLabel": "",
-      "align": "center",
-      "blankLinesAfter": 1,
-      "pageBreakBefore": false
-    },
-    {
-      "id": "t8",
-      "kind": "heading",
-      "heading": "NOTARY ACKNOWLEDGMENT",
-      "body": "",
-      "label": "",
-      "leftLabel": "",
-      "rightLabel": "",
-      "align": "center",
-      "blankLinesAfter": 1,
-      "pageBreakBefore": false
-    },
-    {
-      "id": "t9",
-      "kind": "paragraph",
-      "heading": "",
-      "body": "**STATE OF TEXAS**\\n**COUNTY OF** ____________________________\\n\\nThis instrument was acknowledged before me on this ______ day of __________________, 20_____, by **{{legal_full_name}}**, the Grantor.",
-      "label": "",
-      "leftLabel": "",
-      "rightLabel": "",
-      "align": "left",
-      "blankLinesAfter": 1,
-      "pageBreakBefore": false
-    },
-    {
-      "id": "t10",
-      "kind": "signature",
-      "heading": "",
-      "body": "",
-      "label": "Notary Public, State of Texas",
-      "leftLabel": "",
-      "rightLabel": "",
-      "align": "right",
-      "blankLinesAfter": 0,
-      "pageBreakBefore": false
-    }
-  ]
-}
+${JSON.stringify(
+  {
+    version: 2,
+    template: TRUST_TEMPLATE,
+    title: 'REVOCABLE LIVING TRUST',
+    pageSize: 'A4',
+    blocks: [
+      {
+        id: 't-intro',
+        kind: 'paragraph',
+        heading: '',
+        body:
+          'This Revocable Living Trust Agreement is made under the laws of the **State of Texas**, including the **Texas Trust Code** (Chapter 111 et seq. of the Texas Property Code). It creates a revocable living trust so that property transferred to the trust may be managed during the Grantor\'s lifetime and distributed after death according to the terms below.',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art1-h',
+        kind: 'heading',
+        heading: 'ARTICLE I. DECLARATION OF TRUST',
+        body: '',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art1',
+        kind: 'paragraph',
+        heading: '',
+        body:
+          '**Establishment.** I, **{{legal_full_name}}**, a resident of **{{address_county}} County, Texas**, residing at **{{address_street}}, {{address_city}}, Texas {{address_zip}}** (the "Grantor"), hereby establish this Revocable Living Trust (the "Trust"). The Trust shall be known as **{{trust_name}}**.\n\n**Governing Law.** This Trust is created under and shall be governed by the laws of the **State of Texas**, except as otherwise expressly stated herein.\n\n**Transfer of Property.** The Grantor transfers to the Trust the property described in **Schedule A**, attached hereto and incorporated by reference. Additional property may be added to the Trust at any time by the Grantor or by any other person, subject to the Trustee\'s acceptance.',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art2-h',
+        kind: 'heading',
+        heading: 'ARTICLE II. TRUSTEE',
+        body: '',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art2',
+        kind: 'paragraph',
+        heading: '',
+        body:
+          '**Initial Trustee.** The Grantor, **{{legal_full_name}}**, shall serve as the initial Trustee.\n\n**Successor Trustee.** Upon the Grantor\'s death, resignation, or incapacity, **{{trust_successor_trustee_name}}** ({{trust_successor_trustee_relationship}}), of **{{trust_successor_trustee_address}}**, shall serve as Successor Trustee.\n\n**Alternate Successor Trustee.** If the Successor Trustee is unable or unwilling to serve, or ceases to serve, **{{trust_alternate_successor_trustee_name}}**, of **{{trust_alternate_successor_trustee_address}}**, shall serve as Alternate Successor Trustee. If no alternate is named or able to serve, a successor may be appointed as provided by Texas law and the terms of this Trust.\n\n**Trustee Compensation.** Any Trustee (other than the Grantor while serving) shall be entitled to reasonable compensation for services rendered.\n\n**No Bond.** No Trustee shall be required to post bond or other security.',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art3-h',
+        kind: 'heading',
+        heading: 'ARTICLE III. REVOCATION AND AMENDMENT',
+        body: '',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art3',
+        kind: 'paragraph',
+        heading: '',
+        body:
+          '**Power to Revoke or Amend.** During the Grantor\'s lifetime and while the Grantor is competent, the Grantor may revoke or amend this Trust, in whole or in part, at any time, by a written instrument signed by the Grantor and delivered to the Trustee.\n\n**Irrevocability on Death or Incapacity.** This Trust shall become irrevocable upon the Grantor\'s death or upon a determination of the Grantor\'s incapacity as provided below.\n\n**Determination of Incapacity.** The Grantor shall be deemed incapacitated upon the written certification of two licensed physicians who have personally examined the Grantor and determined that the Grantor is unable to manage the Grantor\'s financial affairs.',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art4-h',
+        kind: 'heading',
+        heading: "ARTICLE IV. DISTRIBUTIONS DURING GRANTOR'S LIFETIME",
+        body: '',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art4',
+        kind: 'paragraph',
+        heading: '',
+        body:
+          '**Income and Principal.** During the Grantor\'s lifetime, the Trustee shall distribute to or for the benefit of the Grantor such amounts of net income and principal as the Grantor may from time to time request, or as the Trustee determines are advisable for the Grantor\'s health, education, maintenance, and support.\n\n**Distributions During Incapacity.** If the Grantor becomes incapacitated, the Trustee shall use trust income and principal for the Grantor\'s health, education, maintenance, support, and comfort, and may also make distributions for the benefit of persons the Grantor was legally obligated to support.',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art5-h',
+        kind: 'heading',
+        heading: "ARTICLE V. DISTRIBUTIONS UPON GRANTOR'S DEATH",
+        body: '',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art5',
+        kind: 'paragraph',
+        heading: '',
+        body:
+          '**Payment of Expenses.** Upon the Grantor\'s death, the Trustee shall pay from the Trust the Grantor\'s legally enforceable debts, funeral and burial expenses, and expenses of last illness and estate administration, to the extent not otherwise provided for.\n\n**Specific Distributions.** The Trustee shall make the following specific distributions (if any): **{{trust_specific_gifts}}**\n\n**Residuary Distribution.** The remaining trust estate shall be distributed according to the Grantor\'s residuary plan: **{{trust_residuary_plan}}**. Additional instructions (if any): **{{trust_residuary_custom}}**\n\n**Distributions to Minors or Incapacitated Beneficiaries.** If any beneficiary entitled to a distribution is a minor or is incapacitated, the Trustee may hold that share in a separate trust for the beneficiary\'s benefit, and distribute income and principal for the beneficiary\'s health, education, maintenance, and support until the beneficiary reaches the age of **{{trust_distribution_age}}** or regains capacity, at which time the remaining trust property shall be distributed outright to the beneficiary.',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art6-h',
+        kind: 'heading',
+        heading: 'ARTICLE VI. TRUSTEE POWERS',
+        body: '',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art6',
+        kind: 'paragraph',
+        heading: '',
+        body:
+          '**General Powers.** The Trustee shall have all powers granted to trustees under the Texas Trust Code, including, without limitation, the powers to: (a) retain, invest, and reinvest trust property; (b) sell, exchange, lease, mortgage, or otherwise dispose of trust property; (c) borrow money and pledge trust property as security; (d) employ attorneys, accountants, investment advisors, and other professionals; (e) settle or compromise claims; (f) distribute property in kind or in cash; and (g) do all other acts necessary or advisable for proper administration of the Trust.\n\n**Standard of Care.** The Trustee shall administer the Trust as a prudent person would, considering the purposes, terms, distribution requirements, and other circumstances of the Trust.',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art7-h',
+        kind: 'heading',
+        heading: 'ARTICLE VII. SPENDTHRIFT AND MISCELLANEOUS',
+        body: '',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-art7',
+        kind: 'paragraph',
+        heading: '',
+        body:
+          '**Spendthrift Trust.** No beneficiary shall have the power to anticipate, assign, transfer, or otherwise dispose of any interest in the Trust before actual receipt, and no interest of any beneficiary shall be subject to the claims of that beneficiary\'s creditors.\n\n**Perpetuities Savings.** Notwithstanding any other provision, any trust created hereunder shall terminate no later than the latest date permitted under the Texas Trust Code.\n\n**Severability.** If any provision of this Trust is held invalid, the remaining provisions shall continue in full force and effect.',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-sched-h',
+        kind: 'heading',
+        heading: 'SCHEDULE A. INITIAL TRUST PROPERTY',
+        body: '',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-sched',
+        kind: 'paragraph',
+        heading: '',
+        body:
+          'The Grantor initially transfers to the Trust the following property (and any additional property later accepted by the Trustee):\n\n**{{trust_assets}}**',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 2,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-sig-h',
+        kind: 'heading',
+        heading: 'SIGNATURE OF GRANTOR',
+        body: '',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'center',
+        blankLinesAfter: 1,
+        pageBreakBefore: true,
+      },
+      {
+        id: 't-sig-p',
+        kind: 'paragraph',
+        heading: '',
+        body:
+          'I, **{{legal_full_name}}**, the Grantor, sign my name to this Revocable Living Trust on this ______ day of __________________, 20_____, and declare that I execute it as my free and voluntary act for the purposes stated herein.',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-sig',
+        kind: 'signature',
+        heading: '',
+        body: '',
+        label: 'Signature of Grantor',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'center',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-notary-h',
+        kind: 'heading',
+        heading: 'NOTARY ACKNOWLEDGMENT',
+        body: '',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'center',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-notary-p',
+        kind: 'paragraph',
+        heading: '',
+        body:
+          '**STATE OF TEXAS**\n**COUNTY OF** ____________________________\n\nThis instrument was acknowledged before me on this ______ day of __________________, 20_____, by **{{legal_full_name}}**, the Grantor.',
+        label: '',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'left',
+        blankLinesAfter: 1,
+        pageBreakBefore: false,
+      },
+      {
+        id: 't-notary',
+        kind: 'signature',
+        heading: '',
+        body: '',
+        label: 'Notary Public, State of Texas',
+        leftLabel: '',
+        rightLabel: '',
+        align: 'right',
+        blankLinesAfter: 0,
+        pageBreakBefore: false,
+      },
+    ],
+  },
+  null,
+  2,
+)}
 `
 
-/** True when trust skeleton needs bundled refresh (notary align or duplicate title heading). */
+/** True when trust skeleton needs bundled refresh (thin intro / missing trust-v2). */
 export function needsTrustSkeletonRefresh(body: string | null | undefined): boolean {
   const t = (body ?? '').trim()
   if (!t) return true
+  if (!new RegExp(`"template"\\s*:\\s*"${TRUST_TEMPLATE}"`).test(t)) return true
   if (!t.includes('Notary Public, State of Texas')) return true
   if (/"label":\s*"Notary Public, State of Texas"[\s\S]{0,120}"align":\s*"left"/.test(t)) return true
-  // Old templates repeated the document title as the first heading block.
   if (/"kind":\s*"heading"[\s\S]{0,80}"heading":\s*"REVOCABLE LIVING TRUST"/.test(t)) return true
   return false
 }

@@ -41,9 +41,9 @@ export default function QuestionnaireFormsPage() {
         fromDefault: true,
       })
       setNewName('')
-      setMsg(`Created “${form.name}”`)
+      setMsg(`Created “${form.name}” with linked document templates`)
       await refresh()
-      navigate(`/admin/content/questionnaire/${form.id}`)
+      navigate(`/admin/content/skeleton?formId=${form.id}&kind=will`)
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Create failed')
     } finally {
@@ -104,8 +104,9 @@ export default function QuestionnaireFormsPage() {
       <div>
         <h1 className="font-serif text-2xl tracking-tight">Questionnaire</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          The <strong>default</strong> form and its skeletons are locked (view only). Duplicate it to
-          customize questions or templates. Per-order layout fixes stay on the order page.
+          Create a form — document templates (will, trust, ancillaries) are linked automatically.
+          Finish templates under <strong>Document templates</strong>, then Activate. Only one form
+          can be live.
         </p>
       </div>
 
@@ -171,13 +172,18 @@ export default function QuestionnaireFormsPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="secondary" size="sm" className="rounded-full" asChild>
+                <Link to={`/admin/content/skeleton?formId=${form.id}&kind=will`}>
+                  Templates
+                </Link>
+              </Button>
+              <Button type="button" variant="secondary" size="sm" className="rounded-full" asChild>
                 <Link to={`/admin/content/questionnaire/${form.id}`}>
                   {form.is_default ? (
                     <Eye className="h-3.5 w-3.5" />
                   ) : (
                     <Pencil className="h-3.5 w-3.5" />
                   )}
-                  {form.is_default ? 'View' : 'Edit'}
+                  {form.is_default ? 'View' : 'Questions'}
                 </Link>
               </Button>
               <Button

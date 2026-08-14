@@ -31,6 +31,8 @@ export type SkeletonBlock = {
   blankLinesAfter: number
   /** Force a new A4 page before this block */
   pageBreakBefore: boolean
+  /** When false, heading/section titles render in regular weight (default true = bold) */
+  headingBold: boolean
 }
 
 export type SkeletonDoc = {
@@ -72,6 +74,8 @@ function normalizeBlock(partial: Partial<SkeletonBlock> & { id?: string }): Skel
     align: partial.align ?? 'left',
     blankLinesAfter: Math.max(0, Math.min(20, partial.blankLinesAfter ?? 0)),
     pageBreakBefore: Boolean(partial.pageBreakBefore),
+    // Default bold; only false when explicitly set
+    headingBold: partial.headingBold === false ? false : true,
   }
 }
 
@@ -110,6 +114,7 @@ export function serializeSkeletonDoc(doc: SkeletonDoc): string {
       align: b.align,
       blankLinesAfter: b.blankLinesAfter,
       pageBreakBefore: b.pageBreakBefore,
+      headingBold: b.headingBold !== false,
     })),
   }
   return `${MARKER_V2}\n${JSON.stringify(payload, null, 2)}\n`

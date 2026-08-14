@@ -549,6 +549,17 @@ function RowActions({
               type="button"
               role="menuitem"
               className="flex w-full px-3 py-2 text-left text-sm hover:bg-secondary"
+              onClick={() => {
+                setOpen(false)
+                navigate(`/admin/orders/${o.id}?tab=layouts`)
+              }}
+            >
+              Review documents
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full px-3 py-2 text-left text-sm hover:bg-secondary"
               onClick={() => void copy(o.user_email, 'Email')}
             >
               Copy customer email

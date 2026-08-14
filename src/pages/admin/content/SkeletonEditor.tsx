@@ -5,10 +5,15 @@ import {
   AlignLeft,
   AlignRight,
   ArrowDown,
+  ArrowLeft,
   ArrowUp,
+  CheckCircle2,
+  CircleAlert,
   Download,
+  Eye,
   FileText,
   GripVertical,
+  Pencil,
   Plus,
   RotateCcw,
   Save,
@@ -22,12 +27,12 @@ import {
   bundledSkeletonForKind,
   formSkeletonBodyForKind,
   getForm,
-  listForms,
+  listFormsWithTemplateStatus,
   saveFormSkeleton,
+  type FormTemplateRow,
   type QuestionnaireFormSummary,
 } from '@/lib/admin-forms'
 import {
-  DOCUMENT_KIND_BLURB,
   DOCUMENT_KIND_LABEL,
   DOCUMENT_KINDS,
   parseDocumentKindParam,
@@ -58,7 +63,7 @@ const TOKEN_MIME = 'application/x-texas-will-field'
 function autosize(el: HTMLTextAreaElement | null) {
   if (!el) return
   el.style.height = 'auto'
-  el.style.height = `${Math.max(el.scrollHeight, 72)}px`
+  el.style.height = `${Math.max(el.scrollHeight, 200)}px`
 }
 
 function AlignButtons({
@@ -74,7 +79,7 @@ function AlignButtons({
     { a: 'right', icon: AlignRight, label: 'Right' },
   ]
   return (
-    <div className="flex rounded-full border border-border p-0.5">
+    <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
       {opts.map(({ a, icon: Icon, label }) => (
         <button
           key={a}
@@ -82,8 +87,10 @@ function AlignButtons({
           title={label}
           onClick={() => onChange(a)}
           className={cn(
-            'inline-flex h-7 w-7 items-center justify-center rounded-full',
-            value === a ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-secondary',
+            'inline-flex h-8 w-8 items-center justify-center rounded-md transition',
+            value === a
+              ? 'bg-foreground text-background'
+              : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
           )}
         >
           <Icon className="h-3.5 w-3.5" />
@@ -110,6 +117,8 @@ export default function SkeletonEditorPage() {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [forms, setForms] = useState<QuestionnaireFormSummary[]>([])
+  const [hubRows, setHubRows] = useState<FormTemplateRow[]>([])
+  const [mode, setMode] = useState<'hub' | 'edit'>(formIdParam ? 'edit' : 'hub')
   const [selectedFormId, setSelectedFormId] = useState<string>('')
   const [schema, setSchema] = useState<Section[]>([...SECTIONS])
   const [schemaLoading, setSchemaLoading] = useState(false)
@@ -128,6 +137,39 @@ export default function SkeletonEditorPage() {
   const chars = useMemo(() => skeletonCharCount(doc), [doc])
   const selectedFormMeta = forms.find((f) => f.id === selectedFormId)
   const formSkeletonLocked = Boolean(selectedFormMeta?.is_default)
+
+  async function refreshHub() {
+    const rows = await listFormsWithTemplateStatus()
+    setHubRows(rows)
+    setForms(rows)
+    return rows
+  }
+
+  async function openFormEditor(formId: string, kind: DocumentKind = skelKind) {
+    setMode('edit')
+    setSelectedFormId(formId)
+    setSkelKind(kind)
+    setLoading(true)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('formId', formId)
+      next.set('kind', kind)
+      return next
+    })
+    await loadFormFields(formId)
+    await refresh({ formId, kind })
+  }
+
+  function backToHub() {
+    setMode('hub')
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('formId')
+      next.delete('kind')
+      return next
+    })
+    void refreshHub().catch(() => undefined)
+  }
 
   async function refresh(opts?: { keepEditor?: boolean; formId?: string; kind?: DocumentKind }) {
     const formId = opts?.formId ?? selectedFormId
@@ -164,31 +206,34 @@ export default function SkeletonEditorPage() {
   }
 
   useEffect(() => {
-    listForms()
+    listFormsWithTemplateStatus()
       .then(async (rows) => {
+        setHubRows(rows)
         setForms(rows)
-        const fromUrl = formIdParam && rows.some((r) => r.id === formIdParam) ? formIdParam : null
-        const active = rows.find((f) => f.is_active)
-        const def = rows.find((f) => f.is_default)
-        const initialId = fromUrl ?? active?.id ?? def?.id ?? rows[0]?.id ?? ''
-        setSelectedFormId(initialId)
+        if (!formIdParam || !rows.some((r) => r.id === formIdParam)) {
+          setMode('hub')
+          setLoading(false)
+          return
+        }
+        setMode('edit')
+        setSelectedFormId(formIdParam)
         setSkelKind(kindParam)
-        await loadFormFields(initialId)
-        await refresh({ formId: initialId, kind: kindParam })
+        await loadFormFields(formIdParam)
+        await refresh({ formId: formIdParam, kind: kindParam })
       })
       .catch((e) => {
         setSelectedFormId('')
         setSchema([...SECTIONS])
-        setMsg(e instanceof Error ? e.message : 'Failed to load skeleton')
-        setDoc(parseSkeletonBody(bundledSkeletonForKind(kindParam)))
+        setMsg(e instanceof Error ? e.message : 'Failed to load templates')
+        setMode('hub')
         setLoading(false)
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // When questionnaire form or kind changes: reload fields + skeleton
+  // When questionnaire form or kind changes in editor: reload fields + skeleton
   useEffect(() => {
-    if (loading) return
+    if (loading || mode !== 'edit' || !selectedFormId) return
     void loadFormFields(selectedFormId)
     void refresh({ formId: selectedFormId, kind: skelKind }).catch((e) => {
       setMsg(e instanceof Error ? e.message : 'Failed to load form skeleton')
@@ -196,15 +241,14 @@ export default function SkeletonEditorPage() {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
-        if (selectedFormId) next.set('formId', selectedFormId)
-        else next.delete('formId')
+        next.set('formId', selectedFormId)
         next.set('kind', skelKind)
         return next
       },
       { replace: true },
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFormId, skelKind])
+  }, [selectedFormId, skelKind, mode])
 
   useLayoutEffect(() => {
     for (const block of doc.blocks) autosize(textareaRefs.current[block.id] ?? null)
@@ -385,57 +429,108 @@ export default function SkeletonEditorPage() {
   }
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading will skeleton…</p>
+    return <p className="text-sm text-muted-foreground">Loading templates…</p>
+  }
+
+  if (mode === 'hub') {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="font-serif text-2xl tracking-tight">Document templates</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Listed by questionnaire. Default is view only. Others are editable. Status shows if
+            each document template is ready or missing.
+          </p>
+        </div>
+        {msg ? (
+          <p className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm">{msg}</p>
+        ) : null}
+        <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
+          {hubRows.map((row) => {
+            const complete = row.templateStatus.ok
+            const locked = row.is_default
+            return (
+              <li key={row.id} className="px-4 py-4 sm:px-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium text-foreground">{row.name}</p>
+                      {row.is_active ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                          Active
+                        </span>
+                      ) : null}
+                      {locked ? (
+                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                          Default · view only
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-900">
+                          Editable
+                        </span>
+                      )}
+                      {complete ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Complete
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900">
+                          <CircleAlert className="h-3 w-3" />
+                          Missing: {row.templateStatus.missing.join(', ')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {DOCUMENT_KINDS.map((kind) => {
+                        const ready = row.kindStatus[kind] === 'ready'
+                        return (
+                          <button
+                            key={kind}
+                            type="button"
+                            onClick={() => void openFormEditor(row.id, kind)}
+                            className={cn(
+                              'rounded-full border px-2.5 py-1 text-[11px] font-medium',
+                              ready
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                                : 'border-amber-200 bg-amber-50 text-amber-950',
+                            )}
+                          >
+                            {DOCUMENT_KIND_LABEL[kind]}
+                            {ready ? ' · ready' : ' · missing'}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={locked ? 'secondary' : 'default'}
+                    className="rounded-full gap-1.5"
+                    onClick={() => void openFormEditor(row.id, 'will')}
+                  >
+                    {locked ? <Eye className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+                    {locked ? 'View' : 'Edit'}
+                  </Button>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    )
   }
 
   const clientAnswersSidebar = (
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 border-b border-border/60 px-3 py-3">
-        <h2 className="text-sm font-medium">Client answers</h2>
+        <h2 className="text-sm font-medium">Answer fields</h2>
         <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-          Pick a questionnaire, then drag fields into text or signature labels.
+          Drag into text, or click to insert at the cursor.
         </p>
-        <Label htmlFor="skel-form-select" className="mt-3 block text-[11px]">
-          Questionnaire form
-        </Label>
-        <select
-          id="skel-form-select"
-          className="mt-1 flex h-9 w-full rounded-xl border border-input bg-background px-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-          value={selectedFormId}
-          onChange={(e) => {
-            const id = e.target.value
-            setSelectedFormId(id)
-            void loadFormFields(id)
-          }}
-        >
-          {forms.length === 0 ? (
-            <option value="">No questionnaire forms</option>
-          ) : null}
-          {forms.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-              {f.is_active ? ' (active)' : ''}
-              {f.is_default ? ' · default · locked' : ''}
-            </option>
-          ))}
-        </select>
-        <Label htmlFor="skel-kind" className="mt-3 block text-[11px]">
-          Document (separate PDF)
-        </Label>
-        <select
-          id="skel-kind"
-          className="mt-1 flex h-9 w-full rounded-xl border border-input bg-background px-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-          value={skelKind}
-          onChange={(e) => setSkelKind(e.target.value as DocumentKind)}
-        >
-          {DOCUMENT_KINDS.map((k) => (
-            <option key={k} value={k}>
-              {DOCUMENT_KIND_LABEL[k]}
-            </option>
-          ))}
-        </select>
-        <p className="mt-1.5 text-[10px] leading-snug text-muted-foreground">
-          {DOCUMENT_KIND_BLURB[skelKind]}
+        <p className="mt-2 text-[11px] font-medium text-foreground">
+          Editing: {DOCUMENT_KIND_LABEL[skelKind]}
         </p>
       </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
@@ -452,13 +547,15 @@ export default function SkeletonEditorPage() {
                   <li key={f.id}>
                     <button
                       type="button"
-                      draggable
+                      draggable={!formSkeletonLocked}
                       onDragStart={(e) => {
+                        if (formSkeletonLocked) return
                         e.dataTransfer.setData(TOKEN_MIME, f.id)
                         e.dataTransfer.setData('text/plain', f.id)
                         e.dataTransfer.effectAllowed = 'copy'
                       }}
                       onClick={() => {
+                        if (formSkeletonLocked) return
                         const target =
                           focusedBlockId ?? doc.blocks[doc.blocks.length - 1]?.id ?? null
                         if (!target) {
@@ -493,21 +590,42 @@ export default function SkeletonEditorPage() {
         <div className="min-w-0 flex-1 space-y-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 max-w-2xl">
-              <h1 className="font-serif text-2xl tracking-tight">Document skeleton</h1>
+              <Button
+                type="button"
+                variant="ghost"
+                className="-ml-2 mb-2 gap-1.5 text-muted-foreground"
+                onClick={() => backToHub()}
+              >
+                <ArrowLeft className="h-4 w-4" /> All questionnaires
+              </Button>
+              <h1 className="font-serif text-2xl tracking-tight">
+                {selectedFormMeta?.name ?? 'Document templates'}
+              </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Design layouts for non-default questionnaire forms. Default skeletons are locked —
-                duplicate that form to customize, or fix layouts per order.
+                {formSkeletonLocked
+                  ? 'Default templates — view only. Duplicate the questionnaire to edit.'
+                  : 'Edit this form’s templates, then save. Activate the form from Questionnaire when complete.'}
               </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {DOCUMENT_KINDS.map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setSkelKind(k)}
+                    className={cn(
+                      'rounded-full px-3 py-1.5 text-xs font-medium',
+                      skelKind === k
+                        ? 'bg-foreground text-background'
+                        : 'border border-border text-muted-foreground',
+                    )}
+                  >
+                    {DOCUMENT_KIND_LABEL[k]}
+                  </button>
+                ))}
+              </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                Page size: <span className="font-medium text-foreground">A4</span>
-                {' · '}
-                Active:{' '}
-                <span className="font-medium text-foreground">
-                  {forms.find((f) => f.id === selectedFormId)?.name ?? 'Select a form'}
-                  {formSkeletonLocked ? ' · locked' : ''}
-                </span>
-                {' · '}
-                {doc.blocks.length} blocks · {chars.toLocaleString()} chars
+                A4 · {doc.blocks.length} blocks · {chars.toLocaleString()} chars
+                {formSkeletonLocked ? ' · locked' : ''}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -708,93 +826,144 @@ export default function SkeletonEditorPage() {
                       : 'border-border/70',
                   )}
                 >
-                  <div className="flex flex-wrap items-center gap-2 border-b border-border/50 bg-secondary/25 px-3 py-2">
-                    <span className="font-serif text-sm tabular-nums text-accent">
-                      {String(index + 1).padStart(2, '0')}
-                    </span>
-                    <select
-                      className="h-8 rounded-full border border-border bg-background px-2 text-xs"
-                      value={block.kind}
-                      onChange={(e) =>
-                        updateBlock(block.id, { kind: e.target.value as SkeletonBlockKind })
-                      }
-                    >
-                      {BLOCK_KIND_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                    {block.kind !== 'page_break' && block.kind !== 'spacer' ? (
-                      <AlignButtons
-                        value={block.align}
-                        onChange={(align) => updateBlock(block.id, { align })}
-                      />
-                    ) : null}
-                    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(block.pageBreakBefore)}
-                        onChange={(e) => updateBlock(block.id, { pageBreakBefore: e.target.checked })}
-                      />
-                      Start on new page
-                    </label>
-                    <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                      Blank lines
-                      <input
-                        type="number"
-                        min={0}
-                        max={20}
-                        className="h-7 w-14 rounded-lg border border-border bg-background px-1.5 text-xs"
-                        value={block.blankLinesAfter}
-                        onChange={(e) =>
-                          updateBlock(block.id, {
-                            blankLinesAfter: Math.max(0, Math.min(20, Number(e.target.value) || 0)),
-                          })
-                        }
-                      />
-                    </label>
-                    <div className="ml-auto flex shrink-0 gap-0.5">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        disabled={index === 0}
-                        onClick={() =>
-                          setDoc((d) => ({ ...d, blocks: moveBlock(d.blocks, index, -1) }))
-                        }
-                      >
-                        <ArrowUp className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        disabled={index === doc.blocks.length - 1}
-                        onClick={() =>
-                          setDoc((d) => ({ ...d, blocks: moveBlock(d.blocks, index, 1) }))
-                        }
-                      >
-                        <ArrowDown className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-destructive"
-                        disabled={doc.blocks.length <= 1}
-                        onClick={() =>
-                          setDoc((d) => ({
-                            ...d,
-                            blocks: d.blocks.filter((b) => b.id !== block.id),
-                          }))
-                        }
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                  <div className="border-b border-border/50 bg-secondary/20">
+                    <div className="flex items-center gap-3 px-4 py-2.5">
+                      <span className="w-8 shrink-0 font-serif text-base tabular-nums text-accent">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Block type
+                        </label>
+                        <select
+                          className="h-9 w-full max-w-sm rounded-lg border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                          value={block.kind}
+                          onChange={(e) =>
+                            updateBlock(block.id, { kind: e.target.value as SkeletonBlockKind })
+                          }
+                        >
+                          {BLOCK_KIND_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex shrink-0 items-center self-end rounded-lg border border-border/70 bg-background p-0.5">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          title="Move up"
+                          disabled={index === 0}
+                          onClick={() =>
+                            setDoc((d) => ({ ...d, blocks: moveBlock(d.blocks, index, -1) }))
+                          }
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          title="Move down"
+                          disabled={index === doc.blocks.length - 1}
+                          onClick={() =>
+                            setDoc((d) => ({ ...d, blocks: moveBlock(d.blocks, index, 1) }))
+                          }
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                        <div className="mx-0.5 h-5 w-px bg-border/70" />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          title="Delete block"
+                          disabled={doc.blocks.length <= 1}
+                          onClick={() =>
+                            setDoc((d) => ({
+                              ...d,
+                              blocks: d.blocks.filter((b) => b.id !== block.id),
+                            }))
+                          }
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
+
+                    {block.kind !== 'page_break' ? (
+                      <div className="flex flex-wrap items-end gap-x-5 gap-y-3 border-t border-border/40 px-4 py-2.5 pl-16">
+                        {block.kind !== 'spacer' ? (
+                          <div>
+                            <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                              Align
+                            </p>
+                            <AlignButtons
+                              value={block.align}
+                              onChange={(align) => updateBlock(block.id, { align })}
+                            />
+                          </div>
+                        ) : null}
+                        <div>
+                          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Page
+                          </p>
+                          <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm text-foreground">
+                            <input
+                              type="checkbox"
+                              className="size-3.5 rounded border-border accent-foreground"
+                              checked={Boolean(block.pageBreakBefore)}
+                              onChange={(e) =>
+                                updateBlock(block.id, { pageBreakBefore: e.target.checked })
+                              }
+                            />
+                            Start on new page
+                          </label>
+                        </div>
+                        <div>
+                          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Spacing after
+                          </p>
+                          <label className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm text-foreground">
+                            <span className="text-muted-foreground">Blank lines</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={20}
+                              className="h-7 w-14 rounded-md border border-border bg-card px-2 text-center text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                              value={block.blankLinesAfter}
+                              onChange={(e) =>
+                                updateBlock(block.id, {
+                                  blankLinesAfter: Math.max(
+                                    0,
+                                    Math.min(20, Number(e.target.value) || 0),
+                                  ),
+                                })
+                              }
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border-t border-border/40 px-4 py-2.5 pl-16">
+                        <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm text-foreground">
+                          <input
+                            type="checkbox"
+                            className="size-3.5 rounded border-border accent-foreground"
+                            checked={Boolean(block.pageBreakBefore)}
+                            onChange={(e) =>
+                              updateBlock(block.id, { pageBreakBefore: e.target.checked })
+                            }
+                          />
+                          Start on new page
+                        </label>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2 px-4 py-3">
@@ -820,8 +989,8 @@ export default function SkeletonEditorPage() {
                         }}
                         onFocus={() => setFocusedBlockId(block.id)}
                         placeholder="Legal text. Drop {{client answers}} here."
-                        rows={3}
-                        className="w-full resize-none overflow-hidden rounded-xl border border-border/50 bg-background px-3 py-2 text-[13px] leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                        rows={8}
+                        className="min-h-[200px] w-full resize-y overflow-auto rounded-xl border border-border/50 bg-background px-3 py-3 text-[13px] leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                       />
                     )}
                     {block.kind === 'signature' && (

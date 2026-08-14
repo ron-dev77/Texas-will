@@ -13,3 +13,6 @@ verify_jwt = false
 
 [functions.deliver-documents]
 verify_jwt = true
+
+[functions.ai-skeleton-reformat]
+verify_jwt = true

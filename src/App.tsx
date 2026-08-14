@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import MarketingLayout from '@/pages/MarketingLayout'
 import Home from '@/pages/Home'
 import HowItWorks from '@/pages/HowItWorks'
@@ -21,6 +21,11 @@ import PromptsEditor from '@/pages/admin/content/PromptsEditor'
 import QuestionnaireEditor from '@/pages/admin/content/QuestionnaireEditor'
 import QuestionnaireFormEditor from '@/pages/admin/content/QuestionnaireFormEditor'
 
+function RedirectOrderReviewToLayouts() {
+  const { orderId } = useParams()
+  return <Navigate to={`/admin/orders/${orderId}?tab=layouts`} replace />
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -30,7 +35,8 @@ export default function App() {
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<OrdersQueue />} />
           <Route path="orders/:orderId" element={<OrderDetail />} />
-          <Route path="content" element={<Navigate to="/admin/content/skeleton" replace />} />
+          <Route path="orders/:orderId/review" element={<RedirectOrderReviewToLayouts />} />
+          <Route path="content" element={<Navigate to="/admin/content/questionnaire" replace />} />
           <Route path="content/skeleton" element={<SkeletonEditor />} />
           <Route path="content/prompts" element={<PromptsEditor />} />
           <Route path="content/questionnaire" element={<QuestionnaireEditor />} />

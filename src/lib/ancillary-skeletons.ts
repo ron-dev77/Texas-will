@@ -11,10 +11,11 @@ type BlockInput = {
   align?: 'left' | 'center' | 'right'
   blankLinesAfter?: number
   pageBreakBefore?: boolean
+  headingBold?: boolean
 }
 
 /** Bump when bundled ancillary copy changes so default forms auto-refresh. */
-export const ANCILLARY_TEMPLATE = 'ancillary-v3'
+export const ANCILLARY_TEMPLATE = 'ancillary-v6'
 
 function pack(title: string, blocks: BlockInput[]): string {
   const full = blocks.map((b) => ({
@@ -28,6 +29,7 @@ function pack(title: string, blocks: BlockInput[]): string {
     align: b.align ?? 'left',
     blankLinesAfter: b.blankLinesAfter ?? 1,
     pageBreakBefore: b.pageBreakBefore ?? false,
+    headingBold: b.headingBold === false ? false : true,
   }))
   return `<!-- texas-will-skeleton-v2 -->
 ${JSON.stringify(
@@ -44,56 +46,56 @@ export const BUNDLED_MPOA_SKELETON = pack('MEDICAL POWER OF ATTORNEY', [
     kind: 'paragraph',
     body:
       'This Medical Power of Attorney is made under **Chapter 166 of the Texas Health and Safety Code**. It authorizes my agent to make health care decisions for me if my attending physician certifies in writing that I am unable to make those decisions myself.',
-    blankLinesAfter: 1,
+    blankLinesAfter: 0,
   },
   {
     id: 'm-principal',
     kind: 'paragraph',
     body:
       'I, **{{legal_full_name}}**, of sound mind and acting voluntarily, appoint the person named below as my agent to make any and all health care decisions for me, except to the extent I state otherwise in this document.',
-    blankLinesAfter: 1,
+    blankLinesAfter: 0,
   },
   {
     id: 'm-agent-h',
     kind: 'heading',
     heading: '1. APPOINTMENT OF AGENT',
     align: 'left',
-    blankLinesAfter: 1,
+    blankLinesAfter: 0,
   },
   {
     id: 'm-agent',
     kind: 'paragraph',
     body:
       '**Primary agent:** {{mpoa_agent_name}}\n**Relationship:** {{mpoa_agent_relationship}}\n**Telephone:** {{mpoa_agent_phone}}',
-    blankLinesAfter: 1,
+    blankLinesAfter: 0,
   },
   {
     id: 'm-alt',
     kind: 'paragraph',
     body:
       '**Alternate agent** (if my primary agent is unable, unwilling, or unavailable to serve):\n**Name:** {{mpoa_alt_agent_name}}\n**Telephone:** {{mpoa_alt_agent_phone}}',
-    blankLinesAfter: 1,
+    blankLinesAfter: 0,
   },
   {
     id: 'm-scope-h',
     kind: 'heading',
     heading: '2. AUTHORITY AND EFFECT',
     align: 'left',
-    blankLinesAfter: 1,
+    blankLinesAfter: 0,
   },
   {
     id: 'm-scope',
     kind: 'paragraph',
     body:
       'My agent’s authority becomes effective when my attending physician certifies that I lack capacity to make my own health care decisions. My agent shall make decisions in accordance with my known wishes, including any wishes I express in this document or in a Directive to Physicians. If my wishes are unknown, my agent shall decide in my best interest. This document does not authorize my agent to make decisions that I could not make myself under Texas law.',
-    blankLinesAfter: 2,
+    blankLinesAfter: 0,
   },
   {
     id: 'm-sig-h',
     kind: 'heading',
     heading: 'SIGNATURE OF PRINCIPAL',
     align: 'center',
-    blankLinesAfter: 1,
+    blankLinesAfter: 0,
   },
   {
     id: 'm-sig-txt',
@@ -107,14 +109,14 @@ export const BUNDLED_MPOA_SKELETON = pack('MEDICAL POWER OF ATTORNEY', [
     kind: 'signature',
     label: 'Signature of Principal',
     align: 'center',
-    blankLinesAfter: 2,
+    blankLinesAfter: 1,
   },
   {
     id: 'm-notary-h',
     kind: 'heading',
     heading: 'NOTARY ACKNOWLEDGMENT',
     align: 'center',
-    blankLinesAfter: 1,
+    blankLinesAfter: 0,
   },
   {
     id: 'm-notary',
@@ -194,14 +196,14 @@ export const BUNDLED_DPOA_SKELETON = pack('STATUTORY DURABLE POWER OF ATTORNEY',
     kind: 'signature',
     label: 'Signature of Principal',
     align: 'center',
-    blankLinesAfter: 2,
+    blankLinesAfter: 1,
   },
   {
     id: 'd-notary-h',
     kind: 'heading',
     heading: 'NOTARY ACKNOWLEDGMENT',
     align: 'center',
-    blankLinesAfter: 1,
+    blankLinesAfter: 0,
   },
   {
     id: 'd-notary',
@@ -282,14 +284,14 @@ export const BUNDLED_DIRECTIVE_SKELETON = pack(
       kind: 'signature',
       label: 'Signature of Declarant',
       align: 'center',
-      blankLinesAfter: 2,
+      blankLinesAfter: 1,
     },
     {
       id: 'dir-wit-h',
       kind: 'heading',
       heading: 'WITNESSES',
       align: 'center',
-      blankLinesAfter: 1,
+      blankLinesAfter: 0,
     },
     {
       id: 'dir-wit-txt',

@@ -140,6 +140,10 @@ const ANCILLARY_LABELS: Record<string, Record<string, string>> = {
     yes: 'Yes',
     no: 'No',
   },
+  trust_residuary_plan: {
+    same_as_will: "Same beneficiaries and shares as my will's residuary",
+    custom: 'A custom residuary split as described below',
+  },
 }
 
 const COMPUTED: Record<

@@ -120,16 +120,20 @@ export async function renderSkeletonLayoutPdf(
   const pageHeight = A4_HEIGHT
   const marginX = 56.7 // ~20mm
   const marginY = 56.7
-  const footerReserve = 28
+  const footerReserve = 22
   const bottomLimit = marginY + footerReserve
   const contentWidth = pageWidth - marginX * 2
   const usableHeight = pageHeight - marginY - bottomLimit
+  /** Allow closing signature blocks a bit lower so they stay on the prior page. */
+  const squeezeBottom = marginY + 10
 
   const bodySize = 11
   const headingSize = 12
   const titleSize = 16
-  const lineHeight = 15
+  const lineHeight = 14
   const labelSize = 9
+  const sigBlockH = 38
+  const sigLineOffset = 20
   const ink = rgb(0.12, 0.14, 0.18)
   const pageBg = rgb(247 / 255, 243 / 255, 234 / 255)
 
@@ -144,14 +148,14 @@ export async function renderSkeletonLayoutPdf(
   let page = startPage()
   let y = pageHeight - marginY
 
-  const spaceLeft = () => y - bottomLimit
+  const spaceLeft = (bottom = bottomLimit) => y - bottom
   const newPage = () => {
     page = startPage()
     y = pageHeight - marginY
   }
-  const need = (h: number) => {
+  const need = (h: number, bottom = bottomLimit) => {
     if (h <= 0) return
-    if (spaceLeft() < h && h <= usableHeight) newPage()
+    if (spaceLeft(bottom) < h && h <= pageHeight - marginY - bottom) newPage()
   }
 
   const drawAlignedText = (
@@ -219,12 +223,13 @@ export async function renderSkeletonLayoutPdf(
   }
 
   const drawSigLine = (label: string, align: TextAlign, width = Math.min(280, contentWidth)) => {
-    const blockH = 42
-    need(blockH)
+    const blockH = sigBlockH
+    need(blockH, squeezeBottom)
     let x = marginX
     if (align === 'center') x = marginX + (contentWidth - width) / 2
     if (align === 'right') x = marginX + contentWidth - width
-    const lineY = y - 22
+    // Leave room above the line for a handwritten signature.
+    const lineY = y - sigLineOffset
     page.drawLine({
       start: { x, y: lineY },
       end: { x: x + width, y: lineY },
@@ -234,7 +239,7 @@ export async function renderSkeletonLayoutPdf(
     const lw = fontItalic.widthOfTextAtSize(label, labelSize)
     page.drawText(label, {
       x: x + Math.max(0, (width - lw) / 2),
-      y: lineY - 6 - labelSize,
+      y: lineY - 4 - labelSize,
       size: labelSize,
       font: fontItalic,
       color: ink,
@@ -245,9 +250,9 @@ export async function renderSkeletonLayoutPdf(
   const drawSigPair = (left: string, right: string) => {
     const gap = 20
     const colW = (contentWidth - gap) / 2
-    const blockH = 42
-    need(blockH)
-    const lineY = y - 22
+    const blockH = sigBlockH
+    need(blockH, squeezeBottom)
+    const lineY = y - sigLineOffset
     page.drawLine({
       start: { x: marginX, y: lineY },
       end: { x: marginX + colW, y: lineY },
@@ -264,14 +269,14 @@ export async function renderSkeletonLayoutPdf(
     const rightW = fontItalic.widthOfTextAtSize(right, labelSize)
     page.drawText(left, {
       x: marginX + Math.max(0, (colW - leftW) / 2),
-      y: lineY - 6 - labelSize,
+      y: lineY - 4 - labelSize,
       size: labelSize,
       font: fontItalic,
       color: ink,
     })
     page.drawText(right, {
       x: marginX + colW + gap + Math.max(0, (colW - rightW) / 2),
-      y: lineY - 6 - labelSize,
+      y: lineY - 4 - labelSize,
       size: labelSize,
       font: fontItalic,
       color: ink,
@@ -322,7 +327,7 @@ export async function renderSkeletonLayoutPdf(
         continue
       }
       if (b.kind === 'signature' || b.kind === 'signature_pair') {
-        h += 52 + lineHeight * (b.blankLinesAfter || 0)
+        h += sigBlockH + 2 + lineHeight * (b.blankLinesAfter || 0)
         continue
       }
       const text =
@@ -366,12 +371,74 @@ export async function renderSkeletonLayoutPdf(
 
     if (block.kind === 'heading') {
       const heading = fillSkeletonTokens(block.heading || 'Heading', answers, options).toUpperCase()
-      drawAlignedText(heading, fontBold, headingSize, block.align, 10)
+      const headingFont = block.headingBold === false ? font : fontBold
+      // Keep heading with following paragraph + signature lines when possible (prefer prior page).
+      let keepWith = headingSize + 8 + lineHeight * (block.blankLinesAfter || 0)
+      for (let j = index + 1; j < doc.blocks.length; j++) {
+        if (skipTitleBlockIdx.has(j)) continue
+        const next = doc.blocks[j]
+        if (next.pageBreakBefore || next.kind === 'page_break') break
+        if (next.kind === 'signature' || next.kind === 'signature_pair') {
+          keepWith += sigBlockH + 2 + lineHeight * (next.blankLinesAfter || 0)
+          continue
+        }
+        if (next.kind === 'spacer') {
+          keepWith += lineHeight * Math.max(1, next.blankLinesAfter || 2)
+          break
+        }
+        if (next.kind === 'paragraph' || next.kind === 'heading' || next.kind === 'section') {
+          const filled = fillSkeletonTokens(
+            next.kind === 'heading' ? next.heading : next.body || '',
+            answers,
+            options,
+          ).trim()
+          const rich = filled ? wrapRichLines(filled, font, fontBold, bodySize, contentWidth) : []
+          for (const line of rich) keepWith += line.length ? lineHeight : lineHeight * 0.5
+          keepWith += lineHeight * (next.blankLinesAfter || 0)
+          // Also pull trailing signatures after that paragraph.
+          for (let k = j + 1; k < doc.blocks.length; k++) {
+            const trail = doc.blocks[k]
+            if (trail.pageBreakBefore || trail.kind === 'page_break') break
+            if (trail.kind === 'signature' || trail.kind === 'signature_pair') {
+              keepWith += sigBlockH + 2 + lineHeight * (trail.blankLinesAfter || 0)
+              continue
+            }
+            break
+          }
+        }
+        break
+      }
+      // Prefer staying on this page: only break if it truly cannot fit with a slight footer squeeze.
+      if (spaceLeft(squeezeBottom) < Math.min(keepWith, usableHeight * 0.5)) {
+        need(Math.min(keepWith, usableHeight * 0.5), squeezeBottom)
+      }
+      drawAlignedText(heading, headingFont, headingSize, block.align, 6)
       applyBlankLines(block.blankLinesAfter)
       return
     }
 
     if (block.kind === 'paragraph') {
+      const filled = fillSkeletonTokens(block.body || '', answers, options).trim()
+      const richLines = filled ? wrapRichLines(filled, font, fontBold, bodySize, contentWidth) : []
+      let paraH = 0
+      for (const line of richLines) {
+        paraH += line.length ? lineHeight : lineHeight * 0.5
+      }
+      paraH += lineHeight * (block.blankLinesAfter || 0)
+      let keep = paraH
+      for (let j = index + 1; j < doc.blocks.length; j++) {
+        if (skipTitleBlockIdx.has(j)) continue
+        const next = doc.blocks[j]
+        if (next.pageBreakBefore || next.kind === 'page_break') break
+        if (next.kind === 'signature' || next.kind === 'signature_pair') {
+          keep += sigBlockH + 2 + lineHeight * (next.blankLinesAfter || 0)
+          continue
+        }
+        break
+      }
+      if (spaceLeft(squeezeBottom) < Math.min(keep, usableHeight * 0.55)) {
+        need(Math.min(keep, usableHeight * 0.55), squeezeBottom)
+      }
       drawParagraph(block.body || '', block.align)
       applyBlankLines(block.blankLinesAfter)
       return
@@ -395,7 +462,8 @@ export async function renderSkeletonLayoutPdf(
     // section
     if (block.heading.trim()) {
       const heading = fillSkeletonTokens(block.heading, answers, options).toUpperCase()
-      drawAlignedText(heading, fontBold, headingSize, block.align, 8)
+      const headingFont = block.headingBold === false ? font : fontBold
+      drawAlignedText(heading, headingFont, headingSize, block.align, 8)
     }
     if (block.body.trim()) {
       drawParagraph(block.body, block.align)
@@ -403,7 +471,7 @@ export async function renderSkeletonLayoutPdf(
     applyBlankLines(block.blankLinesAfter)
   }
 
-  drawAlignedText(displayTitle, fontBold, titleSize, 'center', 14)
+  drawAlignedText(displayTitle, fontBold, titleSize, 'center', 10)
 
   for (let i = 0; i < doc.blocks.length; i++) {
     if (skipTitleBlockIdx.has(i)) continue

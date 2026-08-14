@@ -20,6 +20,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
     align: partial.align ?? 'left',
     blankLinesAfter: partial.blankLinesAfter ?? 0,
     pageBreakBefore: partial.pageBreakBefore ?? false,
+    headingBold: partial.headingBold === false ? false : true,
   })
 
   return {
@@ -175,6 +176,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
         heading: 'ARTICLE X — GENERAL PROVISIONS',
         align: 'center',
         blankLinesAfter: 1,
+        pageBreakBefore: true,
       }),
       blk({
         kind: 'paragraph',
@@ -231,7 +233,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
       blk({
         kind: 'paragraph',
         body: '**IMPORTANT:** Neither witness may be a beneficiary named in this Will. Both witnesses must be present at the same time when the Testator signs.',
-        blankLinesAfter: 1,
+        blankLinesAfter: 0,
       }),
       blk({
         kind: 'signature_pair',
@@ -249,7 +251,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
         kind: 'signature_pair',
         leftLabel: 'Address',
         rightLabel: 'Address',
-        blankLinesAfter: 2,
+        blankLinesAfter: 1,
       }),
 
       blk({
@@ -257,6 +259,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
         heading: 'SELF-PROVING AFFIDAVIT',
         align: 'center',
         blankLinesAfter: 0,
+        pageBreakBefore: true,
       }),
       blk({
         kind: 'paragraph',
@@ -302,7 +305,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
         kind: 'signature',
         label: 'Notary Public, State of Texas',
         align: 'right',
-        blankLinesAfter: 0,
+        blankLinesAfter: 1,
       }),
       blk({
         kind: 'signature',
@@ -351,11 +354,28 @@ export function needsWillNotaryRightAlign(body: string | null | undefined): bool
   return false
 }
 
+/** ARTICLE X still starts mid-page (orphans the heading). */
+export function needsArticleXPageBreak(body: string | null | undefined): boolean {
+  const t = body ?? ''
+  if (!/ARTICLE X\s*[—\-]\s*GENERAL PROVISIONS/i.test(t)) return false
+  return !/"heading":\s*"ARTICLE X[^"]*"[\s\S]{0,160}"pageBreakBefore":\s*true/.test(t)
+}
+
+/** Notary Public / Commission Expires lines were too tight for signing. */
+export function needsNotarySignatureSpacing(body: string | null | undefined): boolean {
+  const t = body ?? ''
+  if (!/"label":\s*"Notary Public, State of Texas"/.test(t)) return false
+  if (!/"label":\s*"My Commission Expires"/.test(t)) return false
+  return /"label":\s*"Notary Public, State of Texas"[\s\S]{0,120}"blankLinesAfter":\s*0/.test(t)
+}
+
 /** Refresh bundled default will skeleton when outdated. */
 export function needsDefaultWillSkeletonRefresh(body: string | null | undefined): boolean {
   return (
     isLegacyWillSkeleton(body) ||
     needsWitnessTwoColumnUpgrade(body) ||
-    needsWillNotaryRightAlign(body)
+    needsWillNotaryRightAlign(body) ||
+    needsArticleXPageBreak(body) ||
+    needsNotarySignatureSpacing(body)
   )
 }
