@@ -7,10 +7,7 @@ export type AdminRole = 'admin' | 'staff' | 'attorney'
  * Admin login never creates users — accounts must already exist in Auth
  * and have a row in user_roles / admin_users.
  */
-export const ADMIN_SIGNUP_ALLOWLIST = new Set([
-  'ronprynn77@outlook.com',
-  'scott@myaiwill.com',
-])
+export const ADMIN_SIGNUP_ALLOWLIST = new Set(['ronprynn77@outlook.com'])
 
 export type OrderRow = {
   id: string

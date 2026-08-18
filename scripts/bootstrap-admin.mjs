@@ -44,7 +44,7 @@ const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY
 const email = (process.env.ADMIN_EMAIL || '').trim().toLowerCase()
 const password = process.env.ADMIN_PASSWORD || ''
 
-const ALLOWLIST = new Set(['ronprynn77@outlook.com', 'scott@myaiwill.com'])
+const ALLOWLIST = new Set(['ronprynn77@outlook.com'])
 
 if (!url || !key) {
   console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY')

@@ -28,6 +28,22 @@ function bold(s: string) {
   return t ? `**${t}**` : ''
 }
 
+function fillOrBlank(v: unknown, blank = '_____________________________') {
+  const t = plain(str(v))
+  return t ? bold(t) : blank
+}
+
+function dpoaInit(answers: Answers, letter: string) {
+  if (answers.dpoa_grant_all === 'yes') return letter === 'O' ? 'X' : '____'
+  const granted = new Set(
+    plain(str(answers.dpoa_powers_list))
+      .toUpperCase()
+      .split(/[^A-O]+/)
+      .filter(Boolean),
+  )
+  return granted.has(letter) ? 'X' : '____'
+}
+
 function formatDate(value: string) {
   const v = plain(value)
   if (!v) return ''
@@ -128,13 +144,32 @@ export function resolveSkeletonToken(
 
 const ANCILLARY_LABELS: Record<string, Record<string, string>> = {
   dpoa_when_effective: {
-    immediately: 'Immediately when I sign',
-    incapacity: 'Only if I become incapacitated',
+    immediately: '(A) Effective immediately when I sign',
+    incapacity: '(B) Effective only if I become incapacitated',
   },
-  directive_preference: {
-    no_prolong: 'Do not prolong my life with life-sustaining treatment',
-    prolong: 'I want life-sustaining treatment continued',
-    agent_decides: 'Let my medical agent decide',
+  dpoa_compensation: {
+    reasonable: 'Reimbursement of reasonable expenses and reasonable compensation',
+    expenses_only: 'Reimbursement of reasonable expenses only — no compensation',
+  },
+  dpoa_grant_all: {
+    yes: 'Yes',
+    no: 'No',
+  },
+  dpoa_gift_power: {
+    yes: 'Yes',
+    no: 'No',
+  },
+  directive_terminal: {
+    comfort: 'Comfort care only — allow me to die as gently as possible',
+    prolong: 'Keep me alive using available life-sustaining treatment',
+  },
+  directive_irreversible: {
+    comfort: 'Comfort care only — allow me to die as gently as possible',
+    prolong: 'Keep me alive using available life-sustaining treatment',
+  },
+  directive_additional: {
+    none: 'None at this time',
+    custom: 'Particular treatments listed below',
   },
   hipaa_include_agents: {
     yes: 'Yes',
@@ -150,6 +185,181 @@ const COMPUTED: Record<
   string,
   (answers: Answers, options: SkeletonFillOptions) => string
 > = {
+  mpoa_agent_address(answers) {
+    return fillOrBlank(answers.mpoa_agent_address)
+  },
+  mpoa_alt_agent_address(answers) {
+    return fillOrBlank(answers.mpoa_alt_agent_address)
+  },
+  mpoa_alt2_agent_name(answers) {
+    return fillOrBlank(answers.mpoa_alt2_agent_name)
+  },
+  mpoa_alt2_agent_address(answers) {
+    return fillOrBlank(answers.mpoa_alt2_agent_address)
+  },
+  mpoa_alt2_agent_phone(answers) {
+    return fillOrBlank(answers.mpoa_alt2_agent_phone)
+  },
+  mpoa_limitations(answers) {
+    return fillOrBlank(
+      answers.mpoa_limitations,
+      '________________________________________________________________',
+    )
+  },
+  mpoa_expires_on(answers) {
+    return fillOrBlank(answers.mpoa_expires_on, 'Not Applicable')
+  },
+  hipaa_rep1_name(answers) {
+    return fillOrBlank(answers.hipaa_rep1_name)
+  },
+  hipaa_rep1_address(answers) {
+    return fillOrBlank(answers.hipaa_rep1_address)
+  },
+  hipaa_rep1_phone(answers) {
+    return fillOrBlank(answers.hipaa_rep1_phone)
+  },
+  hipaa_rep2_name(answers) {
+    return fillOrBlank(answers.hipaa_rep2_name)
+  },
+  hipaa_rep2_address(answers) {
+    return fillOrBlank(answers.hipaa_rep2_address)
+  },
+  hipaa_rep2_phone(answers) {
+    return fillOrBlank(answers.hipaa_rep2_phone)
+  },
+  hipaa_rep3_name(answers) {
+    return fillOrBlank(answers.hipaa_rep3_name)
+  },
+  hipaa_rep3_address(answers) {
+    return fillOrBlank(answers.hipaa_rep3_address)
+  },
+  hipaa_rep3_phone(answers) {
+    return fillOrBlank(answers.hipaa_rep3_phone)
+  },
+  hipaa_rep4_name(answers) {
+    return fillOrBlank(answers.hipaa_rep4_name)
+  },
+  hipaa_rep4_address(answers) {
+    return fillOrBlank(answers.hipaa_rep4_address)
+  },
+  hipaa_rep4_phone(answers) {
+    return fillOrBlank(answers.hipaa_rep4_phone)
+  },
+  dpoa_agent_address(answers) {
+    return fillOrBlank(answers.dpoa_agent_address)
+  },
+  dpoa_alt_agent_name(answers) {
+    return fillOrBlank(answers.dpoa_alt_agent_name)
+  },
+  dpoa_alt_agent_address(answers) {
+    return fillOrBlank(answers.dpoa_alt_agent_address)
+  },
+  dpoa_alt_agent_phone(answers) {
+    return fillOrBlank(answers.dpoa_alt_agent_phone)
+  },
+  dpoa_alt2_agent_name(answers) {
+    return fillOrBlank(answers.dpoa_alt2_agent_name)
+  },
+  dpoa_alt2_agent_address(answers) {
+    return fillOrBlank(answers.dpoa_alt2_agent_address)
+  },
+  dpoa_alt2_agent_phone(answers) {
+    return fillOrBlank(answers.dpoa_alt2_agent_phone)
+  },
+  dpoa_special_instructions(answers) {
+    return fillOrBlank(
+      answers.dpoa_special_instructions,
+      '________________________________________________________________',
+    )
+  },
+  dpoa_init_a(answers) {
+    return dpoaInit(answers, 'A')
+  },
+  dpoa_init_b(answers) {
+    return dpoaInit(answers, 'B')
+  },
+  dpoa_init_c(answers) {
+    return dpoaInit(answers, 'C')
+  },
+  dpoa_init_d(answers) {
+    return dpoaInit(answers, 'D')
+  },
+  dpoa_init_e(answers) {
+    return dpoaInit(answers, 'E')
+  },
+  dpoa_init_f(answers) {
+    return dpoaInit(answers, 'F')
+  },
+  dpoa_init_g(answers) {
+    return dpoaInit(answers, 'G')
+  },
+  dpoa_init_h(answers) {
+    return dpoaInit(answers, 'H')
+  },
+  dpoa_init_i(answers) {
+    return dpoaInit(answers, 'I')
+  },
+  dpoa_init_j(answers) {
+    return dpoaInit(answers, 'J')
+  },
+  dpoa_init_k(answers) {
+    return dpoaInit(answers, 'K')
+  },
+  dpoa_init_l(answers) {
+    return dpoaInit(answers, 'L')
+  },
+  dpoa_init_m(answers) {
+    return dpoaInit(answers, 'M')
+  },
+  dpoa_init_n(answers) {
+    return dpoaInit(answers, 'N')
+  },
+  dpoa_init_o(answers) {
+    return dpoaInit(answers, 'O')
+  },
+  dpoa_init_comp_reasonable(answers) {
+    return answers.dpoa_compensation === 'reasonable' ? 'X' : '____'
+  },
+  dpoa_init_comp_none(answers) {
+    return answers.dpoa_compensation === 'expenses_only' ? 'X' : '____'
+  },
+  dpoa_init_gifts(answers) {
+    return answers.dpoa_gift_power === 'yes' ? 'X' : '____'
+  },
+  dpoa_line_a(answers) {
+    return answers.dpoa_when_effective === 'incapacity'
+      ? '(A) [CROSSED OUT] This power of attorney is not affected by my subsequent disability or incapacity.'
+      : '(A) This power of attorney is not affected by my subsequent disability or incapacity.'
+  },
+  dpoa_line_b(answers) {
+    return answers.dpoa_when_effective === 'incapacity'
+      ? '(B) This power of attorney becomes effective upon my disability or incapacity.'
+      : '(B) [CROSSED OUT] This power of attorney becomes effective upon my disability or incapacity.'
+  },
+  dir_term_comfort(answers) {
+    return answers.directive_terminal === 'comfort' ? 'X' : '____'
+  },
+  dir_term_prolong(answers) {
+    return answers.directive_terminal === 'prolong' ? 'X' : '____'
+  },
+  dir_irr_comfort(answers) {
+    return answers.directive_irreversible === 'comfort' ? 'X' : '____'
+  },
+  dir_irr_prolong(answers) {
+    return answers.directive_irreversible === 'prolong' ? 'X' : '____'
+  },
+  dir_add_none(answers) {
+    return answers.directive_additional === 'none' ? 'X' : '____'
+  },
+  directive_notes(answers) {
+    if (answers.directive_additional === 'none') {
+      return '________________________________________________________________'
+    }
+    return fillOrBlank(
+      answers.directive_notes,
+      '________________________________________________________________',
+    )
+  },
   executor_first_name(answers) {
     const n = plain(str(answers.executor_name))
     return n ? bold(firstName(n)) : '{{executor_first_name}}'

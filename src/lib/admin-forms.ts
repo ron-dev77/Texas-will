@@ -84,19 +84,47 @@ export const WILL_ENGINE_FIELD_IDS = [
   'trust_residuary_custom',
   'trust_distribution_age',
   'mpoa_agent_name',
-  'mpoa_agent_relationship',
   'mpoa_agent_phone',
+  'mpoa_agent_address',
+  'mpoa_limitations',
   'mpoa_alt_agent_name',
   'mpoa_alt_agent_phone',
+  'mpoa_alt_agent_address',
+  'mpoa_alt2_agent_name',
+  'mpoa_alt2_agent_phone',
+  'mpoa_alt2_agent_address',
+  'mpoa_expires_on',
   'dpoa_agent_name',
-  'dpoa_agent_relationship',
+  'dpoa_agent_address',
   'dpoa_agent_phone',
-  'dpoa_alt_agent_name',
+  'dpoa_grant_all',
+  'dpoa_powers_list',
+  'dpoa_compensation',
+  'dpoa_gift_power',
+  'dpoa_special_instructions',
   'dpoa_when_effective',
-  'directive_preference',
+  'dpoa_alt_agent_name',
+  'dpoa_alt_agent_address',
+  'dpoa_alt_agent_phone',
+  'dpoa_alt2_agent_name',
+  'dpoa_alt2_agent_address',
+  'dpoa_alt2_agent_phone',
+  'directive_terminal',
+  'directive_irreversible',
+  'directive_additional',
   'directive_notes',
-  'hipaa_recipients',
-  'hipaa_include_agents',
+  'hipaa_rep1_name',
+  'hipaa_rep1_address',
+  'hipaa_rep1_phone',
+  'hipaa_rep2_name',
+  'hipaa_rep2_address',
+  'hipaa_rep2_phone',
+  'hipaa_rep3_name',
+  'hipaa_rep3_address',
+  'hipaa_rep3_phone',
+  'hipaa_rep4_name',
+  'hipaa_rep4_address',
+  'hipaa_rep4_phone',
 ] as const
 
 export const FIELD_TYPES: FieldType[] = [
@@ -195,6 +223,57 @@ export function mergeMissingBundledSections(schema: Section[]): Section[] {
   const reviewIdx = schema.findIndex((s) => s.id === 'review' || s.isReview)
   if (reviewIdx < 0) return [...schema, ...missing]
   return [...schema.slice(0, reviewIdx), ...missing, ...schema.slice(reviewIdx)]
+}
+
+/** Add new bundled questions onto existing sections (does not overwrite edited copy). */
+export function mergeMissingBundledFields(schema: Section[]): Section[] {
+  const bundledById = new Map(SECTIONS.map((s) => [s.id, s]))
+  let changed = false
+  const next = schema.map((section) => {
+    const bundled = bundledById.get(section.id)
+    if (!bundled) return section
+    const have = new Set(section.fields.map((f) => f.id))
+    const missing = bundled.fields.filter((f) => !have.has(f.id))
+    if (missing.length === 0) return section
+    changed = true
+    return { ...section, fields: [...section.fields, ...missing] }
+  })
+  return changed ? next : schema
+}
+
+/** Sections whose default questions must stay in lockstep with the bundled form. */
+const BUNDLED_QUESTION_SYNC_IDS = new Set(['medical_poa', 'hipaa', 'durable_poa', 'directive'])
+
+function bundledSectionFingerprint(section: Section): string {
+  return JSON.stringify({
+    title: section.title,
+    intro: section.intro,
+    fields: section.fields.map((f) => ({
+      id: f.id,
+      label: f.label,
+      type: f.type,
+      required: Boolean(f.required),
+      helper: f.helper ?? '',
+      placeholder: f.placeholder ?? '',
+    })),
+  })
+}
+
+/** Replace bundled sections on the default form when those questions change. */
+export function syncBundledDefaultQuestions(schema: Section[]): Section[] {
+  const bundledById = new Map(SECTIONS.map((s) => [s.id, s]))
+  let changed = false
+  const next = schema.map((section) => {
+    if (!BUNDLED_QUESTION_SYNC_IDS.has(section.id)) return section
+    const bundled = bundledById.get(section.id)
+    if (!bundled) return section
+    if (bundledSectionFingerprint(section) === bundledSectionFingerprint(bundled)) {
+      return section
+    }
+    changed = true
+    return { ...bundled, fields: [...bundled.fields] }
+  })
+  return changed ? next : schema
 }
 
 export function defaultAncillarySkeletonsMap(): Record<AncillaryKind, string> {
@@ -301,8 +380,11 @@ export async function ensureDefaultForm(): Promise<QuestionnaireFormRow> {
     if (needsTrustSkeletonRefresh(mapped.trust_skeleton_body)) {
       patch.trust_skeleton_body = BUNDLED_TRUST_SKELETON
     }
-    const mergedSchema = mergeMissingBundledSections(mapped.schema)
-    if (mergedSchema.length !== mapped.schema.length) {
+    const mergedSchema = syncBundledDefaultQuestions(
+      mergeMissingBundledFields(mergeMissingBundledSections(mapped.schema)),
+    )
+    const schemaChanged = JSON.stringify(mergedSchema) !== JSON.stringify(mapped.schema)
+    if (schemaChanged) {
       patch.schema = mergedSchema as unknown as Json
     }
     const anc = mapped.ancillary_skeletons
@@ -1177,7 +1259,7 @@ export async function getActiveQuestionnaireSchema(): Promise<{
 
   const { data, error } = await supabase
     .from('questionnaire_forms')
-    .select('id, name, schema')
+    .select('id, name, schema, is_default')
     .eq('is_active', true)
     .maybeSingle()
 
@@ -1190,10 +1272,11 @@ export async function getActiveQuestionnaireSchema(): Promise<{
     return { formId: null, formName: null, sections: [...SECTIONS] }
   }
 
+  const merged = mergeMissingBundledFields(mergeMissingBundledSections(validated.sections))
   return {
     formId: data.id,
     formName: data.name,
-    sections: mergeMissingBundledSections(validated.sections),
+    sections: data.is_default ? syncBundledDefaultQuestions(merged) : merged,
   }
 }
 

@@ -386,7 +386,7 @@ export function OrderLayoutsTab({
                     type="button"
                     onClick={() => setDocKind(kind)}
                     className={cn(
-                      'rounded-xl px-3 py-2 text-left text-sm transition',
+                      'rounded-xl px-3 pt-3 pb-2 text-center text-sm transition',
                       docKind === kind
                         ? 'bg-foreground text-background'
                         : 'border border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground',
@@ -395,7 +395,7 @@ export function OrderLayoutsTab({
                     <span className="block font-medium">{DOCUMENT_KIND_LABEL[kind]}</span>
                     <span
                       className={cn(
-                        'mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px]',
+                        'mt-0.5 flex flex-wrap items-center justify-center gap-1.5 text-[11px]',
                         docKind === kind ? 'opacity-80' : 'text-muted-foreground',
                       )}
                     >

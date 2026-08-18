@@ -556,17 +556,6 @@ export function buildTrustFromAnswers(answers: Answers): WillContent {
   }
 }
 
-function peopleNames(v: unknown): string {
-  if (!Array.isArray(v)) return '[Authorized recipients]'
-  const names = v
-    .map((row) => {
-      if (!row || typeof row !== 'object') return ''
-      return plain(str((row as Record<string, unknown>).name))
-    })
-    .filter(Boolean)
-  return names.length ? names.join('; ') : '[Authorized recipients]'
-}
-
 /** Snapshot content for Medical POA (skeleton layout is the primary live preview). */
 export function buildMpoaFromAnswers(answers: Answers): WillContent {
   const name = plain(str(answers.legal_full_name, '[Principal]'))
@@ -577,7 +566,7 @@ export function buildMpoaFromAnswers(answers: Answers): WillContent {
       {
         heading: 'APPOINTMENT OF AGENT',
         paragraphs: [
-          `I, **${name}**, appoint **${plain(str(answers.mpoa_agent_name, '[Agent]'))}** (${plain(str(answers.mpoa_agent_relationship)) || 'relationship as stated'}) as my medical agent. Phone: ${plain(str(answers.mpoa_agent_phone)) || '—'}.`,
+          `I, **${name}**, appoint **${plain(str(answers.mpoa_agent_name, '[Agent]'))}** as my medical agent. Address: ${plain(str(answers.mpoa_agent_address)) || '—'}. Phone: ${plain(str(answers.mpoa_agent_phone)) || '—'}.`,
           answers.mpoa_alt_agent_name
             ? `Alternate agent: **${plain(str(answers.mpoa_alt_agent_name))}**. Phone: ${plain(str(answers.mpoa_alt_agent_phone)) || '—'}.`
             : 'No alternate agent named.',
@@ -600,7 +589,7 @@ export function buildDpoaFromAnswers(answers: Answers): WillContent {
       {
         heading: 'APPOINTMENT OF AGENT',
         paragraphs: [
-          `I, **${name}**, appoint **${plain(str(answers.dpoa_agent_name, '[Agent]'))}** (${plain(str(answers.dpoa_agent_relationship)) || 'relationship as stated'}) as my agent. Phone: ${plain(str(answers.dpoa_agent_phone)) || '—'}.`,
+          `I, **${name}**, appoint **${plain(str(answers.dpoa_agent_name, '[Agent]'))}** of ${plain(str(answers.dpoa_agent_address)) || '[address]'} as my agent. Phone: ${plain(str(answers.dpoa_agent_phone)) || '—'}.`,
           answers.dpoa_alt_agent_name
             ? `Alternate agent: **${plain(str(answers.dpoa_alt_agent_name))}**.`
             : 'No alternate agent named.',
@@ -613,25 +602,24 @@ export function buildDpoaFromAnswers(answers: Answers): WillContent {
 
 export function buildDirectiveFromAnswers(answers: Answers): WillContent {
   const name = plain(str(answers.legal_full_name, '[Declarant]'))
-  const prefMap: Record<string, string> = {
-    no_prolong: 'Do not prolong my life with life-sustaining treatment',
-    prolong: 'I want life-sustaining treatment continued',
-    agent_decides: 'Let my medical agent decide',
+  const choice: Record<string, string> = {
+    comfort: 'comfort care only — allow me to die as gently as possible',
+    prolong: 'keep me alive using available life-sustaining treatment',
   }
-  const pref =
-    prefMap[str(answers.directive_preference)] ??
-    str(answers.directive_preference, '[Preference]')
+  const terminal = choice[str(answers.directive_terminal)] ?? '[terminal preference]'
+  const irreversible = choice[str(answers.directive_irreversible)] ?? '[irreversible preference]'
+  const additional =
+    answers.directive_additional === 'custom'
+      ? plain(str(answers.directive_notes)) || 'Particular treatments as stated.'
+      : 'None at this time.'
   return {
-    title: 'DIRECTIVE TO PHYSICIANS',
+    title: 'DIRECTIVE TO PHYSICIANS AND FAMILY OR SURROGATES',
     testatorName: name,
     sections: [
       {
-        heading: 'TREATMENT PREFERENCE',
+        heading: 'TREATMENT PREFERENCES',
         paragraphs: [
-          `I, **${name}**, state the following preference: **${pref}**.`,
-          answers.directive_notes
-            ? `Additional wishes: ${plain(str(answers.directive_notes))}`
-            : 'No additional wishes stated.',
+          `I, **${name}**, direct as follows. Terminal condition: **${terminal}**. Irreversible condition: **${irreversible}**. Additional requests: **${additional}**.`,
         ],
       },
     ],
@@ -640,21 +628,23 @@ export function buildDirectiveFromAnswers(answers: Answers): WillContent {
 
 export function buildHipaaFromAnswers(answers: Answers): WillContent {
   const name = plain(str(answers.legal_full_name, '[Individual]'))
-  const includeAgents =
-    answers.hipaa_include_agents === 'yes'
-      ? 'Yes'
-      : answers.hipaa_include_agents === 'no'
-        ? 'No'
-        : '—'
+  const reps = [1, 2, 3, 4]
+    .map((n) => {
+      const person = plain(str(answers[`hipaa_rep${n}_name`]))
+      if (!person) return ''
+      const address = plain(str(answers[`hipaa_rep${n}_address`]))
+      const phone = plain(str(answers[`hipaa_rep${n}_phone`]))
+      return [person, address, phone].filter(Boolean).join(', ')
+    })
+    .filter(Boolean)
   return {
-    title: 'HIPAA AUTHORIZATION',
+    title: 'HIPAA RELEASE AND AUTHORIZATION FOR USE AND DISCLOSURE OF PROTECTED HEALTH INFORMATION',
     testatorName: name,
     sections: [
       {
-        heading: 'AUTHORIZED RECIPIENTS',
+        heading: 'PERSONAL REPRESENTATIVES',
         paragraphs: [
-          `I, **${name}**, authorize disclosure of my protected health information to: **${peopleNames(answers.hipaa_recipients)}**.`,
-          `Also authorize Medical POA agent(s): **${includeAgents}**.`,
+          `I, **${name}**, authorize disclosure of my Individually Identifiable Health Information to: **${reps.join('; ') || '[Personal Representatives]'}**.`,
         ],
       },
     ],

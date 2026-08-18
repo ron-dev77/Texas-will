@@ -124,8 +124,8 @@ export async function renderSkeletonLayoutPdf(
   const bottomLimit = marginY + footerReserve
   const contentWidth = pageWidth - marginX * 2
   const usableHeight = pageHeight - marginY - bottomLimit
-  /** Allow closing signature blocks a bit lower so they stay on the prior page. */
-  const squeezeBottom = marginY + 10
+  /** Allow closing notary/signature blocks lower so they stay on the prior page. */
+  const squeezeBottom = 32
 
   const bodySize = 11
   const headingSize = 12
@@ -149,13 +149,15 @@ export async function renderSkeletonLayoutPdf(
   let y = pageHeight - marginY
 
   const spaceLeft = (bottom = bottomLimit) => y - bottom
-  const newPage = () => {
+  const newPage = (extraTop = 0) => {
     page = startPage()
-    y = pageHeight - marginY
+    y = pageHeight - marginY - extraTop
   }
-  const need = (h: number, bottom = bottomLimit) => {
+  const need = (h: number, bottom = bottomLimit, extraTop = 0) => {
     if (h <= 0) return
-    if (spaceLeft(bottom) < h && h <= pageHeight - marginY - bottom) newPage()
+    if (spaceLeft(bottom) < h && h <= pageHeight - marginY - bottom) {
+      newPage(extraTop)
+    }
   }
 
   const drawAlignedText = (
@@ -425,19 +427,10 @@ export async function renderSkeletonLayoutPdf(
         paraH += line.length ? lineHeight : lineHeight * 0.5
       }
       paraH += lineHeight * (block.blankLinesAfter || 0)
-      let keep = paraH
-      for (let j = index + 1; j < doc.blocks.length; j++) {
-        if (skipTitleBlockIdx.has(j)) continue
-        const next = doc.blocks[j]
-        if (next.pageBreakBefore || next.kind === 'page_break') break
-        if (next.kind === 'signature' || next.kind === 'signature_pair') {
-          keep += sigBlockH + 2 + lineHeight * (next.blankLinesAfter || 0)
-          continue
-        }
-        break
-      }
-      if (spaceLeft(squeezeBottom) < Math.min(keep, usableHeight * 0.55)) {
-        need(Math.min(keep, usableHeight * 0.55), squeezeBottom)
+      // Keep the paragraph together, but prefer the current page. Do not drag a
+      // following signature onto a new page if the paragraph itself still fits.
+      if (paraH > 0 && paraH <= usableHeight && spaceLeft(squeezeBottom) < paraH) {
+        need(paraH, squeezeBottom, lineHeight * 2)
       }
       drawParagraph(block.body || '', block.align)
       applyBlankLines(block.blankLinesAfter)
