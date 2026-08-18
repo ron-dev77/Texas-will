@@ -1,3 +1,9 @@
+/** Same LSR explanation shown in FAQ and as the checkout consent text. */
+export const LSR_FAQ = {
+  q: 'Since Texas AI Law Group, PLLC is reviewing my will, do I have an attorney-client relationship with them?',
+  a: "Yes, but it's what's called a Limited Scope Representation (or LSR). By agreeing to a LSR (which you must affirm prior to starting your will), you are agreeing that the representation is limited to only reviewing the data provided in the questionnaire and ensuring it is correctly populated in a standard Texas will template. Neither you, The Texas AI Law Group PLLC, nor MyAIWill.com are doing any tax or probate planning.",
+} as const
+
 export const FAQS = [
   {
     q: 'Is an AI-generated will actually valid in Texas?',
@@ -39,10 +45,7 @@ export const FAQS = [
     q: 'What attorney or law firm will be reviewing my will?',
     a: 'Currently MyAi Wills are reviewed by a law firm from or affiliated with the law firm "Texas Ai Law Group, PLLC."',
   },
-  {
-    q: 'Since Texas AI Law Group, PLLC is reviewing my will, do I have an attorney-client relationship with them?',
-    a: "Yes, but it's what's called a Limited Scope Representation (or LSR). By agreeing to a LSR (which you must affirm prior to starting your will), you are agreeing that the representation is limited to only reviewing the data provided in the questionnaire and ensuring it is correctly populated in a standard Texas will template. Neither you, The Texas AI Law Group PLLC, nor MyAIWill.com are doing any tax or probate planning.",
-  },
+  LSR_FAQ,
   {
     q: 'Where is my data stored?',
     a: 'Your answers are stored encrypted in our backend. We never sell your data. You can request deletion at any time after delivery.',

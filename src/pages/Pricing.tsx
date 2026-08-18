@@ -26,6 +26,7 @@ import {
   OPTIONAL_PACKAGE_DOC_IDS,
   normalizeOrderDocuments,
 } from '@/lib/order'
+import { LSR_FAQ } from '@/lib/faqs'
 
 const INCLUDED = [
   'Texas Last Will and Testament',
@@ -512,20 +513,24 @@ export default function Pricing() {
                     id="lsr"
                     checked={lsrConsent}
                     onCheckedChange={(v) => setLsrConsent(v === true)}
-                    className="mt-0.5"
+                    className="mt-1"
                   />
                   <Label
                     htmlFor="lsr"
-                    className="text-sm font-normal leading-relaxed text-muted-foreground"
+                    className="min-w-0 flex-1 cursor-pointer text-sm font-normal leading-relaxed text-muted-foreground"
                   >
-                    I agree to Limited Scope Representation (LSR) with Texas Ai Law Group, PLLC —
-                    questionnaire review in a standard Texas will template only.{' '}
-                    <Link to="/faq#lsr" className="underline underline-offset-4">
-                      Learn more
-                    </Link>
-                    .
+                    <span className="font-medium text-foreground">
+                      I agree to Limited Scope Representation (LSR) with Texas AI Law Group, PLLC.
+                    </span>
+                    <span className="mt-3 block font-medium text-foreground">{LSR_FAQ.q}</span>
+                    <span className="mt-2 block">{LSR_FAQ.a}</span>
                   </Label>
                 </div>
+                {showErrors && !lsrConsent ? (
+                  <p className="px-1 text-xs text-destructive">
+                    You must agree to Limited Scope Representation to continue.
+                  </p>
+                ) : null}
               </div>
 
               <div className="border-t border-border/60 bg-primary px-6 py-6 text-primary-foreground sm:px-8 sm:py-7">

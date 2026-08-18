@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, BadgeCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { FAQS } from '@/lib/faqs'
+import { FAQS, LSR_FAQ } from '@/lib/faqs'
 import { ScrollReveal } from '@/components/site/ScrollReveal'
 import { PageCta, PageHero, PageSection } from '@/components/site/PageShell'
 
@@ -17,7 +17,7 @@ export default function Faq() {
       <PageSection className="py-16 sm:py-20">
         <div className="mx-auto max-w-4xl grid gap-3">
           {FAQS.map((item, i) => {
-            const id = item.q.toLowerCase().includes('limited scope') ? 'lsr' : undefined
+            const id = item.q === LSR_FAQ.q ? 'lsr' : undefined
             return (
               <ScrollReveal key={item.q} variant="up" delay={Math.min(i, 6) * 50}>
                 <details
