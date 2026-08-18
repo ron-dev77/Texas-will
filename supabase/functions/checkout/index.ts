@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
           status: 'pending_payment',
           questionnaire_form_id: activeForm?.id ?? null,
         })
-        .select('id')
+        .select('id, partner1_token')
         .single()
 
       if (orderError || !order) {
@@ -156,6 +156,7 @@ Deno.serve(async (req) => {
         orderId: order.id,
         clientSecret: intent.client_secret,
         amountCents,
+        questionnaireToken: order.partner1_token,
       })
     }
 
@@ -186,6 +187,7 @@ Deno.serve(async (req) => {
         expiresAt: result.expiresAt,
         userEmail: result.userEmail,
         partnerEmail: result.partnerEmail,
+        questionnaireToken: result.questionnaireToken,
       })
     }
 

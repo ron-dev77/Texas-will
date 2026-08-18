@@ -6,6 +6,7 @@ export type CreateCheckoutIntentResult = {
   orderId: string
   clientSecret: string
   amountCents: number
+  questionnaireToken?: string
 }
 
 export type FinalizeCheckoutResult = {
@@ -16,6 +17,7 @@ export type FinalizeCheckoutResult = {
   expiresAt: string
   userEmail: string
   partnerEmail: string | null
+  questionnaireToken?: string
 }
 
 async function readFunctionError(error: unknown, data: unknown): Promise<string> {

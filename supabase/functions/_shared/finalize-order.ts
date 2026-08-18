@@ -118,5 +118,6 @@ export async function finalizePaidOrder(
     expiresAt,
     userEmail: order.user_email,
     partnerEmail: order.partner_email,
+    questionnaireToken: order.partner1_token as string,
   }
 }

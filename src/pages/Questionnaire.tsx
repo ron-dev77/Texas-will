@@ -111,6 +111,7 @@ function shortLabelFor(field: Field) {
 export default function Questionnaire() {
   const [searchParams] = useSearchParams()
   const tokenFromUrl = searchParams.get('token')
+  const paymentIntentFromUrl = searchParams.get('payment_intent')
   const [sectionIdx, setSectionIdx] = useState(0)
   const [answers, setAnswers] = useState<Answers>({})
   const [animKey, setAnimKey] = useState(0)
@@ -165,7 +166,7 @@ export default function Questionnaire() {
       try {
         const [schemaResult, result] = await Promise.all([
           getActiveQuestionnaireSchema(),
-          ensureQuestionnaireSession(draft, local, tokenFromUrl),
+          ensureQuestionnaireSession(draft, local, tokenFromUrl, paymentIntentFromUrl),
         ])
         if (cancelled) return
         setFormSections(schemaResult.sections)
@@ -192,7 +193,7 @@ export default function Questionnaire() {
     return () => {
       cancelled = true
     }
-  }, [tokenFromUrl])
+  }, [tokenFromUrl, paymentIntentFromUrl])
 
   // Keep Yes → at least one empty row for list fields
   useEffect(() => {

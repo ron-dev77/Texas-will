@@ -68,6 +68,7 @@ export async function ensureQuestionnaireSession(
   draft: OrderDraft | null,
   localAnswers: Answers,
   token?: string | null,
+  paymentIntentId?: string | null,
 ): Promise<{
   session: QuestionnaireSession
   answers: Answers
@@ -86,6 +87,7 @@ export async function ensureQuestionnaireSession(
     localAnswers,
     session: existing,
     token: token || undefined,
+    paymentIntentId: paymentIntentId || undefined,
   })
 
   saveSession(result.session)

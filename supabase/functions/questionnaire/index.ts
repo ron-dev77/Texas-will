@@ -108,34 +108,27 @@ async function resolvePartner(
   return { order, answers, partnerNumber }
 }
 
-async function openByToken(sb: ReturnType<typeof adminClient>, rawToken: string) {
-  const token = rawToken.trim()
-  if (!token || token.length < 16) return null
+const ORDER_SELECT =
+  'id, partner1_token, partner2_token, status, questionnaire_expires_at, plan_type, user_email, partner_email, amount_paid, add_ons'
 
-  const { data: byP1 } = await sb
-    .from('orders')
-    .select(
-      'id, partner1_token, partner2_token, status, questionnaire_expires_at, plan_type, user_email, partner_email, amount_paid, add_ons',
-    )
-    .eq('partner1_token', token)
-    .maybeSingle()
+type OrderRow = {
+  id: string
+  partner1_token: string | null
+  partner2_token: string | null
+  status: string | null
+  questionnaire_expires_at: string | null
+  plan_type: string | null
+  user_email: string | null
+  partner_email: string | null
+  amount_paid: number | null
+  add_ons: unknown
+}
 
-  let order = byP1
-  let partnerNumber: 1 | 2 = 1
-
-  if (!order) {
-    const { data: byP2 } = await sb
-      .from('orders')
-      .select(
-        'id, partner1_token, partner2_token, status, questionnaire_expires_at, plan_type, user_email, partner_email, amount_paid, add_ons',
-      )
-      .eq('partner2_token', token)
-      .maybeSingle()
-    order = byP2
-    partnerNumber = 2
-  }
-
-  if (!order) return null
+async function sessionForOrder(
+  sb: ReturnType<typeof adminClient>,
+  order: OrderRow,
+  partnerNumber: 1 | 2,
+) {
   if (order.status === 'pending_payment' || order.status === 'failed') {
     return { error: 'Payment is not complete for this order.' as const }
   }
@@ -178,7 +171,7 @@ async function openByToken(sb: ReturnType<typeof adminClient>, rawToken: string)
     orderId: order.id,
     answersId: answersRow.id,
     partnerNumber,
-    partnerToken,
+    partnerToken: partnerToken || '',
   }
 
   return {
@@ -187,6 +180,50 @@ async function openByToken(sb: ReturnType<typeof adminClient>, rawToken: string)
     submitted: Boolean(answersRow.submitted_at),
     draft: draftFromOrder(order),
   }
+}
+
+async function openByToken(sb: ReturnType<typeof adminClient>, rawToken: string) {
+  const token = rawToken.trim()
+  if (!token || token.length < 16) return null
+
+  const { data: byP1 } = await sb
+    .from('orders')
+    .select(ORDER_SELECT)
+    .eq('partner1_token', token)
+    .maybeSingle()
+
+  let order = byP1 as OrderRow | null
+  let partnerNumber: 1 | 2 = 1
+
+  if (!order) {
+    const { data: byP2 } = await sb
+      .from('orders')
+      .select(ORDER_SELECT)
+      .eq('partner2_token', token)
+      .maybeSingle()
+    order = byP2 as OrderRow | null
+    partnerNumber = 2
+  }
+
+  if (!order) return null
+  return sessionForOrder(sb, order, partnerNumber)
+}
+
+async function openByPaymentIntent(
+  sb: ReturnType<typeof adminClient>,
+  rawPaymentIntentId: string,
+) {
+  const paymentIntentId = rawPaymentIntentId.trim()
+  if (!paymentIntentId.startsWith('pi_')) return null
+
+  const { data: order } = await sb
+    .from('orders')
+    .select(ORDER_SELECT)
+    .eq('stripe_payment_intent_id', paymentIntentId)
+    .maybeSingle()
+
+  if (!order) return null
+  return sessionForOrder(sb, order as OrderRow, 1)
 }
 
 Deno.serve(async (req) => {
@@ -213,10 +250,20 @@ Deno.serve(async (req) => {
       const localAnswers = (body?.localAnswers ?? {}) as Answers
       const existing = body?.session as Session | null | undefined
       const token = String(body?.token ?? '').trim()
+      const paymentIntentId = String(body?.paymentIntentId ?? '').trim()
 
       // Email link token wins over any stale localStorage session
       if (token) {
         const opened = await openByToken(sb, token)
+        if (!opened) return json({ error: 'Invalid questionnaire link' }, 403)
+        if ('error' in opened && opened.error && !('session' in opened)) {
+          return json({ error: opened.error }, 403)
+        }
+        return json(opened)
+      }
+
+      if (paymentIntentId) {
+        const opened = await openByPaymentIntent(sb, paymentIntentId)
         if (!opened) return json({ error: 'Invalid questionnaire link' }, 403)
         if ('error' in opened && opened.error && !('session' in opened)) {
           return json({ error: opened.error }, 403)

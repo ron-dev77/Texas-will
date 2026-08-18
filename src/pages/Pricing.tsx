@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowRight, BadgeCheck, CheckCircle2, Mail, ShieldCheck } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { ArrowRight, BadgeCheck, Loader2, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import {
   type PaymentSuccessInfo,
 } from '@/components/checkout/StripeCheckoutModal'
 import { cn } from '@/lib/utils'
-import { savePaidOrderDraft } from '@/lib/checkout'
+import { finalizeCheckoutPayment, savePaidOrderDraft } from '@/lib/checkout'
 import {
   computeTotalDollars,
   planPriceDollars,
@@ -38,26 +38,22 @@ const INCLUDED = [
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
+function questionnairePath(token?: string | null, paymentIntentId?: string | null) {
+  const params = new URLSearchParams()
+  if (token) params.set('token', token)
+  if (paymentIntentId) params.set('payment_intent', paymentIntentId)
+  const qs = params.toString()
+  return qs ? `/questionnaire?${qs}` : '/questionnaire'
+}
+
 function scrollToCheckout() {
   const el = document.getElementById('checkout')
   if (!el) return
   el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-function formatExpiry(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-      timeZone: 'America/Chicago',
-    })
-  } catch {
-    return '30 days from today'
-  }
-}
-
 export default function Pricing() {
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const planFromUrl = searchParams.get('plan')
   const initialPlan: Plan = planFromUrl === 'couples' ? 'couples' : 'individual'
@@ -71,7 +67,8 @@ export default function Pricing() {
   const [showErrors, setShowErrors] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
   const [checkoutDraft, setCheckoutDraft] = useState<OrderDraft | null>(null)
-  const [paid, setPaid] = useState<PaymentSuccessInfo | null>(null)
+  const [startingWill, setStartingWill] = useState(false)
+  const [startError, setStartError] = useState<string | null>(null)
 
   useEffect(() => {
     if (planFromUrl === 'individual' || planFromUrl === 'couples') {
@@ -88,6 +85,43 @@ export default function Pricing() {
       window.clearTimeout(t2)
     }
   }, [planFromUrl])
+
+  const paidFlag = searchParams.get('paid')
+  const paymentIntentId = searchParams.get('payment_intent')
+  const redirectStatus = searchParams.get('redirect_status')
+
+  useEffect(() => {
+    if (paidFlag !== '1' || !paymentIntentId) return
+    if (redirectStatus && redirectStatus !== 'succeeded') {
+      setStartError('Payment was not completed. You can try again below.')
+      return
+    }
+
+    let cancelled = false
+    setStartingWill(true)
+    setStartError(null)
+    ;(async () => {
+      try {
+        const result = await finalizeCheckoutPayment(paymentIntentId)
+        if (cancelled) return
+        setStartingWill(true)
+        navigate(
+          questionnairePath(result.questionnaireToken, paymentIntentId),
+          { replace: true },
+        )
+      } catch (err) {
+        if (cancelled) return
+        setStartError(
+          err instanceof Error ? err.message : 'Could not start your questionnaire after payment.',
+        )
+        setStartingWill(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [paidFlag, paymentIntentId, redirectStatus, navigate])
 
   function selectPlan(next: Plan) {
     setPlan(next)
@@ -145,78 +179,23 @@ export default function Pricing() {
       savePaidOrderDraft(checkoutDraft)
     }
     setPayOpen(false)
-    setPaid(info)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setStartingWill(true)
+    navigate(questionnairePath(info.questionnaireToken, info.paymentIntentId), {
+      replace: true,
+    })
   }
 
-  if (paid) {
-    const expiresLabel = formatExpiry(paid.expiresAt)
+  if (startingWill) {
     return (
       <section className="relative overflow-hidden">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_oklch(0.94_0.02_85)_0%,_transparent_55%),radial-gradient(circle_at_85%_15%,_oklch(0.9_0.05_45_/_0.22)_0%,_transparent_40%)]"
-        />
-        <div className="relative mx-auto max-w-2xl px-5 py-20 sm:px-8 sm:py-28">
-          <div className="rounded-[1.75rem] border border-border/70 bg-card p-8 text-center shadow-[0_24px_60px_-36px_rgba(15,23,42,0.35)] sm:p-10">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sage/40 text-primary">
-              <CheckCircle2 className="h-7 w-7" strokeWidth={1.5} />
-            </div>
-            <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Payment received
-            </p>
-            <h1 className="mt-3 font-serif text-3xl tracking-tight text-foreground sm:text-4xl">
-              Check your email to continue
-            </h1>
-            <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-muted-foreground">
-              We sent a secure questionnaire link to{' '}
-              <span className="font-medium text-foreground">{paid.userEmail}</span>
-              {paid.plan === 'couples' && paid.partnerEmail ? (
-                <>
-                  {' '}
-                  and <span className="font-medium text-foreground">{paid.partnerEmail}</span>
-                </>
-              ) : null}
-              . Each person has <strong className="font-medium text-foreground">30 days</strong> (until{' '}
-              {expiresLabel}) to complete their form.
-            </p>
-
-            <div className="mx-auto mt-8 max-w-sm rounded-2xl border border-border/70 bg-secondary/40 px-5 py-4 text-left">
-              <div className="flex items-start gap-3">
-                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-accent" strokeWidth={1.75} />
-                <div className="text-sm text-muted-foreground">
-                  <p className="font-medium text-foreground">What to do next</p>
-                  <ol className="mt-2 list-decimal space-y-1.5 pl-4">
-                    <li>Open the email from My AI Will</li>
-                    <li>Click your private questionnaire link</li>
-                    <li>Finish before {expiresLabel}</li>
-                  </ol>
-                </div>
-              </div>
-            </div>
-
-            {!paid.emailsSent ? (
-              <p className="mt-4 text-sm text-accent">
-                Payment succeeded. If you do not see the email within a few minutes, check spam or
-                contact scott@myaiwill.com.
-              </p>
-            ) : null}
-
-            <p className="mt-8 text-xs text-muted-foreground">
-              Order {paid.orderId.slice(0, 8)}… · $
-              {paid.total}
-              {paid.plan === 'individual' || paid.plan === 'couples'
-                ? ` paid (${paid.plan === 'couples' ? '$399' : '$249'}${
-                    paid.total > (paid.plan === 'couples' ? 399 : 249)
-                      ? ' + $50 Living Trust add-on'
-                      : ''
-                  })`
-                : ' paid'}
-            </p>
-            <Button asChild variant="outline" className="mt-6 rounded-full">
-              <Link to="/">Back to home</Link>
-            </Button>
-          </div>
+        <div className="relative mx-auto flex max-w-lg flex-col items-center px-5 py-24 text-center sm:px-8">
+          <Loader2 className="h-8 w-8 animate-spin text-accent" />
+          <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Payment received
+          </p>
+          <h1 className="mt-3 font-serif text-3xl tracking-tight text-foreground">
+            Starting your will…
+          </h1>
         </div>
       </section>
     )
@@ -343,6 +322,11 @@ export default function Pricing() {
             <p className="mb-4 text-center text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               2 · Details &amp; payment
             </p>
+            {startError ? (
+              <p className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-center text-sm text-destructive">
+                {startError}
+              </p>
+            ) : null}
 
             <div className="overflow-hidden rounded-[1.75rem] border border-border/70 bg-card shadow-[0_18px_50px_-32px_rgba(15,23,42,0.28)]">
               <div className="space-y-4 p-6 sm:p-8">
@@ -465,7 +449,8 @@ export default function Pricing() {
                       <p className="mt-1.5 text-xs text-destructive">Enter a valid email.</p>
                     ) : (
                       <p className="mt-1.5 text-xs text-muted-foreground">
-                        We’ll send your private questionnaire link here.
+                        Receipt and a resume link go here. After payment you start the questionnaire
+                        immediately.
                       </p>
                     )}
                   </div>
@@ -496,7 +481,8 @@ export default function Pricing() {
                         </p>
                       ) : (
                         <p className="mt-1.5 text-xs text-muted-foreground">
-                          Each of you gets a separate questionnaire link.
+                          Each of you gets a separate questionnaire. You start yours right after
+                          payment; your partner gets an email link.
                         </p>
                       )}
                     </div>
@@ -585,7 +571,8 @@ export default function Pricing() {
                   <Link to="/disclaimer" className="underline underline-offset-4">
                     Disclaimer
                   </Link>
-                  . After payment, we email your questionnaire link (valid 30 days).
+                  . After payment you start the questionnaire immediately. We also email a resume
+                  link (valid 30 days).
                 </p>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { loadStripe, type Stripe, type StripeElementsOptions } from '@stripe/stripe-js'
 import {
   Elements,
@@ -39,6 +39,8 @@ export type PaymentSuccessInfo = {
   userEmail: string
   partnerEmail: string | null
   total: number
+  questionnaireToken: string
+  paymentIntentId: string
 }
 
 function PaymentForm({
@@ -135,12 +137,14 @@ export function StripeCheckoutModal({
   const [bootError, setBootError] = useState<string | null>(null)
   const [payError, setPayError] = useState<string | null>(null)
   const [booting, setBooting] = useState(false)
+  const questionnaireTokenRef = useRef('')
 
   useEffect(() => {
     if (!open || !draft) {
       setClientSecret(null)
       setBootError(null)
       setPayError(null)
+      questionnaireTokenRef.current = ''
       return
     }
 
@@ -169,6 +173,7 @@ export function StripeCheckoutModal({
         })
         if (cancelled) return
         setClientSecret(result.clientSecret)
+        questionnaireTokenRef.current = result.questionnaireToken || ''
       } catch (err) {
         if (cancelled) return
         setBootError(err instanceof Error ? err.message : 'Could not start checkout')
@@ -213,6 +218,8 @@ export function StripeCheckoutModal({
       userEmail: result.userEmail,
       partnerEmail: result.partnerEmail,
       total: draft.total,
+      questionnaireToken: result.questionnaireToken || questionnaireTokenRef.current,
+      paymentIntentId,
     })
   }
 
