@@ -12,11 +12,14 @@ import {
 } from '@/components/checkout/StripeCheckoutModal'
 import { cn } from '@/lib/utils'
 import { finalizeCheckoutPayment, savePaidOrderDraft } from '@/lib/checkout'
+import { computeTotalDollars, planPriceDollars } from '@/lib/pricing'
 import {
-  computeTotalDollars,
-  planPriceDollars,
-  trustAddonDollars,
-} from '@/lib/pricing'
+  listedOutsideCounselFirms,
+  RLT_FIT_REASONS,
+  WILL_BASED_EDUCATION,
+  needsOutsideCounsel,
+  type RltFitId,
+} from '@/lib/outside-counsel'
 import {
   type OrderDraft,
   type PackageDocId,
@@ -52,6 +55,12 @@ function scrollToCheckout() {
   el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
+const EMPTY_FIT: Record<RltFitId, 'yes' | 'no' | ''> = {
+  out_of_state_property: '',
+  private_business: '',
+  privacy: '',
+}
+
 export default function Pricing() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -61,7 +70,7 @@ export default function Pricing() {
   const [plan, setPlan] = useState<Plan>(initialPlan)
   const [email, setEmail] = useState('')
   const [partnerEmail, setPartnerEmail] = useState('')
-  const [includeTrust, setIncludeTrust] = useState(false)
+  const [fit, setFit] = useState<Record<RltFitId, 'yes' | 'no' | ''>>(EMPTY_FIT)
   const [documents, setDocuments] = useState<PackageDocId[]>(['will'])
   const [lsrConsent, setLsrConsent] = useState(false)
   const [showErrors, setShowErrors] = useState(false)
@@ -150,12 +159,21 @@ export default function Pricing() {
   }
 
   const base = planPriceDollars(plan)
-  const trustFee = trustAddonDollars()
-  const total = computeTotalDollars(plan, includeTrust)
+  const total = computeTotalDollars(plan, false)
+  const fitAnswered = RLT_FIT_REASONS.every((r) => fit[r.id] === 'yes' || fit[r.id] === 'no')
+  const offRamp = needsOutsideCounsel(fit)
+  const counselFirms = listedOutsideCounselFirms()
 
   const valid = useMemo(
-    () => emailOk && partnerOk && partnerDifferent && lsrConsent && hasWill,
-    [emailOk, partnerOk, partnerDifferent, lsrConsent, hasWill],
+    () =>
+      emailOk &&
+      partnerOk &&
+      partnerDifferent &&
+      lsrConsent &&
+      hasWill &&
+      fitAnswered &&
+      !offRamp,
+    [emailOk, partnerOk, partnerDifferent, lsrConsent, hasWill, fitAnswered, offRamp],
   )
 
   function openPayment() {
@@ -165,7 +183,7 @@ export default function Pricing() {
       plan,
       email: email.trim().toLowerCase(),
       partnerEmail: plan === 'couples' ? partnerEmail.trim().toLowerCase() : undefined,
-      includeTrust,
+      includeTrust: false,
       documents: normalizeOrderDocuments(documents),
       total,
       lsrConsent,
@@ -338,8 +356,7 @@ export default function Pricing() {
                       </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         Your will is required. Other papers are optional and included in the same
-                        plan price — no +$50 per paper. The +$50 add-on is only for the Living Trust
-                        below.
+                        plan price. This product does not include a living trust.
                       </p>
                     </div>
                     <label
@@ -397,35 +414,92 @@ export default function Pricing() {
                   </ul>
                 </div>
 
-                <label
-                  htmlFor="trust"
-                  className={cn(
-                    'flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition',
-                    includeTrust
-                      ? 'border-accent/40 bg-accent/5'
-                      : 'border-border/70 hover:border-accent/30',
-                  )}
-                >
-                  <Checkbox
-                    id="trust"
-                    checked={includeTrust}
-                    onCheckedChange={(v) => setIncludeTrust(v === true)}
-                    className="mt-0.5"
-                  />
+                <div className="relative overflow-hidden rounded-3xl border border-border/70 bg-card p-5 shadow-[0_14px_40px_-28px_rgba(15,23,42,0.4)] sm:p-6">
+                  <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1.5 bg-accent" />
                   <div>
-                    <div className="text-base font-medium text-foreground">
-                      Do you want to add a Revocable Living Trust?{' '}
-                      <span className="text-accent">+$50 add-on</span>
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Optional paid add-on only — not included in the document list above.{' '}
-                      <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
-                        Recommended
-                      </span>{' '}
-                      if you own real property outside Texas.
+                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-accent">
+                      Honest fit
+                    </p>
+                    <h3 className="mt-2 font-serif text-xl leading-snug text-foreground">
+                      {WILL_BASED_EDUCATION.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                      {WILL_BASED_EDUCATION.body}{' '}
+                      <Link
+                        to="/faq#living-trust"
+                        className="font-medium text-accent underline-offset-4 hover:underline"
+                      >
+                        Read more
+                      </Link>
+                      .
                     </p>
                   </div>
-                </label>
+                  <div className="space-y-4">
+                    {RLT_FIT_REASONS.map((reason) => (
+                      <div key={reason.id}>
+                        <p className="text-sm text-foreground">{reason.label}</p>
+                        <div className="mt-2 flex gap-2">
+                          {(['no', 'yes'] as const).map((choice) => (
+                            <button
+                              key={choice}
+                              type="button"
+                              onClick={() =>
+                                setFit((prev) => ({ ...prev, [reason.id]: choice }))
+                              }
+                              className={cn(
+                                'rounded-full border px-4 py-1.5 text-xs font-medium transition',
+                                fit[reason.id] === choice
+                                  ? 'border-accent bg-accent/10 text-foreground'
+                                  : 'border-border text-muted-foreground hover:border-accent/40',
+                              )}
+                            >
+                              {choice === 'yes' ? 'Yes' : 'No'}
+                            </button>
+                          ))}
+                        </div>
+                        {showErrors && !fit[reason.id] ? (
+                          <p className="mt-1.5 text-xs text-destructive">Please answer this.</p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                  {offRamp ? (
+                    <div className="rounded-xl border border-accent/30 bg-accent/5 p-4">
+                      <p className="text-sm font-medium text-foreground">
+                        This product is not the right fit
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Please get a full estate plan from a Texas law firm. These are the firms we
+                        can name:
+                      </p>
+                      <ul className="mt-3 space-y-2 text-sm text-foreground">
+                        {counselFirms.map((firm) => (
+                          <li key={firm.name}>
+                            {firm.href ? (
+                              <a
+                                href={firm.href}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-medium underline-offset-2 hover:underline"
+                              >
+                                {firm.name}
+                              </a>
+                            ) : (
+                              <span className="font-medium">{firm.name}</span>
+                            )}
+                            <span className="block text-muted-foreground">{firm.detail}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {counselFirms.length < 3 ? (
+                        <p className="mt-3 text-sm text-muted-foreground">
+                          Ask Texas AI Law Group, PLLC for two additional Texas estate-planning law
+                          firms they recommend. We only list private firms a Texas lawyer has named.
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
 
                 <div className={cn('grid gap-4', plan === 'couples' && 'sm:grid-cols-2')}>
                   <div>
@@ -531,16 +605,6 @@ export default function Pricing() {
                         <span>{plan === 'individual' ? 'Individual plan' : 'Couples plan'}</span>
                         <span className="font-medium text-primary-foreground">${base}</span>
                       </div>
-                      {includeTrust ? (
-                        <div className="flex justify-between gap-6 sm:max-w-xs">
-                          <span>Living Trust add-on</span>
-                          <span className="font-medium text-primary-foreground">+${trustFee}</span>
-                        </div>
-                      ) : (
-                        <div className="text-xs text-primary-foreground/50">
-                          No trust add-on selected
-                        </div>
-                      )}
                       <div className="flex justify-between gap-6 border-t border-primary-foreground/15 pt-2 sm:max-w-xs">
                         <span className="font-medium text-primary-foreground">Total</span>
                         <span className="font-serif text-3xl font-semibold text-primary-foreground">
@@ -550,16 +614,17 @@ export default function Pricing() {
                     </div>
                     <p className="mt-2 text-[11px] text-primary-foreground/50">
                       Optional papers (POA, Directive, HIPAA) are included — they do not change the
-                      total. Only the Living Trust adds ${trustFee}.
+                      total. This plan does not include a living trust.
                     </p>
                   </div>
                   <Button
                     size="lg"
                     onClick={openPayment}
+                    disabled={offRamp}
                     className="h-14 w-full gap-2 rounded-full bg-accent px-10 text-base font-semibold text-accent-foreground shadow-[0_12px_28px_-12px_rgba(0,0,0,0.45)] hover:bg-accent/90 sm:w-auto sm:min-w-[220px]"
                   >
-                    Pay ${total}
-                    <ArrowRight className="h-4 w-4" strokeWidth={2} />
+                    {offRamp ? 'Not available' : `Pay $${total}`}
+                    {offRamp ? null : <ArrowRight className="h-4 w-4" strokeWidth={2} />}
                   </Button>
                 </div>
                 <p className="mt-4 text-xs text-primary-foreground/55">

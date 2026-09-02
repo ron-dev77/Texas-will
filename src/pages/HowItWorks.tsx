@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollReveal } from '@/components/site/ScrollReveal'
+import { WillBasedFitNote } from '@/components/site/WillBasedFitNote'
 import { PageCta, PageHero, PageSection } from '@/components/site/PageShell'
 
 const STEPS = [
@@ -45,6 +46,12 @@ export default function HowItWorks() {
         title="Four simple steps. Done tomorrow."
         description="A will doesn't have to feel like paperwork. We've stripped this down to the only four steps that matter."
       />
+
+      <PageSection className="pt-10 pb-4 sm:pt-14">
+        <ScrollReveal variant="up" className="mx-auto max-w-4xl">
+          <WillBasedFitNote showFirms />
+        </ScrollReveal>
+      </PageSection>
 
       <PageSection className="py-16 sm:py-24">
         <ol className="relative mx-auto max-w-4xl space-y-6">

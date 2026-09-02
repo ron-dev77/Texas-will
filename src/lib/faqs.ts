@@ -30,12 +30,16 @@ export const FAQS = [
     a: 'You and your partner each get a private link to fill out your half of the questionnaire. We coordinate the documents so they reference each other correctly, then a Texas attorney reviews both.',
   },
   {
-    q: "What's the living trust add-on?",
-    a: "A revocable living trust helps your estate avoid probate. It is recommended if you own real property outside of Texas. It's an optional $50 add-on at checkout, not a separate subscription.",
+    q: 'Do you make living trusts?',
+    a: "No. My AI Will is Texas will-based estate planning: a last will and optional Texas papers (powers of attorney, directive, HIPAA). We do not sell or draft a revocable living trust.",
   },
   {
-    q: 'I live in Texas — do I actually need a revocable living trust?',
-    a: "Usually no. For most Texas residents whose assets are in Texas, a will plus beneficiary designations and a transfer-on-death deed is enough, because Texas independent probate is relatively fast and inexpensive. A revocable living trust is most useful if you own real property in another state (to avoid ancillary probate there), want privacy (trusts aren't filed in court), or have a blended family or incapacity-planning concerns. It is optional, not required.",
+    q: 'I live in Texas — do I need a revocable living trust?',
+    a: "Usually no. My AI Will is Texas will-based estate planning. For most Texas residents whose assets are in Texas, a will plus beneficiary designations is enough, because Texas independent probate is relatively fast and inexpensive. A revocable living trust may be needed only in limited cases: you own a house or land outside Texas; you own an interest in a private LLC, partnership, or closely held company; or you have a heightened need for privacy (a will is filed in court). If any of those apply, we stop checkout and send you to Texas estate-planning law firms.",
+  },
+  {
+    q: 'Can I leave a gift in a special needs trust or a Texas ABLE account?',
+    a: 'Yes. If someone who inherits from you may get SSI or Medicaid, the questionnaire asks whether you want a special needs trust in this will, a gift to a Texas ABLE account, or both (ABLE first, leftover in the trust). ABLE accounts have contribution limits that change; we do not invent a dollar cutoff in the form. A licensed Texas attorney must read and approve that language before the will is sent to you.',
   },
   {
     q: 'Is My AI Will a law firm?',

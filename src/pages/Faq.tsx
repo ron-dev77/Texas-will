@@ -17,7 +17,14 @@ export default function Faq() {
       <PageSection className="py-16 sm:py-20">
         <div className="mx-auto max-w-4xl grid gap-3">
           {FAQS.map((item, i) => {
-            const id = item.q === LSR_FAQ.q ? 'lsr' : undefined
+            const id =
+              item.q === LSR_FAQ.q
+                ? 'lsr'
+                : item.q === 'Do you make living trusts?'
+                  ? 'living-trust'
+                  : item.q === 'Can I leave a gift in a special needs trust or a Texas ABLE account?'
+                    ? 'special-needs'
+                    : undefined
             return (
               <ScrollReveal key={item.q} variant="up" delay={Math.min(i, 6) * 50}>
                 <details

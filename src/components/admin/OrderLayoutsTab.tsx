@@ -37,6 +37,7 @@ import {
   type DocumentBucket,
 } from '@/lib/admin-document-bucket'
 import type { Section } from '@/lib/questionnaire'
+import { needsSpecialNeedsLawyerSignoff } from '@/lib/special-needs-trust'
 
 type Props = {
   orderId: string
@@ -366,6 +367,14 @@ export function OrderLayoutsTab({
     <div className="space-y-5">
       {msg ? (
         <p className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm">{msg}</p>
+      ) : null}
+
+      {needsSpecialNeedsLawyerSignoff(answersRow?.answers ?? {}) ? (
+        <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-foreground">
+          This partner elected a special needs trust and/or Texas ABLE gift. Do not send these
+          documents until a licensed Texas attorney reads that language and signs off on the Bucket
+          send.
+        </p>
       ) : null}
 
       <div className="rounded-2xl border border-border bg-card p-4">

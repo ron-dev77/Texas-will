@@ -56,8 +56,8 @@ const DELIVERABLES = [
   },
   {
     n: '06',
-    t: 'Optional revocable living trust (+$50)',
-    d: 'Helps your estate avoid probate. Recommended if you own real property outside of Texas. Added at checkout.',
+    t: 'Honest about when a living trust is a better fit',
+    d: 'This product is a Texas will, not a living trust. If you own property out of state, a private company interest, or need extra privacy, we point you to Texas estate-planning law firms instead of selling you the wrong tool.',
     Icon: ShieldPlus,
     tone: 'accent' as const,
   },

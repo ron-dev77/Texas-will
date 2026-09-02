@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download, Loader2, Send, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Modal } from '@/components/ui/modal'
 import { PreviewLoadingEffect } from '@/components/ui/loading-block'
 import { cn, pdfEmbedSrc } from '@/lib/utils'
@@ -19,6 +20,11 @@ import {
   pdfBytesToBase64,
   pdfFilenameFor,
 } from '@/lib/admin-deliver'
+import { updateOrderStatus } from '@/lib/admin-order'
+import {
+  orderNeedsSpecialNeedsLawyerSignoff,
+  SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT,
+} from '@/lib/special-needs-trust'
 
 type Props = {
   orderId: string
@@ -46,6 +52,11 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [confirmSendOpen, setConfirmSendOpen] = useState(false)
+  const [sntLawyerApproved, setSntLawyerApproved] = useState(false)
+  const needsSntLawyerSignoff = useMemo(
+    () => orderNeedsSpecialNeedsLawyerSignoff(data.answers),
+    [data.answers],
+  )
 
   const items = bucket.items
   const selected = items.find((i) => itemKey(i) === selectedKey) ?? items[0] ?? null
@@ -193,6 +204,10 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
 
   async function confirmSendToClient() {
     if (!items.length) return
+    if (needsSntLawyerSignoff && !sntLawyerApproved) {
+      setMsg('A licensed Texas attorney must approve the special needs / Texas ABLE language before send.')
+      return
+    }
     setBusy('send')
     setMsg(null)
     try {
@@ -238,7 +253,15 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
         attachments,
         markDelivered: true,
       })
+      if (needsSntLawyerSignoff) {
+        await updateOrderStatus({
+          orderId,
+          status: 'delivered',
+          note: SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT,
+        })
+      }
       setConfirmSendOpen(false)
+      setSntLawyerApproved(false)
       await onReload()
       setMsg(`Sent ${result.sentCount} PDF(s) to client`)
     } catch (err) {
@@ -407,6 +430,7 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
         onClose={() => {
           if (busy === 'send') return
           setConfirmSendOpen(false)
+          setSntLawyerApproved(false)
         }}
         title="Send documents to client?"
         description={`These bucket PDFs will be emailed to ${clientEmail}.`}
@@ -425,7 +449,7 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
             <Button
               type="button"
               className="rounded-xl bg-emerald-700 text-white hover:bg-emerald-800"
-              disabled={busy === 'send'}
+              disabled={busy === 'send' || (needsSntLawyerSignoff && !sntLawyerApproved)}
               onClick={() => void confirmSendToClient()}
             >
               {busy === 'send' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
@@ -450,6 +474,16 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
             </li>
           ))}
         </ul>
+        {needsSntLawyerSignoff ? (
+          <label className="mt-4 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-sm text-foreground">
+            <Checkbox
+              checked={sntLawyerApproved}
+              onCheckedChange={(v) => setSntLawyerApproved(v === true)}
+              className="mt-0.5"
+            />
+            <span>{SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT}</span>
+          </label>
+        ) : null}
         <p className="mt-4 text-xs text-muted-foreground">
           This marks the order as delivered after a successful send.
         </p>

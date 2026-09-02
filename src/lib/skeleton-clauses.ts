@@ -3,6 +3,11 @@
  * Filled values use **bold** markers for PDF rich-text rendering.
  */
 
+import {
+  residuarySpecialNeedsNote,
+  specialNeedsTrustClauseText,
+} from '@/lib/special-needs-trust'
+
 type Answers = Record<string, unknown>
 
 export type SkeletonFillOptions = {
@@ -444,32 +449,43 @@ const COMPUTED: Record<
   clause_residuary(answers, options) {
     const name = plain(str(answers.legal_full_name, '[Testator]'))
     const spouse = plain(str(answers.spouse_full_name))
+    let body = ''
     if (options.includeTrust) {
       const trustName = plain(str(answers.trust_name, `The ${name} Revocable Living Trust`))
-      return `I give, devise, and bequeath all of the rest, residue, and remainder of my estate, both real and personal, of whatever kind and wherever situated, to the then-acting Trustee of ${bold(trustName)}, to be added to the principal of that trust and held, administered, and distributed under its terms as then in effect. If for any reason that trust is not in existence at my death, then I give my residuary estate to the beneficiaries who would have received the residuary trust estate under that trust as if it had terminated on my death.`
+      body = `I give, devise, and bequeath all of the rest, residue, and remainder of my estate, both real and personal, of whatever kind and wherever situated, to the then-acting Trustee of ${bold(trustName)}, to be added to the principal of that trust and held, administered, and distributed under its terms as then in effect. If for any reason that trust is not in existence at my death, then I give my residuary estate to the beneficiaries who would have received the residuary trust estate under that trust as if it had terminated on my death.`
+    } else {
+      const plan = str(answers.residuary_plan)
+      const custom = plain(str(answers.residuary_custom))
+      const intro =
+        'I give, devise, and bequeath all of the rest, residue, and remainder of my estate, both real and personal, of whatever kind and wherever situated,'
+      switch (plan) {
+        case 'spouse_then_children':
+          body = spouse
+            ? `${intro} to my spouse, ${bold(spouse)}, if my spouse survives me. If my spouse does not survive me, then in equal shares to my children who survive me, **per stirpes**.`
+            : `${intro} to my spouse if my spouse survives me, and if not, in equal shares to my children who survive me, **per stirpes**.`
+          break
+        case 'children_equally':
+          body = `${intro} in equal shares to my children who survive me, **per stirpes**.`
+          break
+        case 'spouse_only':
+          body = spouse
+            ? `${intro} to my spouse, ${bold(spouse)}, if my spouse survives me. If my spouse does not survive me, then to my heirs at law under the laws of the **State of Texas**.`
+            : `${intro} to my spouse if my spouse survives me, and if not, to my heirs at law under the laws of the **State of Texas**.`
+          break
+        case 'custom':
+          body = custom
+            ? `${intro} as follows: ${custom}`
+            : `${intro} according to the written instructions provided with this Will.`
+          break
+        default:
+          body = `${intro} to my heirs at law under the laws of the **State of Texas**.`
+      }
     }
-    const plan = str(answers.residuary_plan)
-    const custom = plain(str(answers.residuary_custom))
-    const intro =
-      'I give, devise, and bequeath all of the rest, residue, and remainder of my estate, both real and personal, of whatever kind and wherever situated,'
-    switch (plan) {
-      case 'spouse_then_children':
-        return spouse
-          ? `${intro} to my spouse, ${bold(spouse)}, if my spouse survives me. If my spouse does not survive me, then in equal shares to my children who survive me, **per stirpes**.`
-          : `${intro} to my spouse if my spouse survives me, and if not, in equal shares to my children who survive me, **per stirpes**.`
-      case 'children_equally':
-        return `${intro} in equal shares to my children who survive me, **per stirpes**.`
-      case 'spouse_only':
-        return spouse
-          ? `${intro} to my spouse, ${bold(spouse)}, if my spouse survives me. If my spouse does not survive me, then to my heirs at law under the laws of the **State of Texas**.`
-          : `${intro} to my spouse if my spouse survives me, and if not, to my heirs at law under the laws of the **State of Texas**.`
-      case 'custom':
-        return custom
-          ? `${intro} as follows: ${custom}`
-          : `${intro} according to the written instructions provided with this Will.`
-      default:
-        return `${intro} to my heirs at law under the laws of the **State of Texas**.`
-    }
+    const note = residuarySpecialNeedsNote(answers)
+    return note ? `${body}\n\n${note}` : body
+  },
+  clause_special_needs_trust(answers) {
+    return specialNeedsTrustClauseText(answers)
   },
   clause_guardian(answers) {
     const guardian = plain(str(answers.primary_guardian_name))

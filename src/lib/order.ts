@@ -6,7 +6,7 @@ export type Plan = 'individual' | 'couples'
 export const PACKAGE_DOC_IDS = ['will', 'mpoa', 'dpoa', 'directive', 'hipaa'] as const
 export type PackageDocId = (typeof PACKAGE_DOC_IDS)[number]
 
-/** Optional package docs (same plan price — not +$50 each). Trust is the only paid add-on. */
+/** Optional package docs (same plan price — not extra per paper). */
 export const OPTIONAL_PACKAGE_DOC_IDS = ['mpoa', 'dpoa', 'directive', 'hipaa'] as const
 export type OptionalPackageDocId = (typeof OPTIONAL_PACKAGE_DOC_IDS)[number]
 
@@ -22,7 +22,7 @@ export type OrderDraft = {
   plan: Plan
   email: string
   partnerEmail?: string
-  /** Paid +$50 add-on only — never a free package checkbox. */
+  /** Older paid orders may still have a living trust. New checkouts are always false. */
   includeTrust: boolean
   /** Always includes `will`; other ids are optional at the same plan price. */
   documents: PackageDocId[]

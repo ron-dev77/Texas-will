@@ -1,3 +1,4 @@
+/// <reference path="../globals.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import Stripe from 'https://esm.sh/stripe@17.7.0?target=deno'
 import { finalizePaidOrder } from '../_shared/finalize-order.ts'
@@ -48,7 +49,7 @@ function normalizeDocs(raw: unknown): string[] {
   return ['will', ...fromRaw]
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -60,7 +61,6 @@ Deno.serve(async (req) => {
 
     if (action === 'create_intent') {
       const plan: CheckoutPlan = body?.plan === 'couples' ? 'couples' : 'individual'
-      const includeTrust = Boolean(body?.includeTrust)
       const documents = normalizeDocs(body?.documents)
       const email = String(body?.email ?? '')
         .trim()
@@ -86,7 +86,8 @@ Deno.serve(async (req) => {
         return json({ error: 'Select at least one document.' }, 400)
       }
 
-      const priced = resolveCheckoutAmount(plan, includeTrust)
+      // Living-trust add-on is no longer sold. Always charge the plan only.
+      const priced = resolveCheckoutAmount(plan, false)
       const amountCents = priced.amountCents
       const stripe = stripeClient()
 
@@ -103,11 +104,11 @@ Deno.serve(async (req) => {
           user_email: email,
           partner_email: plan === 'couples' ? partnerEmail : null,
           add_ons: {
-            trust: includeTrust,
+            trust: false,
             documents,
             stripe_price_ids: priced.priceIds,
             plan_cents: priced.planCents,
-            trust_cents: priced.trustCents,
+            trust_cents: 0,
           },
           amount_paid: amountCents,
           status: 'pending_payment',
@@ -128,21 +129,20 @@ Deno.serve(async (req) => {
         metadata: {
           order_id: order.id,
           plan,
-          include_trust: includeTrust ? '1' : '0',
+          include_trust: '0',
           plan_cents: String(priced.planCents),
-          trust_cents: String(priced.trustCents),
+          trust_cents: '0',
           stripe_price_ids: priced.priceIds.join(','),
         },
         description:
-          plan === 'couples'
-            ? `My AI Will — Couples${includeTrust ? ' + Trust add-on' : ''}`
-            : `My AI Will — Individual${includeTrust ? ' + Trust add-on' : ''}`,
+          plan === 'couples' ? 'My AI Will — Couples' : 'My AI Will — Individual',
       })
 
       const { error: linkErr } = await sb
         .from('orders')
         .update({ stripe_payment_intent_id: intent.id })
         .eq('id', order.id)
+        .maybeSingle()
 
       if (linkErr) {
         return json({ error: linkErr.message }, 400)

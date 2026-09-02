@@ -70,6 +70,19 @@ export const WILL_ENGINE_FIELD_IDS = [
   'guardian_notes',
   'residuary_plan',
   'residuary_custom',
+  'wants_snt',
+  'snt_plan',
+  'snt_beneficiary_name',
+  'able_has_account',
+  'able_account_name',
+  'snt_trustee_name',
+  'snt_successor_trustee_name',
+  'snt_remainder',
+  'snt_contingent_remainder',
+  'snt_trustee_notes',
+  'snt_has_existing',
+  'snt_existing_name',
+  'snt_existing_date',
   'disposition',
   'service_wishes',
   'trust_name',
@@ -208,21 +221,33 @@ function mapFormRow(row: {
 const FORM_SELECT =
   'id, name, slug, description, schema, skeleton_body, trust_skeleton_body, ancillary_skeletons, is_default, is_active, created_at, updated_at, created_by'
 
-const ANCILLARY_SECTION_IDS = new Set([
+const AUTO_INSERT_SECTION_IDS = new Set([
   'medical_poa',
   'durable_poa',
   'directive',
   'hipaa',
+  'special_needs',
 ])
 
-/** Insert any missing bundled sections (e.g. ancillaries) before review. */
+/** Insert any missing bundled sections (e.g. ancillaries, SNT) before review. */
 export function mergeMissingBundledSections(schema: Section[]): Section[] {
   const ids = new Set(schema.map((s) => s.id))
-  const missing = SECTIONS.filter((s) => ANCILLARY_SECTION_IDS.has(s.id) && !ids.has(s.id))
+  const missing = SECTIONS.filter((s) => AUTO_INSERT_SECTION_IDS.has(s.id) && !ids.has(s.id))
   if (missing.length === 0) return schema
-  const reviewIdx = schema.findIndex((s) => s.id === 'review' || s.isReview)
-  if (reviewIdx < 0) return [...schema, ...missing]
-  return [...schema.slice(0, reviewIdx), ...missing, ...schema.slice(reviewIdx)]
+  let next = [...schema]
+  for (const section of missing) {
+    if (section.id === 'special_needs') {
+      const residuaryIdx = next.findIndex((s) => s.id === 'residuary')
+      if (residuaryIdx >= 0) {
+        next = [...next.slice(0, residuaryIdx + 1), section, ...next.slice(residuaryIdx + 1)]
+        continue
+      }
+    }
+    const reviewIdx = next.findIndex((s) => s.id === 'review' || s.isReview)
+    if (reviewIdx < 0) next = [...next, section]
+    else next = [...next.slice(0, reviewIdx), section, ...next.slice(reviewIdx)]
+  }
+  return next
 }
 
 /** Add new bundled questions onto existing sections (does not overwrite edited copy). */
@@ -242,7 +267,13 @@ export function mergeMissingBundledFields(schema: Section[]): Section[] {
 }
 
 /** Sections whose default questions must stay in lockstep with the bundled form. */
-const BUNDLED_QUESTION_SYNC_IDS = new Set(['medical_poa', 'hipaa', 'durable_poa', 'directive'])
+const BUNDLED_QUESTION_SYNC_IDS = new Set([
+  'medical_poa',
+  'hipaa',
+  'durable_poa',
+  'directive',
+  'special_needs',
+])
 
 function bundledSectionFingerprint(section: Section): string {
   return JSON.stringify({

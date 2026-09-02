@@ -25,7 +25,7 @@ export const DOCUMENT_KIND_LABEL: Record<DocumentKind, string> = {
 /** One-line meaning shown on admin DocCards / kind pickers. */
 export const DOCUMENT_KIND_BLURB: Record<DocumentKind, string> = {
   will: 'Who gets your property after death',
-  rlt: 'Optional living trust (add-on)',
+  rlt: 'Living trust (older orders only)',
   mpoa: 'Who decides healthcare if you cannot',
   dpoa: 'Who handles money/property if incapacitated',
   directive: 'End-of-life / life-support wishes',

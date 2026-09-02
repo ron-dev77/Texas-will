@@ -128,6 +128,11 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
         body: '**5.2 Survival.** If any beneficiary under this Will fails to survive me by thirty (30) days, that beneficiary shall be deemed to have predeceased me for all purposes of this Will.',
         blankLinesAfter: 1,
       }),
+      blk({
+        kind: 'paragraph',
+        body: '{{clause_special_needs_trust}}',
+        blankLinesAfter: 1,
+      }),
 
       blk({
         kind: 'paragraph',
@@ -371,11 +376,13 @@ export function needsNotarySignatureSpacing(body: string | null | undefined): bo
 
 /** Refresh bundled default will skeleton when outdated. */
 export function needsDefaultWillSkeletonRefresh(body: string | null | undefined): boolean {
+  const t = body ?? ''
   return (
     isLegacyWillSkeleton(body) ||
     needsWitnessTwoColumnUpgrade(body) ||
     needsWillNotaryRightAlign(body) ||
     needsArticleXPageBreak(body) ||
-    needsNotarySignatureSpacing(body)
+    needsNotarySignatureSpacing(body) ||
+    !t.includes('{{clause_special_needs_trust}}')
   )
 }

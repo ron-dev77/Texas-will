@@ -320,6 +320,37 @@ export default function Questionnaire() {
       if (id === 'has_charitable_gifts' && value === 'no') {
         delete next.charitable_gifts
       }
+      if (id === 'wants_snt' && value === 'no') {
+        delete next.snt_plan
+        delete next.snt_beneficiary_name
+        delete next.snt_trustee_name
+        delete next.snt_successor_trustee_name
+        delete next.snt_remainder
+        delete next.snt_contingent_remainder
+        delete next.snt_trustee_notes
+        delete next.snt_has_existing
+        delete next.snt_existing_name
+        delete next.snt_existing_date
+        delete next.able_has_account
+        delete next.able_account_name
+      }
+      if (id === 'snt_plan' && value === 'able') {
+        delete next.snt_trustee_name
+        delete next.snt_successor_trustee_name
+        delete next.snt_remainder
+        delete next.snt_contingent_remainder
+        delete next.snt_trustee_notes
+        delete next.snt_has_existing
+        delete next.snt_existing_name
+        delete next.snt_existing_date
+      }
+      if (id === 'snt_plan' && value === 'trust') {
+        delete next.able_has_account
+        delete next.able_account_name
+      }
+      if (id === 'able_has_account' && value === 'no') {
+        delete next.able_account_name
+      }
       return next
     })
 

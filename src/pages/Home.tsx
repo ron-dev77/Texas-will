@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { PlanPairCards } from '@/components/site/PlanPairCards'
 import { ScrollReveal } from '@/components/site/ScrollReveal'
+import { WillBasedFitNote } from '@/components/site/WillBasedFitNote'
 import { FAQS } from '@/lib/faqs'
 import { cn } from '@/lib/utils'
 import ceoPhoto from '@/assets/ceo.webp'
@@ -146,6 +147,12 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <Section tone="default" className="pb-8 pt-2 sm:pb-10">
+        <ScrollReveal variant="up">
+          <WillBasedFitNote className="mx-auto max-w-4xl" />
+        </ScrollReveal>
+      </Section>
 
       {/* Trust bar */}
       <Section tone="muted" className="py-16 sm:py-20">

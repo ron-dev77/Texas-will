@@ -1,5 +1,9 @@
 import type { WillContent } from '@/lib/will-render'
 import type { DocumentKind } from '@/lib/document-kinds'
+import {
+  buildSpecialNeedsArticles,
+  residuarySpecialNeedsNote,
+} from '@/lib/special-needs-trust'
 
 type Answers = Record<string, unknown>
 
@@ -97,6 +101,11 @@ function residuaryText(answers: Answers, spouse: string): string[] {
         'To my heirs at law under the laws of the **State of Texas**, as those laws provide for the distribution of an intestate estate.',
       ]
   }
+}
+
+function withSpecialNeedsResiduaryNote(answers: Answers, paragraphs: string[]): string[] {
+  const note = residuarySpecialNeedsNote(answers)
+  return note ? [...paragraphs, note] : paragraphs
 }
 
 /** When the customer also bought a living trust, the will pours residue into that trust. */
@@ -394,10 +403,18 @@ export function buildWillFromAnswers(
 
   sections.push({
     heading: `ARTICLE ${roman(article++)}. RESIDUARY ESTATE`,
-    paragraphs: includeTrust
-      ? pourOverResiduaryText(answers, name)
-      : residuaryText(answers, spouse),
+    paragraphs: withSpecialNeedsResiduaryNote(
+      answers,
+      includeTrust ? pourOverResiduaryText(answers, name) : residuaryText(answers, spouse),
+    ),
   })
+
+  for (const snt of buildSpecialNeedsArticles(answers)) {
+    sections.push({
+      heading: `ARTICLE ${roman(article++)}. ${snt.heading}`,
+      paragraphs: snt.paragraphs,
+    })
+  }
 
   const finalParas: string[] = []
   const dispositionLine = dispositionText(disposition)

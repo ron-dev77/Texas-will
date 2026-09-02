@@ -37,6 +37,10 @@ import {
   type SkeletonMeta,
 } from '@/lib/admin-document-preview'
 import { proposeSkeletonReformat } from '@/lib/ai-skeleton-reformat'
+import {
+  orderNeedsSpecialNeedsLawyerSignoff,
+  SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT,
+} from '@/lib/special-needs-trust'
 
 type VersionSelection = 'live' | 'current' | string
 
@@ -84,6 +88,7 @@ export default function OrderDocumentReviewPage() {
   const [sendKinds, setSendKinds] = useState<DocumentKind[]>(['will'])
   const [sendPartners, setSendPartners] = useState<(1 | 2)[]>([1])
   const [markedFinal, setMarkedFinal] = useState(false)
+  const [sntLawyerApproved, setSntLawyerApproved] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -409,6 +414,12 @@ export default function OrderDocumentReviewPage() {
       setActionMsg('Select at least one document to send.')
       return
     }
+    if (orderNeedsSpecialNeedsLawyerSignoff(data.answers) && !sntLawyerApproved) {
+      setActionMsg(
+        'A licensed Texas attorney must approve the special needs / Texas ABLE language before send.',
+      )
+      return
+    }
     setBusy('send')
     setActionMsg(null)
     try {
@@ -452,6 +463,13 @@ export default function OrderDocumentReviewPage() {
         attachments,
         markDelivered: true,
       })
+      if (orderNeedsSpecialNeedsLawyerSignoff(data.answers)) {
+        await updateOrderStatus({
+          orderId,
+          status: 'delivered',
+          note: SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT,
+        })
+      }
       await load()
       setActionMsg(
         `Sent ${result.sentCount} PDF${result.sentCount === 1 ? '' : 's'} and marked delivered.`,
@@ -464,12 +482,21 @@ export default function OrderDocumentReviewPage() {
   }
 
   async function markDeliveredNoEmail() {
+    if (data && orderNeedsSpecialNeedsLawyerSignoff(data.answers) && !sntLawyerApproved) {
+      setActionMsg(
+        'A licensed Texas attorney must approve the special needs / Texas ABLE language before marking delivered.',
+      )
+      return
+    }
     setBusy('delivered')
     try {
       await updateOrderStatus({
         orderId,
         status: 'delivered',
-        note: 'Marked delivered by admin (no email)',
+        note:
+          data && orderNeedsSpecialNeedsLawyerSignoff(data.answers)
+            ? SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT
+            : 'Marked delivered by admin (no email)',
       })
       await load()
       setActionMsg('Marked delivered')
@@ -848,6 +875,16 @@ export default function OrderDocumentReviewPage() {
                 </div>
               ) : null}
             </div>
+            {data && orderNeedsSpecialNeedsLawyerSignoff(data.answers) ? (
+              <label className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-3 text-sm">
+                <Checkbox
+                  checked={sntLawyerApproved}
+                  onCheckedChange={(v) => setSntLawyerApproved(v === true)}
+                  className="mt-0.5"
+                />
+                <span>{SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT}</span>
+              </label>
+            ) : null}
             <Button
               type="button"
               variant="secondary"
@@ -861,7 +898,12 @@ export default function OrderDocumentReviewPage() {
             <Button
               type="button"
               className="w-full rounded-full bg-emerald-700 text-white hover:bg-emerald-800"
-              disabled={busy !== null || sendKinds.length === 0}
+              disabled={
+                busy !== null ||
+                sendKinds.length === 0 ||
+                (Boolean(data && orderNeedsSpecialNeedsLawyerSignoff(data.answers)) &&
+                  !sntLawyerApproved)
+              }
               onClick={() => void approveAndSend()}
             >
               {busy === 'send' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -871,7 +913,11 @@ export default function OrderDocumentReviewPage() {
               type="button"
               variant="outline"
               className="w-full rounded-full"
-              disabled={busy !== null}
+              disabled={
+                busy !== null ||
+                (Boolean(data && orderNeedsSpecialNeedsLawyerSignoff(data.answers)) &&
+                  !sntLawyerApproved)
+              }
               onClick={() => void markDeliveredNoEmail()}
             >
               Mark delivered (no email)
