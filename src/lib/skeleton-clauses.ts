@@ -13,6 +13,8 @@ type Answers = Record<string, unknown>
 export type SkeletonFillOptions = {
   /** Order purchased living-trust add-on → pour-over residuary language */
   includeTrust?: boolean
+  /** Order purchased spousal testamentary trust → trust residuary language */
+  includeSpousalTrust?: boolean
 }
 
 function str(v: unknown, fallback = '') {

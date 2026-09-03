@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, BadgeCheck, Loader2, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -12,7 +12,12 @@ import {
 } from '@/components/checkout/StripeCheckoutModal'
 import { cn } from '@/lib/utils'
 import { finalizeCheckoutPayment, savePaidOrderDraft } from '@/lib/checkout'
-import { computeTotalDollars, planPriceDollars } from '@/lib/pricing'
+import { computeTotalDollars, planPriceDollars, spousalTrustAddonDollars, trustAddonDollars } from '@/lib/pricing'
+import {
+  loadQualifierDraft,
+  qualifierComplete,
+  type QualifierDraft,
+} from '@/lib/qualifier'
 import {
   listedOutsideCounselFirms,
   RLT_FIT_REASONS,
@@ -64,13 +69,13 @@ const EMPTY_FIT: Record<RltFitId, 'yes' | 'no' | ''> = {
 export default function Pricing() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const planFromUrl = searchParams.get('plan')
-  const initialPlan: Plan = planFromUrl === 'couples' ? 'couples' : 'individual'
+  const qualifier = useMemo(() => loadQualifierDraft(), [])
 
-  const [plan, setPlan] = useState<Plan>(initialPlan)
+  const planFromUrl = searchParams.get('plan')
   const [email, setEmail] = useState('')
   const [partnerEmail, setPartnerEmail] = useState('')
   const [fit, setFit] = useState<Record<RltFitId, 'yes' | 'no' | ''>>(EMPTY_FIT)
+  const [includeTrust, setIncludeTrust] = useState(false)
   const [documents, setDocuments] = useState<PackageDocId[]>(['will'])
   const [lsrConsent, setLsrConsent] = useState(false)
   const [showErrors, setShowErrors] = useState(false)
@@ -81,7 +86,7 @@ export default function Pricing() {
 
   useEffect(() => {
     if (planFromUrl === 'individual' || planFromUrl === 'couples') {
-      setPlan(planFromUrl)
+      /* Plan locked by qualifier — ignore URL plan changes */
     }
   }, [planFromUrl])
 
@@ -132,10 +137,13 @@ export default function Pricing() {
     }
   }, [paidFlag, paymentIntentId, redirectStatus, navigate])
 
-  function selectPlan(next: Plan) {
-    setPlan(next)
-    window.setTimeout(scrollToCheckout, 80)
+  if (!qualifierComplete(qualifier)) {
+    return <Navigate to="/qualify" replace />
   }
+
+  const lockedQualifier: QualifierDraft = qualifier
+  const plan: Plan = lockedQualifier.plan
+  const includeSpousalTrust = lockedQualifier.spousalTrustChoice === 'spousal_trust'
 
   const allOptionalSelected = OPTIONAL_PACKAGE_DOC_IDS.every((id) => documents.includes(id))
   const hasWill = documents.includes('will')
@@ -159,7 +167,7 @@ export default function Pricing() {
   }
 
   const base = planPriceDollars(plan)
-  const total = computeTotalDollars(plan, false)
+  const total = computeTotalDollars(plan, includeTrust, includeSpousalTrust)
   const fitAnswered = RLT_FIT_REASONS.every((r) => fit[r.id] === 'yes' || fit[r.id] === 'no')
   const offRamp = needsOutsideCounsel(fit)
   const counselFirms = listedOutsideCounselFirms()
@@ -183,7 +191,9 @@ export default function Pricing() {
       plan,
       email: email.trim().toLowerCase(),
       partnerEmail: plan === 'couples' ? partnerEmail.trim().toLowerCase() : undefined,
-      includeTrust: false,
+      includeTrust,
+      includeSpousalTrust,
+      qualifier: lockedQualifier,
       documents: normalizeOrderDocuments(documents),
       total,
       lsrConsent,
@@ -248,68 +258,29 @@ export default function Pricing() {
             <div className="grid gap-4 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={() => selectPlan('individual')}
+                disabled
                 className={cn(
-                  'rounded-2xl border p-6 text-left transition duration-300 sm:p-7',
-                  plan === 'individual'
-                    ? 'border-accent bg-card shadow-[0_18px_40px_-20px_rgba(15,23,42,0.3)] ring-2 ring-accent/30'
-                    : 'border-border/80 bg-card hover:-translate-y-0.5 hover:border-accent/40',
+                  'cursor-default rounded-2xl border p-6 text-left sm:p-7',
+                  'border-accent bg-card shadow-[0_18px_40px_-20px_rgba(15,23,42,0.3)] ring-2 ring-accent/30',
                 )}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Individual
+                    {plan === 'individual' ? 'Individual' : 'Couples'}
                   </span>
-                  {plan === 'individual' ? (
-                    <span className="rounded-full bg-accent px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-accent-foreground">
-                      Selected
-                    </span>
-                  ) : null}
+                  <Link to="/qualify" className="text-[10px] font-medium text-accent underline-offset-2 hover:underline">
+                    Change plan
+                  </Link>
                 </div>
                 <div className="mt-3 flex items-end gap-1.5">
                   <span className="font-serif text-5xl font-semibold leading-none text-foreground">
-                    $249
+                    ${base}
                   </span>
-                  <span className="mb-1 text-sm font-medium text-accent">flat</span>
+                  <span className="mb-1 text-sm font-medium text-accent">flat · locked</span>
                 </div>
-                <p className="mt-3 text-sm text-muted-foreground">A complete will for one person.</p>
               </button>
 
-              <button
-                type="button"
-                onClick={() => selectPlan('couples')}
-                className={cn(
-                  'relative rounded-2xl border p-6 text-left transition duration-300 sm:p-7',
-                  plan === 'couples'
-                    ? 'border-accent bg-card shadow-[0_18px_40px_-20px_rgba(15,23,42,0.3)] ring-2 ring-accent/30'
-                    : 'border-border/80 bg-card hover:-translate-y-0.5 hover:border-accent/40',
-                )}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    Couples
-                  </span>
-                  <div className="flex flex-wrap items-center justify-end gap-1.5">
-                    <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                      Most Popular
-                    </span>
-                    {plan === 'couples' ? (
-                      <span className="rounded-full bg-accent px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-accent-foreground">
-                        Selected
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="mt-3 flex items-end gap-1.5">
-                  <span className="font-serif text-5xl font-semibold leading-none text-foreground">
-                    $399
-                  </span>
-                  <span className="mb-1 text-sm font-medium text-accent">flat</span>
-                </div>
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Two coordinated wills for partners.
-                </p>
-              </button>
+              <div className="hidden sm:block" aria-hidden />
             </div>
           </ScrollReveal>
 
@@ -563,6 +534,35 @@ export default function Pricing() {
                   ) : null}
                 </div>
 
+                <div className="space-y-3 rounded-2xl border border-border/70 p-4">
+                  <p className="text-sm font-medium text-foreground">Optional add-ons</p>
+                  {includeSpousalTrust ? (
+                    <p className="text-xs text-muted-foreground">
+                      Spousal testamentary trust (+${spousalTrustAddonDollars()} provisional) — selected
+                      in{' '}
+                      <Link to="/summary" className="text-accent underline-offset-2 hover:underline">
+                        your summary
+                      </Link>
+                      .
+                    </p>
+                  ) : null}
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/60 p-3">
+                    <Checkbox
+                      checked={includeTrust}
+                      onCheckedChange={(v) => setIncludeTrust(v === true)}
+                      className="mt-0.5"
+                    />
+                    <span className="text-sm">
+                      <span className="font-medium text-foreground">
+                        Revocable living trust (+${trustAddonDollars()})
+                      </span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        Separate from the spousal trust. Optional — not required for most Texans.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
                 <div
                   className={cn(
                     'flex items-start gap-3 rounded-2xl p-4',
@@ -605,6 +605,22 @@ export default function Pricing() {
                         <span>{plan === 'individual' ? 'Individual plan' : 'Couples plan'}</span>
                         <span className="font-medium text-primary-foreground">${base}</span>
                       </div>
+                      {includeSpousalTrust ? (
+                        <div className="flex justify-between gap-6 sm:max-w-xs">
+                          <span>Spousal trust</span>
+                          <span className="font-medium text-primary-foreground">
+                            +${spousalTrustAddonDollars()}
+                          </span>
+                        </div>
+                      ) : null}
+                      {includeTrust ? (
+                        <div className="flex justify-between gap-6 sm:max-w-xs">
+                          <span>Living trust</span>
+                          <span className="font-medium text-primary-foreground">
+                            +${trustAddonDollars()}
+                          </span>
+                        </div>
+                      ) : null}
                       <div className="flex justify-between gap-6 border-t border-primary-foreground/15 pt-2 sm:max-w-xs">
                         <span className="font-medium text-primary-foreground">Total</span>
                         <span className="font-serif text-3xl font-semibold text-primary-foreground">

@@ -8,6 +8,7 @@ import {
 } from '@/lib/questionnaire'
 import { BUNDLED_WILL_SKELETON } from '@/lib/admin-content'
 import { needsDefaultWillSkeletonRefresh } from '@/lib/content-defaults/default-will-skeleton'
+import { BUNDLED_SPOUSAL_TRUST_SKELETON } from '@/lib/content-defaults/default-spousal-trust-skeleton'
 import {
   ANCILLARY_KINDS,
   DOCUMENT_KIND_LABEL,
@@ -70,6 +71,16 @@ export const WILL_ENGINE_FIELD_IDS = [
   'guardian_notes',
   'residuary_plan',
   'residuary_custom',
+  'has_prior_relationship_children',
+  'prior_relationship_children_scope',
+  'spousal_trust_trustee_mode',
+  'spousal_trust_alternate_trustee_name',
+  'spousal_trust_co_trustee_name',
+  'spousal_trust_successor_trustee_name',
+  'spousal_trust_remainder_children',
+  'retirement_accounts_value',
+  'beneficiary_forms_reviewed',
+  'beneficiary_update_plan',
   'wants_snt',
   'snt_plan',
   'snt_beneficiary_name',
@@ -226,23 +237,44 @@ const AUTO_INSERT_SECTION_IDS = new Set([
   'durable_poa',
   'directive',
   'hipaa',
+  'beneficiary_designation',
+  'spousal_trust',
   'special_needs',
 ])
 
-/** Insert any missing bundled sections (e.g. ancillaries, SNT) before review. */
+const INSERT_AFTER_RESIDUARY_SECTION_IDS = [
+  'spousal_trust',
+  'beneficiary_designation',
+  'special_needs',
+] as const
+
+/** Insert any missing bundled sections (e.g. ancillaries, beneficiary designation, SNT) before review. */
 export function mergeMissingBundledSections(schema: Section[]): Section[] {
   const ids = new Set(schema.map((s) => s.id))
   const missing = SECTIONS.filter((s) => AUTO_INSERT_SECTION_IDS.has(s.id) && !ids.has(s.id))
   if (missing.length === 0) return schema
   let next = [...schema]
-  for (const section of missing) {
-    if (section.id === 'special_needs') {
-      const residuaryIdx = next.findIndex((s) => s.id === 'residuary')
-      if (residuaryIdx >= 0) {
-        next = [...next.slice(0, residuaryIdx + 1), section, ...next.slice(residuaryIdx + 1)]
-        continue
-      }
+  const afterResiduary = missing
+    .filter((s) => INSERT_AFTER_RESIDUARY_SECTION_IDS.includes(s.id as (typeof INSERT_AFTER_RESIDUARY_SECTION_IDS)[number]))
+    .sort(
+      (a, b) =>
+        INSERT_AFTER_RESIDUARY_SECTION_IDS.indexOf(a.id as (typeof INSERT_AFTER_RESIDUARY_SECTION_IDS)[number]) -
+        INSERT_AFTER_RESIDUARY_SECTION_IDS.indexOf(b.id as (typeof INSERT_AFTER_RESIDUARY_SECTION_IDS)[number]),
+    )
+  const otherMissing = missing.filter(
+    (s) => !INSERT_AFTER_RESIDUARY_SECTION_IDS.includes(s.id as (typeof INSERT_AFTER_RESIDUARY_SECTION_IDS)[number]),
+  )
+  for (const section of afterResiduary) {
+    const residuaryIdx = next.findIndex((s) => s.id === 'residuary')
+    if (residuaryIdx >= 0) {
+      next = [...next.slice(0, residuaryIdx + 1), section, ...next.slice(residuaryIdx + 1)]
+      continue
     }
+    const reviewIdx = next.findIndex((s) => s.id === 'review' || s.isReview)
+    if (reviewIdx < 0) next = [...next, section]
+    else next = [...next.slice(0, reviewIdx), section, ...next.slice(reviewIdx)]
+  }
+  for (const section of otherMissing) {
     const reviewIdx = next.findIndex((s) => s.id === 'review' || s.isReview)
     if (reviewIdx < 0) next = [...next, section]
     else next = [...next.slice(0, reviewIdx), section, ...next.slice(reviewIdx)]
@@ -272,6 +304,8 @@ const BUNDLED_QUESTION_SYNC_IDS = new Set([
   'hipaa',
   'durable_poa',
   'directive',
+  'beneficiary_designation',
+  'spousal_trust',
   'special_needs',
 ])
 
@@ -317,6 +351,8 @@ export function formSkeletonBodyForKind(
 ): string | null {
   if (kind === 'will') return form.skeleton_body?.trim() ? form.skeleton_body : null
   if (kind === 'rlt') return form.trust_skeleton_body?.trim() ? form.trust_skeleton_body : null
+  if (kind === 'spousal_trust') return BUNDLED_SPOUSAL_TRUST_SKELETON
+  if (!isAncillaryKind(kind)) return null
   const body = form.ancillary_skeletons?.[kind]
   return body?.trim() ? body : null
 }
@@ -536,6 +572,7 @@ export async function listFormsWithTemplateStatus(): Promise<FormTemplateRow[]> 
           : ('missing' as const),
       hipaa:
         anc.hipaa?.trim() && anc.hipaa.trim().length >= minLen ? ('ready' as const) : ('missing' as const),
+      spousal_trust: 'ready' as const,
     } satisfies Record<DocumentKind, 'ready' | 'missing'>
     return {
       id: mapped.id,

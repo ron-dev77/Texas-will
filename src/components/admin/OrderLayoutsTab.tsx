@@ -65,14 +65,18 @@ export function OrderLayoutsTab({
   onReload,
 }: Props) {
   const includeTrust = Boolean(data.order.add_ons?.trust)
+  const includeSpousalTrust = Boolean(
+    (data.order.add_ons as { spousal_trust?: boolean } | null)?.spousal_trust,
+  )
   const isCouples = data.order.plan_type === 'couples'
   const packageKinds = useMemo(
     () =>
       orderedDocumentKindsForDelivery({
         documents: (data.order.add_ons as { documents?: unknown } | null)?.documents,
         includeTrust,
+        includeSpousalTrust,
       }),
-    [data.order.add_ons, includeTrust],
+    [data.order.add_ons, includeTrust, includeSpousalTrust],
   )
 
   const [docKind, setDocKind] = useState<DocumentKind>(packageKinds[0] ?? 'will')
@@ -160,6 +164,7 @@ export function OrderLayoutsTab({
       answers: answersRow.answers,
       skeleton: useWorking ? workingSkeleton : null,
       includeTrust,
+      includeSpousalTrust,
       fallbackContent: useWorking ? null : selectedVersion!.will_content,
     })
       .then(async (bytes) => {
@@ -241,7 +246,10 @@ export function OrderLayoutsTab({
     setBusy('save')
     setMsg(null)
     try {
-      const draft = buildDocumentFromAnswers(docKind, answersRow.answers, { includeTrust })
+      const draft = buildDocumentFromAnswers(docKind, answersRow.answers, {
+        includeTrust,
+        includeSpousalTrust,
+      })
       const saved = await upsertWillDocument({
         orderId,
         partnerNumber: partner,
@@ -310,7 +318,10 @@ export function OrderLayoutsTab({
           return
         }
         skeletonSnap = serializeSkeletonDoc(skeletonByKind[docKind]!)
-        const draft = buildDocumentFromAnswers(docKind, answersRow.answers, { includeTrust })
+        const draft = buildDocumentFromAnswers(docKind, answersRow.answers, {
+        includeTrust,
+        includeSpousalTrust,
+      })
         const saved = await upsertWillDocument({
           orderId,
           partnerNumber: partner,

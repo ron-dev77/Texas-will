@@ -40,6 +40,8 @@ export type Section = {
   fields: readonly Field[]
   /** Hide this section unless the order includes a trust add-on. */
   requiresTrust?: boolean
+  /** Phase 2 spousal testamentary trust add-on from qualifier. */
+  requiresSpousalTrust?: boolean
   /** Final review/submit step (no questions required). */
   isReview?: boolean
 }
@@ -170,6 +172,26 @@ export const SECTIONS: readonly Section[] = [
       "Add every child you'd like named in your will — biological, adopted, or stepchildren you wish to include. If you have minor children, you'll also name a guardian to raise them if both parents pass away.",
     fields: [
       { id: 'has_children', label: 'Do you have children?', type: 'yesno', required: true },
+      {
+        id: 'has_prior_relationship_children',
+        label:
+          'Do you have any children from a relationship before your current marriage or partnership?',
+        type: 'yesno',
+        required: true,
+        showIf: { field: 'marital_status', in: ['married', 'domestic_partnership'] },
+      },
+      {
+        id: 'prior_relationship_children_scope',
+        label: 'Whose prior-relationship children? (Couples plans)',
+        type: 'radio',
+        required: true,
+        options: [
+          { value: 'me', label: 'Mine only' },
+          { value: 'partner', label: "My partner's only" },
+          { value: 'both', label: 'Both of us' },
+        ],
+        showIf: { field: 'has_prior_relationship_children', equals: 'yes' },
+      },
       {
         id: 'children',
         label: 'List your children',
@@ -349,6 +371,104 @@ export const SECTIONS: readonly Section[] = [
         minLength: 15,
         maxLength: 500,
         showIf: { field: 'residuary_plan', equals: 'custom' },
+      },
+    ],
+  },
+  {
+    id: 'spousal_trust',
+    title: 'Spousal testamentary trust',
+    intro:
+      'You added the spousal trust. These answers populate the trust article in your will and the separate spousal trust document. Default is spouse as sole trustee (Option 1); co-trustee is Option 2.',
+    requiresSpousalTrust: true,
+    fields: [
+      {
+        id: 'spousal_trust_trustee_mode',
+        label: 'Who should serve as trustee?',
+        type: 'radio',
+        required: true,
+        options: [
+          { value: 'sole', label: 'My spouse as sole trustee (Option 1)' },
+          { value: 'co_trustee', label: 'My spouse and a child as co-trustees (Option 2)' },
+        ],
+      },
+      {
+        id: 'spousal_trust_alternate_trustee_name',
+        label: 'Alternate trustee — full name (if spouse cannot serve)',
+        type: 'shorttext',
+        required: true,
+        placeholder: 'Alex Rivera',
+        minLength: 3,
+        maxLength: 80,
+        showIf: { field: 'spousal_trust_trustee_mode', equals: 'sole' },
+      },
+      {
+        id: 'spousal_trust_co_trustee_name',
+        label: 'Co-trustee child — full legal name',
+        type: 'shorttext',
+        required: true,
+        placeholder: 'Michael Robert Chen',
+        minLength: 3,
+        maxLength: 80,
+        showIf: { field: 'spousal_trust_trustee_mode', equals: 'co_trustee' },
+      },
+      {
+        id: 'spousal_trust_successor_trustee_name',
+        label: 'Successor co-trustee — full name',
+        type: 'shorttext',
+        required: true,
+        placeholder: 'Emma Grace Doe',
+        minLength: 3,
+        maxLength: 80,
+        showIf: { field: 'spousal_trust_trustee_mode', equals: 'co_trustee' },
+      },
+      {
+        id: 'spousal_trust_remainder_children',
+        label: 'Children who receive the remainder (comma-separated)',
+        helper: 'Usually your prior-relationship children. Defaults from your children list if blank.',
+        type: 'longtext',
+        minLength: 3,
+        maxLength: 400,
+      },
+    ],
+  },
+  {
+    id: 'beneficiary_designation',
+    title: 'Beneficiary designation',
+    intro:
+      'Your will does not control IRAs, 401(k)s, or life insurance. Those pass to whoever is named on each account form. This step helps us show the right education — it does not change your will.',
+    fields: [
+      {
+        id: 'retirement_accounts_value',
+        label:
+          'About how much is in your IRAs, 401(k)s, and life insurance combined? (rough estimate)',
+        helper: 'Pick the closest range. You do not need exact numbers.',
+        type: 'radio',
+        required: true,
+        options: [
+          { value: 'under_50k', label: 'Under $50,000' },
+          { value: '50k_250k', label: '$50,000 to $250,000' },
+          { value: '250k_plus', label: '$250,000 or more' },
+        ],
+      },
+      {
+        id: 'beneficiary_forms_reviewed',
+        label:
+          'Have you checked who is named as beneficiary on your IRA, 401(k), and life insurance?',
+        helper:
+          'Log in to each account or ask HR. Outdated names are a common problem.',
+        type: 'yesno',
+        required: true,
+      },
+      {
+        id: 'beneficiary_update_plan',
+        label: 'Do you plan to update those beneficiary forms after your will is done?',
+        type: 'radio',
+        required: true,
+        options: [
+          { value: 'yes', label: 'Yes — I will update them to match my wishes' },
+          { value: 'already_current', label: 'They are already who I want' },
+          { value: 'need_help', label: 'I need help figuring this out' },
+        ],
       },
     ],
   },
@@ -1041,6 +1161,7 @@ export function getActiveSections(
   includeTrust: boolean,
   sections: readonly Section[] = SECTIONS,
   documents: readonly string[] = ['will'],
+  includeSpousalTrust = false,
 ): Section[] {
   const docs = new Set(documents.length ? documents : ['will'])
   const willOnly = new Set([
@@ -1049,6 +1170,8 @@ export function getActiveSections(
     'specific_gifts',
     'charitable',
     'residuary',
+    'spousal_trust',
+    'beneficiary_designation',
     'special_needs',
     'final_wishes',
   ])
@@ -1056,6 +1179,9 @@ export function getActiveSections(
   return sections.filter((s) => {
     if (s.requiresTrust || s.id === 'trust_trustees' || s.id === 'trust_distributions') {
       return includeTrust
+    }
+    if (s.requiresSpousalTrust || s.id === 'spousal_trust') {
+      return includeSpousalTrust && docs.has('will')
     }
     if (s.id === 'medical_poa') return docs.has('mpoa')
     if (s.id === 'durable_poa') return docs.has('dpoa')

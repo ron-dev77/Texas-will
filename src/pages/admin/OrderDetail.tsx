@@ -32,6 +32,7 @@ type TabId = 'answers' | 'layouts' | 'bucket' | 'timeline'
 const PACKAGE_SHORT: Record<DocumentKind, string> = {
   will: 'Will',
   rlt: 'Trust',
+  spousal_trust: 'Spousal',
   mpoa: 'MPOA',
   dpoa: 'DPOA',
   directive: 'Directive',
@@ -97,7 +98,7 @@ export default function OrderDetailPage() {
   }
 
   async function loadSkeletons(detail: OrderDetail, partnerNumber: 1 | 2) {
-    const kinds: DocumentKind[] = ['will', 'rlt', ...ANCILLARY_KINDS]
+    const kinds: DocumentKind[] = ['will', 'rlt', 'spousal_trust', ...ANCILLARY_KINDS]
     const schemaRes = await getActiveQuestionnaireSchema().catch(() => ({
       sections: [...SECTIONS] as Section[],
     }))
@@ -151,6 +152,10 @@ export default function OrderDetailPage() {
     [data, partner],
   )
   const includeTrust = Boolean(data?.order.add_ons?.trust)
+  const includeSpousalTrust = Boolean(
+    (data?.order.add_ons as { spousal_trust?: boolean } | null)?.spousal_trust,
+  )
+  const estateBracket = (data?.order.add_ons as { estate_bracket?: string } | null)?.estate_bracket
   const isCouples = data?.order.plan_type === 'couples'
 
   if (loading) {
@@ -176,6 +181,7 @@ export default function OrderDetailPage() {
   const packageKinds = orderedDocumentKindsForDelivery({
     documents: (order.add_ons as { documents?: unknown } | null)?.documents,
     includeTrust,
+    includeSpousalTrust,
   })
   const bucketCount = readDocumentBucket(order.add_ons as Record<string, unknown> | null).items
     .length
@@ -220,6 +226,16 @@ export default function OrderDetailPage() {
           <span className="text-xs text-muted-foreground">
             {packageKinds.map((k) => PACKAGE_SHORT[k]).join(' · ')}
           </span>
+          {includeSpousalTrust ? (
+            <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+              Spousal trust
+            </span>
+          ) : null}
+          {estateBracket ? (
+            <span className="rounded-md bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+              Estate: {estateBracket.replace(/_/g, ' ')}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -288,6 +304,7 @@ export default function OrderDetailPage() {
         <AnswersTab
           answers={answersRow}
           includeTrust={includeTrust}
+          includeSpousalTrust={includeSpousalTrust}
           documents={
             Array.isArray(data.order.add_ons?.documents)
               ? (data.order.add_ons.documents as string[])
@@ -322,10 +339,12 @@ export default function OrderDetailPage() {
 function AnswersTab({
   answers,
   includeTrust,
+  includeSpousalTrust,
   documents = ['will'],
 }: {
   answers?: AnswersRow
   includeTrust?: boolean
+  includeSpousalTrust?: boolean
   documents?: string[]
 }) {
   const [schema, setSchema] = useState<Section[]>([...SECTIONS])
@@ -340,7 +359,12 @@ function AnswersTab({
     return <p className="text-sm text-muted-foreground">No answers submitted for this partner.</p>
   }
 
-  const sections = getActiveSections(Boolean(includeTrust), schema, documents).filter(
+  const sections = getActiveSections(
+    Boolean(includeTrust),
+    schema,
+    documents,
+    Boolean(includeSpousalTrust),
+  ).filter(
     (s) => !s.isReview && s.id !== 'review',
   )
 

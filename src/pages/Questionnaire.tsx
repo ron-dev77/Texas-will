@@ -30,6 +30,10 @@ import {
   type Section,
 } from '@/lib/questionnaire'
 import { getActiveQuestionnaireSchema } from '@/lib/admin-forms'
+import {
+  erisaNoteText,
+  getErisaNoteLevel,
+} from '@/lib/beneficiary-designation'
 
 const STORAGE_KEY = 'myaiwill.questionnaire.v1'
 
@@ -134,8 +138,9 @@ export default function Questionnaire() {
         Boolean(order?.includeTrust),
         formSections,
         order?.documents ?? ['will'],
+        Boolean(order?.includeSpousalTrust),
       ),
-    [order?.includeTrust, order?.documents, formSections],
+    [order?.includeTrust, order?.includeSpousalTrust, order?.documents, formSections],
   )
   const section = activeSections[Math.min(sectionIdx, activeSections.length - 1)] ?? activeSections[0]
   const totalSections = activeSections.length
@@ -351,6 +356,13 @@ export default function Questionnaire() {
       if (id === 'able_has_account' && value === 'no') {
         delete next.able_account_name
       }
+      if (
+        id === 'marital_status' &&
+        value !== 'married' &&
+        value !== 'domestic_partnership'
+      ) {
+        delete next.has_prior_relationship_children
+      }
       return next
     })
 
@@ -535,6 +547,9 @@ export default function Questionnaire() {
                       ))}
                     </div>
                   ))}
+                  {section.id === 'beneficiary_designation' ? (
+                    <ErisaSpousalNote answers={answers} />
+                  ) : null}
                 </div>
               )}
             </div>
@@ -992,6 +1007,23 @@ function GiftsEditor({
   )
 }
 
+function ErisaSpousalNote({ answers }: { answers: Answers }) {
+  const level = getErisaNoteLevel(answers)
+  const text = erisaNoteText(level)
+  if (!text) return null
+  return (
+    <div
+      role="note"
+      className="rounded-2xl border border-amber-300/70 bg-amber-50/90 px-4 py-3.5 text-[13px] leading-relaxed text-amber-950"
+    >
+      <p className="font-medium text-amber-900">
+        {level === 'full' ? 'Spouse rights on retirement accounts' : 'Beneficiary forms reminder'}
+      </p>
+      <p className="mt-1.5">{text}</p>
+    </div>
+  )
+}
+
 function ReviewPanel({
   answers,
   order,
@@ -1014,6 +1046,7 @@ function ReviewPanel({
     Boolean(order?.includeTrust),
     formSections,
     order?.documents ?? ['will'],
+    Boolean(order?.includeSpousalTrust),
   ).filter((s) => !s.isReview && s.id !== 'review')
 
   return (
@@ -1108,6 +1141,11 @@ function ReviewPanel({
                   </div>
                 ) : null}
               </dl>
+              {s.id === 'beneficiary_designation' ? (
+                <div className="border-t border-border/40 px-4 py-3 sm:px-5">
+                  <ErisaSpousalNote answers={answers} />
+                </div>
+              ) : null}
             </div>
           )
         })}

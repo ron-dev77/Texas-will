@@ -18,12 +18,32 @@ export const PACKAGE_DOC_LABEL: Record<PackageDocId, string> = {
   hipaa: 'HIPAA Release',
 }
 
+import type {
+  EstateBracket,
+  PriorKidsScope,
+  QualifierMaritalStatus,
+  QualifierPlan,
+  SpousalTrustChoice,
+} from '@/lib/qualifier'
+
+export type QualifierSnapshot = {
+  plan: QualifierPlan
+  maritalStatus: QualifierMaritalStatus
+  hasPriorRelationshipChildren: boolean
+  priorKidsScope?: PriorKidsScope
+  spousalTrustChoice?: SpousalTrustChoice
+  estateBracket: EstateBracket
+}
+
 export type OrderDraft = {
   plan: Plan
   email: string
   partnerEmail?: string
-  /** Older paid orders may still have a living trust. New checkouts are always false. */
+  /** Revocable living trust add-on (+$50). Separate from spousal testamentary trust. */
   includeTrust: boolean
+  /** Phase 2 spousal testamentary trust from qualifier (+$400 provisional). */
+  includeSpousalTrust: boolean
+  qualifier?: QualifierSnapshot
   /** Always includes `will`; other ids are optional at the same plan price. */
   documents: PackageDocId[]
   total: number
@@ -50,6 +70,7 @@ export function loadOrderDraft(): OrderDraft | null {
       ...parsed,
       documents: normalizeOrderDocuments(parsed.documents),
       includeTrust: Boolean(parsed.includeTrust),
+      includeSpousalTrust: Boolean(parsed.includeSpousalTrust),
     }
   } catch {
     return null

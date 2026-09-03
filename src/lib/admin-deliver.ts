@@ -16,6 +16,7 @@ export type DeliverAttachmentPayload = {
 export function orderedDocumentKindsForDelivery(params: {
   documents: unknown
   includeTrust: boolean
+  includeSpousalTrust?: boolean
 }): DocumentKind[] {
   const docs = normalizeOrderDocuments(params.documents)
   const kinds: DocumentKind[] = []
@@ -24,6 +25,7 @@ export function orderedDocumentKindsForDelivery(params: {
     if (id === 'will') continue
     kinds.push(id as DocumentKind)
   }
+  if (params.includeSpousalTrust) kinds.push('spousal_trust')
   if (params.includeTrust) kinds.push('rlt')
   return kinds
 }

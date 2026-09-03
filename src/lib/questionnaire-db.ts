@@ -16,6 +16,9 @@ export type Answers = Record<string, unknown>
 export type QuestionnaireDraftMeta = {
   plan: 'individual' | 'couples'
   includeTrust: boolean
+  includeSpousalTrust: boolean
+  qualifier?: OrderDraft['qualifier']
+  prefillAnswers?: Answers
   documents: string[]
   email: string
   partnerEmail?: string
@@ -55,6 +58,8 @@ function draftFromMeta(meta: QuestionnaireDraftMeta | undefined): OrderDraft | n
     email: meta.email,
     partnerEmail: meta.partnerEmail,
     includeTrust: meta.includeTrust,
+    includeSpousalTrust: meta.includeSpousalTrust,
+    qualifier: meta.qualifier,
     documents: normalizeOrderDocuments(meta.documents),
     total: meta.total,
     lsrConsent: true,
@@ -92,7 +97,11 @@ export async function ensureQuestionnaireSession(
 
   saveSession(result.session)
   const order = draftFromMeta(result.draft) ?? draft
-  return { ...result, order }
+  const mergedAnswers = {
+    ...localAnswers,
+    ...(result.draft?.prefillAnswers ?? {}),
+  }
+  return { ...result, answers: mergedAnswers, order }
 }
 
 export async function saveQuestionnaireAnswers(params: {

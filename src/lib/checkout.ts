@@ -76,6 +76,8 @@ export async function createCheckoutIntent(draft: {
   email: string
   partnerEmail?: string
   includeTrust: boolean
+  includeSpousalTrust: boolean
+  qualifier?: OrderDraft['qualifier']
   documents: PackageDocId[]
   lsrConsent: boolean
 }): Promise<CreateCheckoutIntentResult> {
@@ -85,6 +87,9 @@ export async function createCheckoutIntent(draft: {
     email: draft.email,
     partnerEmail: draft.partnerEmail,
     includeTrust: draft.includeTrust,
+    includeSpousalTrust: draft.includeSpousalTrust,
+    qualifier: draft.qualifier,
+    estateBracket: draft.qualifier?.estateBracket,
     documents: draft.documents,
     lsrConsent: draft.lsrConsent,
   })
@@ -105,6 +110,8 @@ export function savePaidOrderDraft(params: {
   email: string
   partnerEmail?: string
   includeTrust: boolean
+  includeSpousalTrust: boolean
+  qualifier?: OrderDraft['qualifier']
   documents: PackageDocId[]
   total: number
   lsrConsent: boolean
@@ -114,6 +121,8 @@ export function savePaidOrderDraft(params: {
     email: params.email,
     partnerEmail: params.partnerEmail,
     includeTrust: params.includeTrust,
+    includeSpousalTrust: params.includeSpousalTrust,
+    qualifier: params.qualifier,
     documents: normalizeOrderDocuments(params.documents),
     total: params.total,
     lsrConsent: params.lsrConsent,

@@ -12,6 +12,9 @@ import Privacy from '@/pages/Privacy'
 import Disclaimer from '@/pages/Disclaimer'
 import Notary from '@/pages/Notary'
 import Questionnaire from '@/pages/Questionnaire'
+import Qualify from '@/pages/Qualify'
+import QualifyOffRamp from '@/pages/QualifyOffRamp'
+import Summary from '@/pages/Summary'
 import Auth from '@/pages/Auth'
 import AdminLayout from '@/pages/admin/AdminLayout'
 import OrdersQueue from '@/pages/admin/OrdersQueue'
@@ -31,6 +34,9 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="questionnaire" element={<Questionnaire />} />
+        <Route path="qualify" element={<Qualify />} />
+        <Route path="qualify/off-ramp" element={<QualifyOffRamp />} />
+        <Route path="summary" element={<Summary />} />
         <Route path="auth" element={<Auth />} />
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<OrdersQueue />} />

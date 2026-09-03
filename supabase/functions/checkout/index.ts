@@ -62,6 +62,18 @@ Deno.serve(async (req: Request) => {
     if (action === 'create_intent') {
       const plan: CheckoutPlan = body?.plan === 'couples' ? 'couples' : 'individual'
       const documents = normalizeDocs(body?.documents)
+      const includeTrust = Boolean(body?.includeTrust)
+      const includeSpousalTrust = Boolean(body?.includeSpousalTrust)
+      const qualifier = body?.qualifier ?? null
+      const estateBracket = String(body?.estateBracket ?? qualifier?.estateBracket ?? '').trim()
+
+      if (estateBracket === 'over_8m') {
+        return json(
+          { error: 'Estates over $8 million require outside counsel — checkout is not available.' },
+          400,
+        )
+      }
+
       const email = String(body?.email ?? '')
         .trim()
         .toLowerCase()
@@ -86,8 +98,8 @@ Deno.serve(async (req: Request) => {
         return json({ error: 'Select at least one document.' }, 400)
       }
 
-      // Living-trust add-on is no longer sold. Always charge the plan only.
-      const priced = resolveCheckoutAmount(plan, false)
+      // Plan + optional RLT (+$50) + optional spousal trust (+$400 provisional).
+      const priced = resolveCheckoutAmount(plan, includeTrust, includeSpousalTrust)
       const amountCents = priced.amountCents
       const stripe = stripeClient()
 
@@ -104,11 +116,15 @@ Deno.serve(async (req: Request) => {
           user_email: email,
           partner_email: plan === 'couples' ? partnerEmail : null,
           add_ons: {
-            trust: false,
+            trust: includeTrust,
+            spousal_trust: includeSpousalTrust,
             documents,
+            qualifier,
+            estate_bracket: estateBracket || null,
             stripe_price_ids: priced.priceIds,
             plan_cents: priced.planCents,
-            trust_cents: 0,
+            trust_cents: priced.trustCents,
+            spousal_trust_cents: priced.spousalTrustCents,
           },
           amount_paid: amountCents,
           status: 'pending_payment',
@@ -129,9 +145,12 @@ Deno.serve(async (req: Request) => {
         metadata: {
           order_id: order.id,
           plan,
-          include_trust: '0',
+          include_trust: includeTrust ? '1' : '0',
+          include_spousal_trust: includeSpousalTrust ? '1' : '0',
           plan_cents: String(priced.planCents),
-          trust_cents: '0',
+          trust_cents: String(priced.trustCents),
+          spousal_trust_cents: String(priced.spousalTrustCents),
+          estate_bracket: estateBracket,
           stripe_price_ids: priced.priceIds.join(','),
         },
         description:

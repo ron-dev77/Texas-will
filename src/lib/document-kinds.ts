@@ -2,6 +2,7 @@
 export const DOCUMENT_KINDS = [
   'will',
   'rlt',
+  'spousal_trust',
   'mpoa',
   'dpoa',
   'directive',
@@ -16,6 +17,7 @@ export type AncillaryKind = (typeof ANCILLARY_KINDS)[number]
 export const DOCUMENT_KIND_LABEL: Record<DocumentKind, string> = {
   will: 'Last Will and Testament',
   rlt: 'Revocable Living Trust',
+  spousal_trust: 'Spousal Testamentary Trust',
   mpoa: 'Medical Power of Attorney',
   dpoa: 'Durable Power of Attorney',
   directive: 'Directive to Physicians',
@@ -26,6 +28,7 @@ export const DOCUMENT_KIND_LABEL: Record<DocumentKind, string> = {
 export const DOCUMENT_KIND_BLURB: Record<DocumentKind, string> = {
   will: 'Who gets your property after death',
   rlt: 'Living trust (older orders only)',
+  spousal_trust: 'Testamentary trust for spouse lifetime support',
   mpoa: 'Who decides healthcare if you cannot',
   dpoa: 'Who handles money/property if incapacitated',
   directive: 'End-of-life / life-support wishes',

@@ -127,7 +127,7 @@ export default function Home() {
                 size="lg"
                 className="group h-12 w-full gap-2 rounded-full px-8 text-base shadow-lg shadow-primary/15 transition hover:scale-[1.02] sm:w-auto"
               >
-                <Link to="/pricing?plan=individual#checkout">
+                <Link to="/qualify">
                   Start my will — $249
                   <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2} />
                 </Link>

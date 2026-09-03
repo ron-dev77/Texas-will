@@ -47,19 +47,26 @@ export async function renderOrderDocumentPdf(params: {
   answers: Record<string, unknown>
   skeleton?: SkeletonDoc | null
   includeTrust: boolean
+  includeSpousalTrust?: boolean
   fallbackContent?: WillContent | null
 }): Promise<Uint8Array> {
   if (params.skeleton) {
     return renderSkeletonLayoutPdf(
       params.skeleton,
       params.answers,
-      params.kind === 'will' ? { includeTrust: params.includeTrust } : {},
+      params.kind === 'will'
+        ? {
+            includeTrust: params.includeTrust,
+            includeSpousalTrust: params.includeSpousalTrust,
+          }
+        : {},
     )
   }
   const content =
     params.fallbackContent ??
     buildDocumentFromAnswers(params.kind, params.answers, {
       includeTrust: params.includeTrust,
+      includeSpousalTrust: params.includeSpousalTrust,
     })
   return renderDocumentPdf(content, params.kind)
 }
@@ -76,6 +83,9 @@ export async function buildPdfForOrderKind(params: {
   if (!answersForPartner) return null
 
   const trustOn = Boolean((params.detail.order.add_ons as { trust?: boolean } | null)?.trust)
+  const spousalOn = Boolean(
+    (params.detail.order.add_ons as { spousal_trust?: boolean } | null)?.spousal_trust,
+  )
   let skel = params.skeletonByKind?.[params.kind]
   if (!skel) {
     const doc = params.detail.wills.find(
@@ -94,6 +104,7 @@ export async function buildPdfForOrderKind(params: {
     answers: answersForPartner.answers,
     skeleton: skel,
     includeTrust: trustOn,
+    includeSpousalTrust: spousalOn,
   })
 }
 

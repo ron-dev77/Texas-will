@@ -26,6 +26,8 @@ type CheckoutDraft = {
   email: string
   partnerEmail?: string
   includeTrust: boolean
+  includeSpousalTrust: boolean
+  qualifier?: import('@/lib/order').QualifierSnapshot
   documents: PackageDocId[]
   total: number
   lsrConsent: boolean
@@ -168,6 +170,8 @@ export function StripeCheckoutModal({
           email: draft.email,
           partnerEmail: draft.partnerEmail,
           includeTrust: draft.includeTrust,
+          includeSpousalTrust: draft.includeSpousalTrust,
+          qualifier: draft.qualifier,
           documents: draft.documents,
           lsrConsent: draft.lsrConsent,
         })

@@ -4,6 +4,10 @@ import {
   buildSpecialNeedsArticles,
   residuarySpecialNeedsNote,
 } from '@/lib/special-needs-trust'
+import {
+  buildSpousalTrustFromAnswers,
+  spousalTrustResiduaryText,
+} from '@/lib/spousal-trust'
 
 type Answers = Record<string, unknown>
 
@@ -186,6 +190,8 @@ function scheduleAParagraphs(assetsRaw: string): string[] {
 export type BuildDocOptions = {
   /** When true, will residuary pours into the living trust. */
   includeTrust?: boolean
+  /** When true, will residuary pours into the spousal testamentary trust. */
+  includeSpousalTrust?: boolean
 }
 
 function dispositionText(value: string) {
@@ -209,6 +215,7 @@ export function buildWillFromAnswers(
   options: BuildDocOptions = {},
 ): WillContent {
   const includeTrust = Boolean(options.includeTrust)
+  const includeSpousalTrust = Boolean(options.includeSpousalTrust)
   const name = plain(str(answers.legal_full_name, '[Testator]'))
   const aka = plain(str(answers.also_known_as))
   const dob = formatDate(str(answers.date_of_birth))
@@ -401,13 +408,24 @@ export function buildWillFromAnswers(
     })
   }
 
+  const residuaryParagraphs: string[] = includeSpousalTrust
+    ? [spousalTrustResiduaryText(answers, name)]
+    : includeTrust
+      ? pourOverResiduaryText(answers, name)
+      : residuaryText(answers, spouse)
+
   sections.push({
     heading: `ARTICLE ${roman(article++)}. RESIDUARY ESTATE`,
-    paragraphs: withSpecialNeedsResiduaryNote(
-      answers,
-      includeTrust ? pourOverResiduaryText(answers, name) : residuaryText(answers, spouse),
-    ),
+    paragraphs: withSpecialNeedsResiduaryNote(answers, residuaryParagraphs),
   })
+
+  if (includeSpousalTrust) {
+    const snt = buildSpousalTrustFromAnswers(answers)
+    sections.push({
+      heading: `ARTICLE ${roman(article++)}. ${snt.heading}`,
+      paragraphs: snt.paragraphs,
+    })
+  }
 
   for (const snt of buildSpecialNeedsArticles(answers)) {
     sections.push({
@@ -668,12 +686,24 @@ export function buildHipaaFromAnswers(answers: Answers): WillContent {
   }
 }
 
+export function buildSpousalTrustDocFromAnswers(answers: Answers): WillContent {
+  const name = plain(str(answers.legal_full_name, '[Testator]'))
+  const article = buildSpousalTrustFromAnswers(answers)
+  return {
+    title: 'SPOUSAL TESTAMENTARY TRUST',
+    testatorName: name,
+    sections: [{ heading: article.heading, paragraphs: article.paragraphs }],
+  }
+}
+
 export function buildDocumentFromAnswers(
   kind: DocumentKind,
   answers: Answers,
   options: BuildDocOptions = {},
 ): WillContent {
   switch (kind) {
+    case 'spousal_trust':
+      return buildSpousalTrustDocFromAnswers(answers)
     case 'rlt':
       return buildTrustFromAnswers(answers)
     case 'mpoa':

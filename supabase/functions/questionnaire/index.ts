@@ -21,6 +21,9 @@ type Session = {
 type DraftMeta = {
   plan: 'individual' | 'couples'
   includeTrust: boolean
+  includeSpousalTrust: boolean
+  qualifier?: Record<string, unknown>
+  prefillAnswers?: Answers
   documents: string[]
   email: string
   partnerEmail?: string
@@ -52,14 +55,36 @@ function draftFromOrder(order: {
   add_ons: unknown
   questionnaire_expires_at: string | null
 }): DraftMeta {
-  const addOns = (order.add_ons ?? {}) as { trust?: boolean; documents?: string[] }
+  const addOns = (order.add_ons ?? {}) as {
+    trust?: boolean
+    spousal_trust?: boolean
+    documents?: string[]
+    qualifier?: Record<string, unknown>
+  }
   const docs =
     Array.isArray(addOns.documents) && addOns.documents.length > 0
       ? addOns.documents
       : ['will']
+  const qualifier = addOns.qualifier
+  const prefill: Answers = {}
+  if (qualifier && typeof qualifier === 'object') {
+    const ms = String(qualifier.maritalStatus ?? '')
+    if (ms) prefill.marital_status = ms
+    if (qualifier.hasPriorRelationshipChildren === true) {
+      prefill.has_prior_relationship_children = 'yes'
+    } else if (qualifier.hasPriorRelationshipChildren === false) {
+      prefill.has_prior_relationship_children = 'no'
+    }
+    if (qualifier.priorKidsScope) {
+      prefill.prior_relationship_children_scope = String(qualifier.priorKidsScope)
+    }
+  }
   return {
     plan: order.plan_type === 'couples' ? 'couples' : 'individual',
     includeTrust: Boolean(addOns.trust),
+    includeSpousalTrust: Boolean(addOns.spousal_trust),
+    qualifier,
+    prefillAnswers: Object.keys(prefill).length ? prefill : undefined,
     documents: docs,
     email: (order.user_email ?? '').trim(),
     partnerEmail: order.partner_email?.trim() || undefined,
