@@ -20,6 +20,7 @@ import { PlanPairCards } from '@/components/site/PlanPairCards'
 import { ScrollReveal } from '@/components/site/ScrollReveal'
 import { WillBasedFitNote } from '@/components/site/WillBasedFitNote'
 import { FAQS } from '@/lib/faqs'
+import { loadQualifierDraft, qualifierComplete } from '@/lib/qualifier'
 import { cn } from '@/lib/utils'
 import ceoPhoto from '@/assets/ceo.webp'
 
@@ -62,6 +63,9 @@ function Section({
 }
 
 export default function Home() {
+  const qualifier = loadQualifierDraft()
+  const hasCompleteQualifier = qualifierComplete(qualifier)
+
   return (
     <>
       {/* Hero */}
@@ -127,8 +131,8 @@ export default function Home() {
                 size="lg"
                 className="group h-12 w-full gap-2 rounded-full px-8 text-base shadow-lg shadow-primary/15 transition hover:scale-[1.02] sm:w-auto"
               >
-                <Link to="/qualify">
-                  Start my will — $249
+                <Link to={hasCompleteQualifier ? '/summary' : '/qualify'}>
+                  {hasCompleteQualifier ? 'Continue your will' : 'Start my will — $249'}
                   <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2} />
                 </Link>
               </Button>

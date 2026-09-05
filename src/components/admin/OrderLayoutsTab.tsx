@@ -38,6 +38,11 @@ import {
 } from '@/lib/admin-document-bucket'
 import type { Section } from '@/lib/questionnaire'
 import { needsSpecialNeedsLawyerSignoff } from '@/lib/special-needs-trust'
+import {
+  COUPLES_BIDIRECTIONAL_SPOUSAL_TRUST_NOTE,
+  orderNeedsBidirectionalSpousalTrustReview,
+} from '@/lib/spousal-trust'
+import { assertSkeletonExecutionBlocks } from '@/lib/skeleton-execution'
 
 type Props = {
   orderId: string
@@ -246,6 +251,7 @@ export function OrderLayoutsTab({
     setBusy('save')
     setMsg(null)
     try {
+      assertSkeletonExecutionBlocks(skeletonByKind[docKind], docKind)
       const draft = buildDocumentFromAnswers(docKind, answersRow.answers, {
         includeTrust,
         includeSpousalTrust,
@@ -317,6 +323,7 @@ export function OrderLayoutsTab({
           setMsg('Need a layout to save before moving to bucket.')
           return
         }
+        assertSkeletonExecutionBlocks(skeletonByKind[docKind], docKind)
         skeletonSnap = serializeSkeletonDoc(skeletonByKind[docKind]!)
         const draft = buildDocumentFromAnswers(docKind, answersRow.answers, {
         includeTrust,
@@ -385,6 +392,12 @@ export function OrderLayoutsTab({
           This partner elected a special needs trust and/or Texas ABLE gift. Do not send these
           documents until a licensed Texas attorney reads that language and signs off on the Bucket
           send.
+        </p>
+      ) : null}
+
+      {orderNeedsBidirectionalSpousalTrustReview(data.order.add_ons) ? (
+        <p className="rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-foreground">
+          {COUPLES_BIDIRECTIONAL_SPOUSAL_TRUST_NOTE}
         </p>
       ) : null}
 

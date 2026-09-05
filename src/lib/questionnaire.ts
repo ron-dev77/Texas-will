@@ -378,7 +378,7 @@ export const SECTIONS: readonly Section[] = [
     id: 'spousal_trust',
     title: 'Spousal testamentary trust',
     intro:
-      'You added the spousal trust. These answers populate the trust article in your will and the separate spousal trust document. Default is spouse as sole trustee (Option 1); co-trustee is Option 2.',
+      'You added the spousal trust. These answers populate the trust article in your will and the separate spousal trust document. Default is spouse as sole trustee (Option 1); co-trustee is Option 2. List only your own prior-relationship children as remainder beneficiaries — your spouse\'s will covers the reverse if you are a Couples order.',
     requiresSpousalTrust: true,
     fields: [
       {

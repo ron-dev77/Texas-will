@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { DateField } from '@/components/ui/date-field'
 import { PhoneField } from '@/components/ui/phone-field'
 import { cn } from '@/lib/utils'
+import { startWillPath } from '@/lib/start-will-path'
 import { loadOrderDraft, type OrderDraft } from '@/lib/order'
 import {
   ensureQuestionnaireSession,
@@ -34,6 +35,7 @@ import {
   erisaNoteText,
   getErisaNoteLevel,
 } from '@/lib/beneficiary-designation'
+import { COUPLES_BIDIRECTIONAL_SPOUSAL_TRUST_NOTE } from '@/lib/spousal-trust'
 
 const STORAGE_KEY = 'myaiwill.questionnaire.v1'
 
@@ -430,25 +432,32 @@ export default function Questionnaire() {
 
   if (submitted) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-5 text-center">
-        <Wordmark />
-        <h1 className="mt-8 font-serif text-4xl text-foreground">Submitted for review</h1>
-        <p className="mt-4 max-w-md text-muted-foreground">
-          Thanks. A licensed Texas attorney reviews your will within 24 hours. Your answers are saved
-          in the database.
-        </p>
-        <Button asChild className="mt-8 rounded-full px-8" size="lg">
-          <Link to="/">Back to home</Link>
-        </Button>
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-[radial-gradient(ellipse_at_top,_oklch(0.98_0.01_85)_0%,_var(--background)_55%)] px-5 text-center">
+        <div className="max-w-md rounded-3xl border border-border/50 bg-card/90 p-8 shadow-sm">
+          <Wordmark />
+          <h1 className="mt-6 font-serif text-3xl tracking-tight text-foreground">Submitted for review</h1>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            Thanks. A licensed Texas attorney reviews your will within 24 hours. Your answers are saved
+            securely.
+          </p>
+          <Button asChild className="mt-8 w-full rounded-full" size="lg">
+            <Link to="/">Back to home</Link>
+          </Button>
+        </div>
       </div>
     )
   }
 
   if (!ready) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-5 text-center">
-        <Wordmark />
-        <p className="mt-8 text-muted-foreground">Starting your questionnaire…</p>
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-[radial-gradient(ellipse_at_top,_oklch(0.98_0.01_85)_0%,_var(--background)_55%)] px-5 text-center">
+        <div className="max-w-sm rounded-3xl border border-border/50 bg-card/90 p-8 shadow-sm">
+          <Wordmark />
+          <p className="mt-6 text-sm text-muted-foreground">Starting your questionnaire…</p>
+          <div className="mx-auto mt-4 h-1 w-32 overflow-hidden rounded-full bg-secondary">
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-accent" />
+          </div>
+        </div>
       </div>
     )
   }
@@ -476,8 +485,8 @@ export default function Questionnaire() {
         <div className="border-b border-destructive/30 bg-destructive/10 px-5 py-3 text-center text-sm text-destructive">
           <p>{bootError}</p>
           <p className="mt-1 text-xs text-destructive/80">
-            <Link to="/pricing#checkout" className="underline underline-offset-2">
-              Return to pricing
+            <Link to={startWillPath()} className="underline underline-offset-2">
+              Return to start
             </Link>{' '}
             if you still need to pay.
           </p>
@@ -549,6 +558,16 @@ export default function Questionnaire() {
                   ))}
                   {section.id === 'beneficiary_designation' ? (
                     <ErisaSpousalNote answers={answers} />
+                  ) : null}
+                  {section.id === 'spousal_trust' &&
+                  order?.plan === 'couples' &&
+                  answers.prior_relationship_children_scope === 'both' ? (
+                    <p
+                      className="rounded-xl border border-amber-300/70 bg-amber-50/90 px-4 py-3 text-sm leading-relaxed text-foreground"
+                      role="note"
+                    >
+                      {COUPLES_BIDIRECTIONAL_SPOUSAL_TRUST_NOTE}
+                    </p>
                   ) : null}
                 </div>
               )}

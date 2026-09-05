@@ -104,7 +104,7 @@ export default function Contact() {
                     FAQ
                   </Link>
                   <Link
-                    to="/pricing?plan=individual#checkout"
+                    to="/plans"
                     className="rounded-full border border-white/15 px-3.5 py-1.5 text-sm text-primary-foreground/85 transition hover:bg-white/10"
                   >
                     Pricing

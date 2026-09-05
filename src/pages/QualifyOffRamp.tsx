@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Wordmark } from '@/components/site/Wordmark'
+import { AlertCircle, ArrowLeft, Mail } from 'lucide-react'
+import { CheckoutFlowShell } from '@/components/site/CheckoutFlowShell'
+import { CheckoutFlowSteps } from '@/components/site/CheckoutFlowSteps'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -46,52 +48,79 @@ export default function QualifyOffRamp() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-5 text-center">
-      <Wordmark />
-      <h1 className="mt-10 max-w-lg font-serif text-3xl tracking-tight">
-        Estates over $8 million need a fuller plan
-      </h1>
-      <p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
-        My AI Will is built for straightforward Texas estates. Larger estates benefit from in-person
-        counsel — tax planning, entity structures, and advanced trusts. We cannot complete checkout
-        here yet.
-      </p>
-      {!sent ? (
-        <form onSubmit={(e) => void submitEmail(e)} className="mt-8 w-full max-w-sm text-left">
-          <Label htmlFor="off-ramp-email" className="text-xs uppercase tracking-wide text-muted-foreground">
-            Optional — notify me when we expand
-          </Label>
-          <Input
-            id="off-ramp-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@email.com"
-            className="mt-2"
-          />
-          {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
-          <Button type="submit" className="mt-4 w-full rounded-full">
-            Submit email
-          </Button>
-        </form>
-      ) : (
-        <p className="mt-8 text-sm text-accent">Thanks — we saved your email.</p>
-      )}
-      <Button asChild variant="outline" className="mt-8 rounded-full">
-        <Link
-          to="/qualify"
-          onClick={() => {
-            if (draft) {
-              saveQualifierDraft({ ...draft, estateBracket: '2m_8m' })
-            }
-          }}
-        >
-          Go back and change estate size
+    <CheckoutFlowShell
+      headerRight={
+        <Link to="/qualify" className="underline-offset-2 hover:underline">
+          Edit answers
         </Link>
-      </Button>
-      <Button asChild variant="ghost" className="mt-3 rounded-full">
-        <Link to="/">Back to home</Link>
-      </Button>
-    </div>
+      }
+    >
+      <CheckoutFlowSteps current="qualify" linkCompleted={false} />
+
+      <div className="mx-auto mt-8 max-w-lg">
+        <div className="flex flex-col items-center text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-800">
+            <AlertCircle className="h-7 w-7" strokeWidth={1.75} />
+          </span>
+          <h1 className="mt-6 font-serif text-3xl tracking-tight">
+            Estates over $8 million need a fuller plan
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            My AI Will is built for straightforward Texas estates. Larger estates benefit from
+            in-person counsel — tax planning, entity structures, and advanced trusts. Checkout is
+            not available here yet.
+          </p>
+        </div>
+
+        <div className="mt-8 rounded-3xl border border-border/50 bg-card/90 p-6 shadow-sm">
+          {!sent ? (
+            <>
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-accent" strokeWidth={1.75} />
+                <p className="text-sm font-medium">Get notified when we expand</p>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Optional — leave your email and we will reach out.</p>
+              <form onSubmit={(e) => void submitEmail(e)} className="mt-4">
+                <Label htmlFor="off-ramp-email" className="sr-only">
+                  Email
+                </Label>
+                <Input
+                  id="off-ramp-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@email.com"
+                />
+                {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
+                <Button type="submit" className="mt-4 w-full rounded-full">
+                  Submit email
+                </Button>
+              </form>
+            </>
+          ) : (
+            <p className="text-center text-sm text-accent">Thanks — we saved your email.</p>
+          )}
+        </div>
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <Button asChild variant="outline" className="rounded-full">
+            <Link
+              to="/qualify"
+              onClick={() => {
+                if (draft) {
+                  saveQualifierDraft({ ...draft, estateBracket: '2m_8m' })
+                }
+              }}
+            >
+              <ArrowLeft className="mr-1.5 h-4 w-4" />
+              Change estate size
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" className="rounded-full">
+            <Link to="/">Back to home</Link>
+          </Button>
+        </div>
+      </div>
+    </CheckoutFlowShell>
   )
 }

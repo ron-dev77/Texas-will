@@ -14,6 +14,10 @@ import {
   type AnswersRow,
   type OrderDetail,
 } from '@/lib/admin-order'
+import {
+  COUPLES_BIDIRECTIONAL_SPOUSAL_TRUST_NOTE,
+  orderNeedsBidirectionalSpousalTrustReview,
+} from '@/lib/spousal-trust'
 import { orderedDocumentKindsForDelivery } from '@/lib/admin-deliver'
 import { readDocumentBucket } from '@/lib/admin-document-bucket'
 import {
@@ -155,6 +159,7 @@ export default function OrderDetailPage() {
   const includeSpousalTrust = Boolean(
     (data?.order.add_ons as { spousal_trust?: boolean } | null)?.spousal_trust,
   )
+  const bidirectionalSpousalTrust = orderNeedsBidirectionalSpousalTrustReview(data?.order.add_ons)
   const estateBracket = (data?.order.add_ons as { estate_bracket?: string } | null)?.estate_bracket
   const isCouples = data?.order.plan_type === 'couples'
 
@@ -229,6 +234,14 @@ export default function OrderDetailPage() {
           {includeSpousalTrust ? (
             <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
               Spousal trust
+            </span>
+          ) : null}
+          {bidirectionalSpousalTrust ? (
+            <span
+              className="rounded-md bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-950"
+              title={COUPLES_BIDIRECTIONAL_SPOUSAL_TRUST_NOTE}
+            >
+              Couples spousal trust — review both
             </span>
           ) : null}
           {estateBracket ? (

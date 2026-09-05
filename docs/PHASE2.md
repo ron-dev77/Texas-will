@@ -9,22 +9,25 @@ Draft environment documentation. Not live to customers until ethics review.
 | 1 | `/qualify` | Plan type (Individual / Couples) — **locked after this step** |
 | 2 | `/qualify` | Marital status |
 | 3 | `/qualify` | Prior-relationship children (Couples: whose children — me / partner / both) |
-| 4 | `/qualify` | **Blended-family screen** (only if married/partnered + prior kids = Yes) |
+| 4 | `/qualify?step=blended` | **Blended-family screen** (only if married/partnered + prior kids = Yes) |
 | 5 | `/qualify` | Estate size (4 brackets; Over $8M → off-ramp) |
 | 6 | `/qualify/off-ramp` | Over-$8M hard stop + optional email capture |
 | 7 | `/summary` | Locked plan, spousal trust row, estate bracket, price, link to checkout |
 | 8 | `/pricing#checkout` | Document pick, RLT add-on (+$50), email, pay (plan **not** editable) |
 | 9 | `/questionnaire` | Prefilled marital + prior-kids; spousal trust section if purchased |
 
-**Marketing CTAs** should link to `/qualify` instead of `/pricing` for new Phase 2 flow.
+**Marketing:** Home (`/`) is always the marketing site. If the qualifier is already complete, the hero button says **Continue to checkout** and links to `/summary`.
+
+**Summary “Change”** on spousal trust → `/qualify?step=blended` (Screen 1B only).
 
 ## Code locations
 
 ### Pre-qualifier
-- `src/lib/qualifier.ts` — types, localStorage, validation, questionnaire prefills
-- `src/pages/Qualify.tsx` — multi-step wizard
+- `src/lib/qualifier.ts` — types, localStorage, validation, `qualifyStepsForDraft`
+- `src/pages/Qualify.tsx` — multi-step wizard + `?step=blended` deep link
 - `src/pages/QualifyOffRamp.tsx` — Over $8M screen
 - `src/pages/Summary.tsx` — bridge before checkout
+- `src/pages/Home.tsx` — redirects to `/summary` when qualifier complete
 
 ### Pricing & checkout
 - `src/lib/pricing.ts` — `SPOUSAL_TRUST_ADDON_CENTS` ($400 placeholder), RLT $50
@@ -32,27 +35,42 @@ Draft environment documentation. Not live to customers until ethics review.
 - `src/pages/Pricing.tsx` — reads qualifier; locks plan; RLT optional add-on
 - `src/lib/checkout.ts` — passes qualifier + spousal trust to edge function
 - `supabase/functions/checkout/index.ts` — Stripe line items, $8M server reject
-- `supabase/functions/_shared/pricing.ts` — server pricing
+- `supabase/functions/_shared/pricing.ts` — server pricing + `STRIPE_PRICE_SPOUSAL_TRUST`
 
 ### Questionnaire
-- `src/lib/questionnaire.ts` — prior-kids in **children** section; **spousal trust** section; final wishes required
+- `src/lib/questionnaire.ts` — prior-kids; spousal trust section; beneficiary designation
 - `src/lib/beneficiary-designation.ts` — IRA brackets + scaled ERISA (Scott placeholders)
-- `src/pages/Questionnaire.tsx` — ERISA callout; prefills from order
+- `src/pages/Questionnaire.tsx` — ERISA callout; couples bidirectional spousal note
 - `supabase/functions/questionnaire/index.ts` — returns qualifier snapshot in draft meta
 
 ### Spousal trust documents
-- `src/lib/spousal-trust.ts` — **Scott verbatim** Article X, Option 1 (sole trustee) and Option 2 (co-trustee); not AI-generated
-- `src/lib/content-defaults/default-spousal-trust-skeleton.ts` — admin skeleton template (Option 1 default)
-- `src/lib/will-content.ts` — residuary pour-over + trust article in will when `includeSpousalTrust`
-- Questionnaire **Spousal testamentary trust** section chooses sole vs co-trustee (`spousal_trust_trustee_mode`)
+- `src/lib/spousal-trust.ts` — **Scott verbatim** Option 1 & 2; couples bidirectional review helper
+- `src/lib/content-defaults/default-spousal-trust-skeleton.ts` — admin skeleton (Option 1 default)
+- `src/lib/will-content.ts` — residuary pour-over + trust article when `includeSpousalTrust`
+- Questionnaire **Spousal testamentary trust** — sole vs co-trustee (`spousal_trust_trustee_mode`)
 
-**Open:** Couples orders where both spouses have prior-relationship children — each will may need opposite-direction trust language; not auto-handled yet.
+**Couples + both have prior kids:** Each partner fills their own questionnaire; admin shows **“Couples spousal trust — review both”** badge. Not auto-generated as a pair — attorney must verify both wills.
+
+### Execution block validation
+- `src/lib/skeleton-execution.ts` — will save/bucket **fails loudly** if SIGNATURE OF TESTATOR, WITNESSES, notary/affidavit, or signature lines are missing from layout
+- Used in `OrderLayoutsTab` save + bucket, `OrderDocumentReview` save
 
 ### Admin
-- `src/pages/admin/OrderDetail.tsx` — estate bracket + spousal trust badges
+- `src/pages/admin/OrderDetail.tsx` — estate bracket, spousal trust, couples-review badges
+- `scripts/grant-admin.mjs` — create/confirm/grant admin users (service role)
 
 ### Database
 - `supabase/migrations/20260904000000_phase2_qualifier_leads.sql` — off-ramp email capture
+
+## Stripe env (separate line item for spousal trust)
+
+Set on Supabase Edge Function secrets (see `.env.example`):
+
+```
+STRIPE_PRICE_SPOUSAL_TRUST=price_…
+```
+
+Checkout adds this price ID when `includeSpousalTrust` is true. Total always includes $400 via `SPOUSAL_TRUST_ADDON_CENTS` even if the price ID is missing.
 
 ## Open decisions (Scott / product)
 
@@ -62,10 +80,12 @@ Draft environment documentation. Not live to customers until ethics review.
 | Spousal trust price | $400 (testing only) |
 | IRA value brackets | under $50k / $50k–$250k / $250k+ |
 | ERISA full-note threshold | $250k+ |
-| Over-$8M referral list | Not shown — email capture only |
-| Spousal trust trustee default | Option 1 (spouse sole trustee); co-trustee chosen in questionnaire |
+| Over-$8M referral list | Email capture only |
 | Ethics review | Required before live |
 
-## Explicitly not changed on live site
+## Deploy checklist
 
-Production `/pricing` without qualifier redirect is unchanged until deploy. Phase 2 routes are additive in this branch.
+1. Run migration `20260904000000_phase2_qualifier_leads.sql`
+2. Set `STRIPE_PRICE_SPOUSAL_TRUST` secret (optional but recommended)
+3. Deploy edge functions: `checkout`, `questionnaire`
+4. Merge `feature/phase2-spousal-trust-qualifier` when approved

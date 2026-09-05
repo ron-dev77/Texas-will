@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { PlanPairCards } from '@/components/site/PlanPairCards'
 import { ScrollReveal } from '@/components/site/ScrollReveal'
 import { cn } from '@/lib/utils'
+import { startWillPath } from '@/lib/start-will-path'
 
 const DELIVERABLES = [
   {
@@ -92,7 +93,7 @@ export default function WhatYouGet() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg" className="h-12 gap-2 rounded-full px-8">
-                <Link to="/pricing?plan=individual#checkout">
+                <Link to={startWillPath()}>
                   Start my will — $249
                   <ArrowRight className="h-4 w-4" strokeWidth={2} />
                 </Link>

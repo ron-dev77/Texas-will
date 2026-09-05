@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowRight, BadgeCheck, Loader2, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Loader2 } from 'lucide-react'
+import { CheckoutFlowShell } from '@/components/site/CheckoutFlowShell'
+import { CheckoutFlowSteps } from '@/components/site/CheckoutFlowSteps'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ScrollReveal } from '@/components/site/ScrollReveal'
 import {
   StripeCheckoutModal,
   type PaymentSuccessInfo,
@@ -36,14 +37,6 @@ import {
 } from '@/lib/order'
 import { LSR_FAQ } from '@/lib/faqs'
 
-const INCLUDED = [
-  'Texas Last Will and Testament',
-  'Attorney review on every order',
-  'Texas-specific signing instructions',
-  'Next business day PDF delivery',
-  'Lifetime document access',
-] as const
-
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
 function questionnairePath(token?: string | null, paymentIntentId?: string | null) {
@@ -52,12 +45,6 @@ function questionnairePath(token?: string | null, paymentIntentId?: string | nul
   if (paymentIntentId) params.set('payment_intent', paymentIntentId)
   const qs = params.toString()
   return qs ? `/questionnaire?${qs}` : '/questionnaire'
-}
-
-function scrollToCheckout() {
-  const el = document.getElementById('checkout')
-  if (!el) return
-  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 const EMPTY_FIT: Record<RltFitId, 'yes' | 'no' | ''> = {
@@ -71,7 +58,6 @@ export default function Pricing() {
   const [searchParams] = useSearchParams()
   const qualifier = useMemo(() => loadQualifierDraft(), [])
 
-  const planFromUrl = searchParams.get('plan')
   const [email, setEmail] = useState('')
   const [partnerEmail, setPartnerEmail] = useState('')
   const [fit, setFit] = useState<Record<RltFitId, 'yes' | 'no' | ''>>(EMPTY_FIT)
@@ -83,22 +69,6 @@ export default function Pricing() {
   const [checkoutDraft, setCheckoutDraft] = useState<OrderDraft | null>(null)
   const [startingWill, setStartingWill] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (planFromUrl === 'individual' || planFromUrl === 'couples') {
-      /* Plan locked by qualifier — ignore URL plan changes */
-    }
-  }, [planFromUrl])
-
-  useEffect(() => {
-    if (window.location.hash !== '#checkout') return
-    const t1 = window.setTimeout(scrollToCheckout, 50)
-    const t2 = window.setTimeout(scrollToCheckout, 300)
-    return () => {
-      window.clearTimeout(t1)
-      window.clearTimeout(t2)
-    }
-  }, [planFromUrl])
 
   const paidFlag = searchParams.get('paid')
   const paymentIntentId = searchParams.get('payment_intent')
@@ -144,6 +114,9 @@ export default function Pricing() {
   const lockedQualifier: QualifierDraft = qualifier
   const plan: Plan = lockedQualifier.plan
   const includeSpousalTrust = lockedQualifier.spousalTrustChoice === 'spousal_trust'
+  const isCouples = plan === 'couples'
+  const planTitle = isCouples ? 'Couples plan' : 'Individual plan'
+  const qualifyTotal = computeTotalDollars(plan, false, includeSpousalTrust)
 
   const allOptionalSelected = OPTIONAL_PACKAGE_DOC_IDS.every((id) => documents.includes(id))
   const hasWill = documents.includes('will')
@@ -215,8 +188,8 @@ export default function Pricing() {
 
   if (startingWill) {
     return (
-      <section className="relative overflow-hidden">
-        <div className="relative mx-auto flex max-w-lg flex-col items-center px-5 py-24 text-center sm:px-8">
+      <CheckoutFlowShell>
+        <div className="flex flex-col items-center py-16 text-center">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
           <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             Payment received
@@ -225,99 +198,59 @@ export default function Pricing() {
             Starting your will…
           </h1>
         </div>
-      </section>
+      </CheckoutFlowShell>
     )
   }
 
   return (
-    <>
-      <section className="relative overflow-hidden">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_oklch(0.94_0.02_85)_0%,_transparent_55%),radial-gradient(circle_at_85%_15%,_oklch(0.9_0.05_45_/_0.22)_0%,_transparent_40%)]"
-        />
+    <CheckoutFlowShell
+      wide
+      headerRight={
+        <Link
+          to="/summary"
+          className="font-medium text-accent underline-offset-2 hover:underline"
+        >
+          Back to summary
+        </Link>
+      }
+    >
+      <CheckoutFlowSteps current="pricing" />
 
-        <div className="relative mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
-          <div className="mx-auto max-w-2xl text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-card/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent shadow-sm">
-              <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Pricing
-            </div>
-            <h1 className="mt-5 font-serif text-4xl leading-[1.05] tracking-tight text-foreground sm:text-5xl">
-              One flat price. Everything included.
-            </h1>
-            <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
-              Attorney review in every order. No subscriptions.
-            </p>
-          </div>
+      <div className="mt-6 sm:mt-8">
+        <h1 className="font-serif text-2xl tracking-tight text-foreground sm:text-3xl">
+          Complete your order
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Choose documents, confirm fit, and pay securely.
+        </p>
+      </div>
 
-          <ScrollReveal variant="up" className="mx-auto mt-12 max-w-3xl">
-            <p className="mb-4 text-center text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              1 · Choose your plan
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <button
-                type="button"
-                disabled
-                className={cn(
-                  'cursor-default rounded-2xl border p-6 text-left sm:p-7',
-                  'border-accent bg-card shadow-[0_18px_40px_-20px_rgba(15,23,42,0.3)] ring-2 ring-accent/30',
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                    {plan === 'individual' ? 'Individual' : 'Couples'}
-                  </span>
-                  <Link to="/qualify" className="text-[10px] font-medium text-accent underline-offset-2 hover:underline">
-                    Change plan
-                  </Link>
-                </div>
-                <div className="mt-3 flex items-end gap-1.5">
-                  <span className="font-serif text-5xl font-semibold leading-none text-foreground">
-                    ${base}
-                  </span>
-                  <span className="mb-1 text-sm font-medium text-accent">flat · locked</span>
-                </div>
-              </button>
-
-              <div className="hidden sm:block" aria-hidden />
-            </div>
-          </ScrollReveal>
-
-          <ScrollReveal variant="up" delay={60} className="mx-auto mt-8 max-w-3xl">
-            <div className="rounded-2xl border border-border/70 bg-card px-5 py-5 sm:px-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Included with either plan
-              </p>
-              <ul className="mt-3 grid gap-2.5 sm:grid-cols-2">
-                {INCLUDED.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-foreground">
-                    <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent" strokeWidth={1.75} />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </ScrollReveal>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border/60 bg-card px-4 py-3.5 sm:px-5">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{planTitle}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Locked from your answers
+            {includeSpousalTrust ? ' · Spousal trust included' : ''}
+          </p>
         </div>
-      </section>
+        <div className="flex shrink-0 items-center gap-4">
+          <p className="font-serif text-2xl tabular-nums tracking-tight">${qualifyTotal}</p>
+          <Link
+            to="/summary"
+            className="text-xs font-medium text-accent underline-offset-2 hover:underline"
+          >
+            View summary
+          </Link>
+        </div>
+      </div>
 
-      <section
-        id="checkout"
-        className="scroll-mt-24 border-t border-border/60 bg-secondary/40 py-14 sm:py-18"
-      >
-        <div className="mx-auto max-w-3xl px-5 sm:px-8">
-          <ScrollReveal variant="up">
-            <p className="mb-4 text-center text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              2 · Details &amp; payment
-            </p>
-            {startError ? (
-              <p className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-center text-sm text-destructive">
-                {startError}
-              </p>
-            ) : null}
+      {startError ? (
+        <p className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {startError}
+        </p>
+      ) : null}
 
-            <div className="overflow-hidden rounded-[1.75rem] border border-border/70 bg-card shadow-[0_18px_50px_-32px_rgba(15,23,42,0.28)]">
+      <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-border/70 bg-card shadow-[0_18px_50px_-32px_rgba(15,23,42,0.28)]">
               <div className="space-y-4 p-6 sm:p-8">
                 <div className="space-y-3 rounded-2xl border border-border/70 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -656,10 +589,7 @@ export default function Pricing() {
                   link (valid 30 days).
                 </p>
               </div>
-            </div>
-          </ScrollReveal>
-        </div>
-      </section>
+      </div>
 
       <StripeCheckoutModal
         open={payOpen}
@@ -667,6 +597,6 @@ export default function Pricing() {
         onClose={() => setPayOpen(false)}
         onPaid={handlePaid}
       />
-    </>
+    </CheckoutFlowShell>
   )
 }

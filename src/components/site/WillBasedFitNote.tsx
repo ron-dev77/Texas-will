@@ -4,6 +4,7 @@ import {
   listedOutsideCounselFirms,
   WILL_BASED_EDUCATION,
 } from '@/lib/outside-counsel'
+import { startWillPath } from '@/lib/start-will-path'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -93,7 +94,7 @@ export function WillBasedFitNote({ className, showFirms = false, tone = 'light' 
             <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
           </Link>
           <Link
-            to="/pricing#checkout"
+            to={startWillPath()}
             className={cn(
               'inline-flex items-center gap-1.5 text-sm font-medium transition hover:gap-2.5',
               dark ? 'text-accent' : 'text-accent',

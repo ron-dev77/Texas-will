@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client'
+import { readEdgeFunctionError } from '@/lib/edge-function-error'
 import type { DocumentKind } from '@/lib/document-kinds'
 import { DOCUMENT_KIND_LABEL } from '@/lib/document-kinds'
 import type { PackageDocId } from '@/lib/order'
@@ -61,7 +62,10 @@ export async function deliverDocumentsToClient(params: {
   ok: true
   sentCount: number
   status: string
-  emails: unknown
+  emails: {
+    primary?: { ok: boolean; id?: string; error?: string; skipped?: boolean } | null
+    partner?: { ok: boolean; id?: string; error?: string; skipped?: boolean } | null
+  }
 }> {
   const { data, error } = await supabase.functions.invoke('deliver-documents', {
     body: {
@@ -72,7 +76,13 @@ export async function deliverDocumentsToClient(params: {
   })
 
   if (error) {
-    throw new Error(error.message || 'Deliver documents failed')
+    throw new Error(
+      await readEdgeFunctionError(
+        error,
+        data,
+        'Deliver failed. Sign in as admin, deploy the deliver-documents edge function, and set RESEND_API_KEY + EMAIL_FROM in Supabase secrets.',
+      ),
+    )
   }
   if (data && typeof data === 'object' && 'error' in data && data.error) {
     throw new Error(String((data as { error: string }).error))
@@ -81,6 +91,9 @@ export async function deliverDocumentsToClient(params: {
     ok: true
     sentCount: number
     status: string
-    emails: unknown
+    emails: {
+      primary?: { ok: boolean; id?: string; error?: string; skipped?: boolean } | null
+      partner?: { ok: boolean; id?: string; error?: string; skipped?: boolean } | null
+    }
   }
 }

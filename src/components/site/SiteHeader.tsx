@@ -18,7 +18,7 @@ const NAV = [
   { to: '/', label: 'Home', Icon: Home, end: true },
   { to: '/how-it-works', label: 'How it works', Icon: Route, end: false },
   { to: '/what-you-get', label: 'What you get', Icon: FileCheck2, end: false },
-  { to: '/pricing', label: 'Pricing', Icon: BadgeDollarSign, end: false },
+  { to: '/plans', label: 'Pricing', Icon: BadgeDollarSign, end: false },
   { to: '/faq', label: 'FAQ', Icon: CircleHelp, end: false },
 ] as const
 
@@ -66,7 +66,7 @@ export function SiteHeader() {
             size="sm"
             className="gap-1.5 rounded-full bg-primary px-4 transition-colors duration-200 hover:bg-accent hover:text-accent-foreground"
           >
-            <Link to="/pricing?plan=individual#checkout">
+            <Link to="/qualify">
               Start my will
               <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
             </Link>
@@ -121,7 +121,7 @@ export function SiteHeader() {
               asChild
               className="mt-2 h-11 gap-1.5 rounded-full bg-primary transition-colors duration-200 hover:bg-accent hover:text-accent-foreground"
             >
-              <Link to="/pricing?plan=individual#checkout" onClick={() => setOpen(false)}>
+              <Link to="/qualify" onClick={() => setOpen(false)}>
                 Start my will
                 <ArrowRight className="h-4 w-4" strokeWidth={2} />
               </Link>

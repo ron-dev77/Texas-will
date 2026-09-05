@@ -99,6 +99,21 @@ export function maritalStatusForQuestionnaire(
   return status
 }
 
+/** Deep-link step ids for /qualify?step=… */
+export type QualifyStepId = 'plan' | 'marital' | 'prior_kids' | 'prior_scope' | 'blended' | 'estate'
+
+export function qualifyStepsForDraft(draft: Partial<QualifierDraft>): QualifyStepId[] {
+  const list: QualifyStepId[] = ['plan', 'marital', 'prior_kids']
+  if (draft.plan === 'couples' && draft.hasPriorRelationshipChildren) {
+    list.push('prior_scope')
+  }
+  if (showsBlendedFamilyScreen(draft)) {
+    list.push('blended')
+  }
+  list.push('estate')
+  return list
+}
+
 export function questionnairePrefillFromQualifier(draft: QualifierDraft): Record<string, unknown> {
   const next: Record<string, unknown> = {
     marital_status: maritalStatusForQuestionnaire(draft.maritalStatus),

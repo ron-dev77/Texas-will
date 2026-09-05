@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, BadgeCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FAQS, LSR_FAQ } from '@/lib/faqs'
+import { startWillPath } from '@/lib/start-will-path'
 import { ScrollReveal } from '@/components/site/ScrollReveal'
 import { PageCta, PageHero, PageSection } from '@/components/site/PageShell'
 
@@ -70,7 +71,7 @@ export default function Faq() {
             description="We answer every email personally, usually same-day."
           >
             <Button asChild size="lg" variant="secondary" className="h-12 gap-2 rounded-full px-8">
-              <Link to="/pricing?plan=individual#checkout">
+              <Link to={startWillPath()}>
                 Start my will
                 <ArrowRight className="h-4 w-4" strokeWidth={2} />
               </Link>

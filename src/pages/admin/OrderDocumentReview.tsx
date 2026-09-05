@@ -37,6 +37,7 @@ import {
   type SkeletonMeta,
 } from '@/lib/admin-document-preview'
 import { proposeSkeletonReformat } from '@/lib/ai-skeleton-reformat'
+import { assertSkeletonExecutionBlocks } from '@/lib/skeleton-execution'
 import {
   orderNeedsSpecialNeedsLawyerSignoff,
   SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT,
@@ -364,6 +365,7 @@ export default function OrderDocumentReviewPage() {
     setBusy('save')
     setActionMsg(null)
     try {
+      assertSkeletonExecutionBlocks(skel, docKind)
       const draft = buildDocumentFromAnswers(docKind, answersRow.answers, { includeTrust })
       const saved = await upsertWillDocument({
         orderId,

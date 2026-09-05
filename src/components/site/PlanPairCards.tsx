@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { qualifyPathForPlan } from '@/lib/start-will-path'
 import { ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -44,7 +45,7 @@ export function PlanPairCards({
 
   return (
     <div className={cn('grid gap-3', stack ? 'grid-cols-1' : 'sm:grid-cols-2', className)}>
-      <Link to="/pricing?plan=individual#checkout" className={cardClass}>
+      <Link to={qualifyPathForPlan('individual')} className={cardClass}>
         <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Individual
         </div>
@@ -58,7 +59,7 @@ export function PlanPairCards({
         </div>
       </Link>
 
-      <Link to="/pricing?plan=couples#checkout" className={cardClass}>
+      <Link to={qualifyPathForPlan('couples')} className={cardClass}>
         <div className="flex items-center justify-between gap-2">
           <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Couples

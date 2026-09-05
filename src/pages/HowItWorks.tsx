@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollReveal } from '@/components/site/ScrollReveal'
 import { WillBasedFitNote } from '@/components/site/WillBasedFitNote'
 import { PageCta, PageHero, PageSection } from '@/components/site/PageShell'
+import { startWillPath } from '@/lib/start-will-path'
 
 const STEPS = [
   {
@@ -127,7 +128,7 @@ export default function HowItWorks() {
               variant="secondary"
               className="h-12 gap-2 rounded-full px-8"
             >
-              <Link to="/pricing?plan=individual#checkout">
+              <Link to={startWillPath()}>
                 Start my will
                 <ArrowRight className="h-4 w-4" strokeWidth={2} />
               </Link>

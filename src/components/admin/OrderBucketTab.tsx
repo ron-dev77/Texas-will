@@ -263,7 +263,19 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
       setConfirmSendOpen(false)
       setSntLawyerApproved(false)
       await onReload()
-      setMsg(`Sent ${result.sentCount} PDF(s) to client`)
+      const sentLines = [
+        result.emails.primary?.ok
+          ? `Primary: ${data.order.user_email}${result.emails.primary.id ? ` (${result.emails.primary.id})` : ''}`
+          : null,
+        result.emails.partner?.ok
+          ? `Partner: ${data.order.partner_email ?? 'partner'}${result.emails.partner.id ? ` (${result.emails.partner.id})` : ''}`
+          : null,
+      ].filter(Boolean)
+      setMsg(
+        sentLines.length
+          ? `Sent ${result.sentCount} PDF(s). Email delivered to ${sentLines.join(' · ')}`
+          : `Sent ${result.sentCount} PDF(s) to client`,
+      )
     } catch (err) {
       setMsg(err instanceof Error ? err.message : 'Send failed')
     } finally {
@@ -293,8 +305,11 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
           <div>
             <h2 className="font-serif text-xl tracking-tight">Ready to send</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {items.length} document{items.length === 1 ? '' : 's'} in bucket · sends to{' '}
-              {clientEmail}
+              {items.length} document{items.length === 1 ? '' : 's'} in bucket · emails go to{' '}
+              {data.order.user_email ?? clientEmail}
+              {isCouples && data.order.partner_email
+                ? ` and ${data.order.partner_email}`
+                : ''}
             </p>
           </div>
           <Button
@@ -485,7 +500,10 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
           </label>
         ) : null}
         <p className="mt-4 text-xs text-muted-foreground">
-          This marks the order as delivered after a successful send.
+          PDFs are emailed via Resend — the client does not get a website link. The order is marked
+          delivered only after email succeeds. Check spam if the inbox is empty; verify{' '}
+          <code className="rounded bg-secondary px-1">RESEND_API_KEY</code> and{' '}
+          <code className="rounded bg-secondary px-1">EMAIL_FROM</code> are set on Supabase.
         </p>
       </Modal>
     </div>

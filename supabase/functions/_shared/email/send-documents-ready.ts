@@ -25,6 +25,78 @@ export type DeliverDocumentsResult = {
   partner: SendEmailResult | null
 }
 
+export function validateDocumentsReadyEmailDelivery(params: {
+  mail: DeliverDocumentsResult
+  attachments: DeliveryAttachment[]
+  planType: string
+  userEmail: string
+  partnerEmail: string | null
+}): {
+  ok: boolean
+  error?: string
+  recipients?: { primary?: string; partner?: string }
+} {
+  const p1 = params.attachments.filter((a) => a.partnerNumber === 1)
+  const p2 = params.attachments.filter((a) => a.partnerNumber === 2)
+  const needsPrimary = p1.length > 0
+  const needsPartner =
+    p2.length > 0 &&
+    params.planType === 'couples' &&
+    Boolean(params.partnerEmail) &&
+    !isPlaceholderEmail(params.partnerEmail ?? '')
+
+  const recipients = {
+    primary: needsPrimary ? params.userEmail : undefined,
+    partner: needsPartner ? params.partnerEmail ?? undefined : undefined,
+  }
+
+  if (needsPrimary && isPlaceholderEmail(params.userEmail)) {
+    return {
+      ok: false,
+      error: 'Partner 1 documents are in the bucket but the order has no valid customer email.',
+      recipients,
+    }
+  }
+
+  if (p2.length > 0 && params.planType === 'couples') {
+    if (!params.partnerEmail || isPlaceholderEmail(params.partnerEmail)) {
+      return {
+        ok: false,
+        error: 'Partner 2 documents are in the bucket but the order has no valid partner email.',
+        recipients,
+      }
+    }
+  }
+
+  if (needsPrimary && params.mail.primary?.ok !== true) {
+    const detail = params.mail.primary?.error ?? 'Primary customer email was not sent.'
+    return {
+      ok: false,
+      error: `Email to ${params.userEmail} failed: ${detail}`,
+      recipients,
+    }
+  }
+
+  if (needsPartner && params.mail.partner?.ok !== true) {
+    const detail = params.mail.partner?.error ?? 'Partner email was not sent.'
+    return {
+      ok: false,
+      error: `Email to ${params.partnerEmail} failed: ${detail}`,
+      recipients,
+    }
+  }
+
+  if (params.attachments.length > 0 && !needsPrimary && !needsPartner) {
+    return {
+      ok: false,
+      error: 'No valid recipient emails matched the documents in the bucket.',
+      recipients,
+    }
+  }
+
+  return { ok: true, recipients }
+}
+
 export async function sendDocumentsReadyEmails(params: {
   orderId: string
   customerName: string | null

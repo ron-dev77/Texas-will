@@ -130,3 +130,25 @@ export function orderHasSpousalTrust(addOns: unknown): boolean {
   const o = (addOns ?? {}) as { spousal_trust?: boolean }
   return Boolean(o.spousal_trust)
 }
+
+type QualifierSnapshot = {
+  plan?: string
+  hasPriorRelationshipChildren?: boolean
+  priorKidsScope?: string
+}
+
+/**
+ * Couples order where both spouses have prior-relationship children — each will needs
+ * opposite-direction spousal trust language. Requires attorney review of both partners.
+ */
+export function orderNeedsBidirectionalSpousalTrustReview(addOns: unknown): boolean {
+  if (!orderHasSpousalTrust(addOns)) return false
+  const o = (addOns ?? {}) as { qualifier?: QualifierSnapshot | null }
+  const q = o.qualifier
+  if (!q || q.plan !== 'couples') return false
+  if (!q.hasPriorRelationshipChildren) return false
+  return q.priorKidsScope === 'both'
+}
+
+export const COUPLES_BIDIRECTIONAL_SPOUSAL_TRUST_NOTE =
+  'Couples order — both spouses have prior-relationship children. Each partner\'s will must protect the other spouse with remainder to that partner\'s own children. Verify both wills before delivery.'

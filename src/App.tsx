@@ -3,6 +3,7 @@ import MarketingLayout from '@/pages/MarketingLayout'
 import Home from '@/pages/Home'
 import HowItWorks from '@/pages/HowItWorks'
 import WhatYouGet from '@/pages/WhatYouGet'
+import Plans from '@/pages/Plans'
 import Pricing from '@/pages/Pricing'
 import Faq from '@/pages/Faq'
 import About from '@/pages/About'
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="qualify" element={<Qualify />} />
         <Route path="qualify/off-ramp" element={<QualifyOffRamp />} />
         <Route path="summary" element={<Summary />} />
+        <Route path="pricing" element={<Pricing />} />
         <Route path="auth" element={<Auth />} />
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<OrdersQueue />} />
@@ -52,7 +54,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="how-it-works" element={<HowItWorks />} />
           <Route path="what-you-get" element={<WhatYouGet />} />
-          <Route path="pricing" element={<Pricing />} />
+          <Route path="plans" element={<Plans />} />
           <Route path="faq" element={<Faq />} />
           <Route path="about" element={<About />} />
           <Route path="contact" element={<Contact />} />

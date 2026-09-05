@@ -4,9 +4,11 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { isPlaceholderEmail } from '../_shared/email/resend.ts'
 import {
   markDocumentsSent,
   sendDocumentsReadyEmails,
+  validateDocumentsReadyEmailDelivery,
   type DeliveryAttachment,
 } from '../_shared/email/send-documents-ready.ts'
 
@@ -15,7 +17,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const ALLOWED_KINDS = new Set(['will', 'rlt', 'mpoa', 'dpoa', 'directive', 'hipaa'])
+const ALLOWED_KINDS = new Set([
+  'will',
+  'rlt',
+  'spousal_trust',
+  'mpoa',
+  'dpoa',
+  'directive',
+  'hipaa',
+])
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -85,6 +95,17 @@ Deno.serve(async (req) => {
       return json({ error: 'Attach at least one PDF document' }, 400)
     }
 
+    const resendKey = Deno.env.get('RESEND_API_KEY')?.trim()
+    if (!resendKey) {
+      return json(
+        {
+          error:
+            'RESEND_API_KEY is not configured on Supabase. Set it under Edge Function secrets and redeploy deliver-documents.',
+        },
+        503,
+      )
+    }
+
     const attachments: DeliveryAttachment[] = []
     for (const raw of rawAttachments) {
       const kind = String(raw?.kind ?? '').trim()
@@ -144,25 +165,44 @@ Deno.serve(async (req) => {
       zipByPartner[pn] = zip || null
     }
 
+    const userEmail = String(order.user_email ?? '').trim()
+    const partnerEmail = order.partner_email ? String(order.partner_email).trim() : null
+    const planType = order.plan_type === 'couples' ? 'couples' : 'individual'
+
+    if (isPlaceholderEmail(userEmail)) {
+      return json(
+        {
+          error: `Order has no valid customer email (${userEmail || 'empty'}). Update the order email before sending.`,
+        },
+        400,
+      )
+    }
+
     const mail = await sendDocumentsReadyEmails({
       orderId: order.id,
       customerName: order.customer_name,
       partnerName: order.partner_name,
-      userEmail: order.user_email,
-      partnerEmail: order.partner_email,
-      planType: order.plan_type === 'couples' ? 'couples' : 'individual',
+      userEmail,
+      partnerEmail,
+      planType,
       zipByPartner,
       attachments,
     })
 
-    const primaryOk = mail.primary?.ok === true
-    const partnerOk = mail.partner == null || mail.partner.ok === true
-    if (!primaryOk && !partnerOk) {
+    const deliveryCheck = validateDocumentsReadyEmailDelivery({
+      mail,
+      attachments,
+      planType,
+      userEmail,
+      partnerEmail,
+    })
+    if (!deliveryCheck.ok) {
       return json(
         {
-          error: 'Email send failed',
+          error: deliveryCheck.error,
           primary: mail.primary,
           partner: mail.partner,
+          recipients: deliveryCheck.recipients,
         },
         502,
       )
