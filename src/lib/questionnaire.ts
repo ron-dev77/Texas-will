@@ -1156,6 +1156,25 @@ export const SECTIONS: readonly Section[] = [
   },
 ]
 
+/** Stable section order for the live questionnaire (review is always last). */
+export const CANONICAL_SECTION_IDS: readonly string[] = SECTIONS.map((s) => s.id)
+
+const SECTION_ORDER = new Map(CANONICAL_SECTION_IDS.map((id, index) => [id, index]))
+
+/** Re-order sections to match bundled SECTIONS; unknown custom sections stay before review. */
+export function sortSectionsCanonical(sections: readonly Section[]): Section[] {
+  return [...sections].sort((a, b) => {
+    const aReview = a.isReview || a.id === 'review'
+    const bReview = b.isReview || b.id === 'review'
+    if (aReview && !bReview) return 1
+    if (!aReview && bReview) return -1
+    const ai = SECTION_ORDER.get(a.id) ?? 9000
+    const bi = SECTION_ORDER.get(b.id) ?? 9000
+    if (ai !== bi) return ai - bi
+    return 0
+  })
+}
+
 /** Sections shown in the questionnaire (hide trust / unselected package docs). */
 export function getActiveSections(
   includeTrust: boolean,
@@ -1176,21 +1195,23 @@ export function getActiveSections(
     'final_wishes',
   ])
 
-  return sections.filter((s) => {
-    if (s.requiresTrust || s.id === 'trust_trustees' || s.id === 'trust_distributions') {
-      return includeTrust
-    }
-    if (s.requiresSpousalTrust || s.id === 'spousal_trust') {
-      return includeSpousalTrust && docs.has('will')
-    }
-    if (s.id === 'medical_poa') return docs.has('mpoa')
-    if (s.id === 'durable_poa') return docs.has('dpoa')
-    if (s.id === 'directive') return docs.has('directive')
-    if (s.id === 'hipaa') return docs.has('hipaa')
-    if (willOnly.has(s.id)) return docs.has('will')
-    // Shared identity / residence / marital / review — always keep when any doc selected
-    return true
-  })
+  return sortSectionsCanonical(
+    sections.filter((s) => {
+      if (s.requiresTrust || s.id === 'trust_trustees' || s.id === 'trust_distributions') {
+        return includeTrust
+      }
+      if (s.requiresSpousalTrust || s.id === 'spousal_trust') {
+        return includeSpousalTrust && docs.has('will')
+      }
+      if (s.id === 'medical_poa') return docs.has('mpoa')
+      if (s.id === 'durable_poa') return docs.has('dpoa')
+      if (s.id === 'directive') return docs.has('directive')
+      if (s.id === 'hipaa') return docs.has('hipaa')
+      if (willOnly.has(s.id)) return docs.has('will')
+      // Shared identity / residence / marital / review — always keep when any doc selected
+      return true
+    }),
+  )
 }
 
 export function isFieldVisible(field: Field, answers: Record<string, unknown>): boolean {

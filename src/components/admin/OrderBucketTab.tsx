@@ -499,12 +499,6 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
             <span>{SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT}</span>
           </label>
         ) : null}
-        <p className="mt-4 text-xs text-muted-foreground">
-          PDFs are emailed via Resend — the client does not get a website link. The order is marked
-          delivered only after email succeeds. Check spam if the inbox is empty; verify{' '}
-          <code className="rounded bg-secondary px-1">RESEND_API_KEY</code> and{' '}
-          <code className="rounded bg-secondary px-1">EMAIL_FROM</code> are set on Supabase.
-        </p>
       </Modal>
     </div>
   )

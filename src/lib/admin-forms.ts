@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client'
 import type { Json } from '@/integrations/supabase/types'
 import {
   SECTIONS,
+  sortSectionsCanonical,
   type Field,
   type FieldType,
   type Section,
@@ -237,9 +238,12 @@ const AUTO_INSERT_SECTION_IDS = new Set([
   'durable_poa',
   'directive',
   'hipaa',
+  'final_wishes',
   'beneficiary_designation',
   'spousal_trust',
   'special_needs',
+  'trust_trustees',
+  'trust_distributions',
 ])
 
 const INSERT_AFTER_RESIDUARY_SECTION_IDS = [
@@ -248,12 +252,12 @@ const INSERT_AFTER_RESIDUARY_SECTION_IDS = [
   'special_needs',
 ] as const
 
-/** Insert any missing bundled sections (e.g. ancillaries, beneficiary designation, SNT) before review. */
+/** Insert any missing bundled sections, then enforce canonical order (review last). */
 export function mergeMissingBundledSections(schema: Section[]): Section[] {
   const ids = new Set(schema.map((s) => s.id))
   const missing = SECTIONS.filter((s) => AUTO_INSERT_SECTION_IDS.has(s.id) && !ids.has(s.id))
-  if (missing.length === 0) return schema
   let next = [...schema]
+  if (missing.length === 0) return sortSectionsCanonical(next)
   const afterResiduary = missing
     .filter((s) => INSERT_AFTER_RESIDUARY_SECTION_IDS.includes(s.id as (typeof INSERT_AFTER_RESIDUARY_SECTION_IDS)[number]))
     .sort(
@@ -279,7 +283,7 @@ export function mergeMissingBundledSections(schema: Section[]): Section[] {
     if (reviewIdx < 0) next = [...next, section]
     else next = [...next.slice(0, reviewIdx), section, ...next.slice(reviewIdx)]
   }
-  return next
+  return sortSectionsCanonical(next)
 }
 
 /** Add new bundled questions onto existing sections (does not overwrite edited copy). */
