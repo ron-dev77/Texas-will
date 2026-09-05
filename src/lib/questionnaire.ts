@@ -203,6 +203,11 @@ export const SECTIONS: readonly Section[] = [
         showIf: { field: 'has_children', equals: 'yes' },
       },
       {
+        id: 'name_future_minor_guardian',
+        label: 'I want to name a guardian for any future or unborn minor children',
+        type: 'yesno',
+      },
+      {
         id: 'primary_guardian_name',
         label: 'Primary guardian — full name',
         type: 'shorttext',
@@ -210,7 +215,6 @@ export const SECTIONS: readonly Section[] = [
         placeholder: 'Alex Rivera',
         minLength: 3,
         maxLength: 80,
-        showIf: { field: 'has_children', equals: 'yes' },
       },
       {
         id: 'primary_guardian_relationship',
@@ -219,7 +223,6 @@ export const SECTIONS: readonly Section[] = [
         placeholder: 'Sister, close friend, etc.',
         minLength: 2,
         maxLength: 40,
-        showIf: { field: 'has_children', equals: 'yes' },
       },
       {
         id: 'alternate_guardian_name',
@@ -230,7 +233,6 @@ export const SECTIONS: readonly Section[] = [
         placeholder: 'Jordan Lee',
         minLength: 3,
         maxLength: 80,
-        showIf: { field: 'has_children', equals: 'yes' },
       },
       {
         id: 'guardian_notes',
@@ -238,7 +240,6 @@ export const SECTIONS: readonly Section[] = [
         type: 'longtext',
         minLength: 10,
         maxLength: 400,
-        showIf: { field: 'has_children', equals: 'yes' },
       },
     ],
   },
@@ -1214,6 +1215,45 @@ export function getActiveSections(
   )
 }
 
+const GUARDIAN_FIELD_IDS = new Set([
+  'primary_guardian_name',
+  'primary_guardian_relationship',
+  'alternate_guardian_name',
+  'guardian_notes',
+])
+
+/** True when a child's date of birth indicates they are under 18 today. */
+export function childIsMinor(dob: string | undefined, today = new Date()): boolean {
+  const raw = dob?.trim()
+  if (!raw) return false
+  const born = new Date(`${raw}T12:00:00`)
+  if (Number.isNaN(born.getTime())) return false
+  let age = today.getFullYear() - born.getFullYear()
+  const monthDiff = today.getMonth() - born.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < born.getDate())) age -= 1
+  return age < 18
+}
+
+export function hasMinorChildren(answers: Record<string, unknown>): boolean {
+  if (answers.has_children !== 'yes') return false
+  const children = answers.children
+  if (!Array.isArray(children)) return false
+  return (children as PersonRow[]).some((row) => childIsMinor(row?.date_of_birth))
+}
+
+/** Guardian fields when any child is under 18, or the future-minor toggle is Yes. */
+export function showGuardianFields(answers: Record<string, unknown>): boolean {
+  if (answers.has_children !== 'yes') return false
+  if (hasMinorChildren(answers)) return true
+  return answers.name_future_minor_guardian === 'yes'
+}
+
+/** Future-minor toggle only when all listed children are 18+. */
+export function showFutureMinorGuardianToggle(answers: Record<string, unknown>): boolean {
+  if (answers.has_children !== 'yes') return false
+  return !hasMinorChildren(answers)
+}
+
 export function isFieldVisible(field: Field, answers: Record<string, unknown>): boolean {
   const cond = field.showIf
   if (!cond) return true
@@ -1224,7 +1264,11 @@ export function isFieldVisible(field: Field, answers: Record<string, unknown>): 
 }
 
 export function getVisibleFields(section: Section, answers: Record<string, unknown>): Field[] {
-  return section.fields.filter((f) => isFieldVisible(f, answers))
+  return section.fields.filter((f) => {
+    if (f.id === 'name_future_minor_guardian') return showFutureMinorGuardianToggle(answers)
+    if (GUARDIAN_FIELD_IDS.has(f.id)) return showGuardianFields(answers)
+    return isFieldVisible(f, answers)
+  })
 }
 
 export function isFieldFilled(field: Field, value: unknown): boolean {

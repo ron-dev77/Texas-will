@@ -25,6 +25,7 @@ import {
   getVisibleFields,
   missingRequired,
   SECTIONS,
+  showGuardianFields,
   type Field,
   type GiftRow,
   type PersonRow,
@@ -48,6 +49,18 @@ const ROW_PAIRS: Record<string, string> = {
   executor_name: 'executor_relationship',
   alt_executor_name: 'alt_executor_relationship',
   trust_successor_trustee_name: 'trust_successor_trustee_relationship',
+}
+
+const GUARDIAN_ANSWER_KEYS = [
+  'name_future_minor_guardian',
+  'primary_guardian_name',
+  'primary_guardian_relationship',
+  'alternate_guardian_name',
+  'guardian_notes',
+] as const
+
+function clearGuardianAnswers(next: Answers) {
+  for (const key of GUARDIAN_ANSWER_KEYS) delete next[key]
 }
 
 function isComplex(field: Field) {
@@ -304,10 +317,20 @@ export default function Questionnaire() {
       }
       if (id === 'has_children' && value === 'no') {
         delete next.children
-        delete next.primary_guardian_name
-        delete next.primary_guardian_relationship
-        delete next.alternate_guardian_name
-        delete next.guardian_notes
+        clearGuardianAnswers(next)
+      }
+      if (
+        id === 'children' ||
+        id === 'name_future_minor_guardian' ||
+        id === 'has_children'
+      ) {
+        if (!showGuardianFields(next)) clearGuardianAnswers(next)
+        else if (id === 'name_future_minor_guardian' && value === 'no') {
+          delete next.primary_guardian_name
+          delete next.primary_guardian_relationship
+          delete next.alternate_guardian_name
+          delete next.guardian_notes
+        }
       }
       if (id === 'has_specific_gifts' && value === 'yes') {
         const existing = prev.specific_gifts

@@ -1,7 +1,7 @@
 /** Early-process copy: this product is will-based, not an RLT shop. */
 export const WILL_BASED_EDUCATION = {
   title: 'My AI Will is Texas will-based estate planning',
-  body: 'We prepare a Texas last will and optional Texas papers. We do not sell or draft a revocable living trust. A living trust is needed only in limited cases: you own a house or land outside Texas; you own an interest in a private LLC, partnership, or closely held company; or you have a heightened need for privacy (a will is filed in court). If any of those apply, this product is not the right fit — work with a Texas estate-planning law firm instead.',
+  body: 'We prepare a Texas last will and optional Texas papers. We do not sell or draft a revocable living trust. A living trust is needed only in limited cases: you own a house or land outside Texas; you own an interest in a private LLC, partnership, or closely held company; or you have a heightened need for privacy (a will is filed in court). If any of those apply, this product may not be the right fit — you may wish to work with a Texas estate-planning law firm instead.',
 } as const
 
 /** When a living trust (or other full estate plan) is a better fit than this will product. */

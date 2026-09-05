@@ -82,17 +82,7 @@ export function WillBasedFitNote({ className, showFirms = false, tone = 'light' 
           {WILL_BASED_EDUCATION.body}
         </p>
 
-        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2">
-          <Link
-            to="/faq#living-trust"
-            className={cn(
-              'inline-flex items-center gap-1.5 text-sm font-medium transition hover:gap-2.5',
-              dark ? 'text-accent' : 'text-accent',
-            )}
-          >
-            Read the FAQ
-            <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
-          </Link>
+        <div className="mt-5">
           <Link
             to={startWillPath()}
             className={cn(

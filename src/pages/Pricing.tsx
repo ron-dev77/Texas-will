@@ -328,17 +328,10 @@ export default function Pricing() {
                       {WILL_BASED_EDUCATION.title}
                     </h3>
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                      {WILL_BASED_EDUCATION.body}{' '}
-                      <Link
-                        to="/faq#living-trust"
-                        className="font-medium text-accent underline-offset-4 hover:underline"
-                      >
-                        Read more
-                      </Link>
-                      .
+                      {WILL_BASED_EDUCATION.body}
                     </p>
                   </div>
-                  <div className="space-y-4">
+                  <div className="mt-5 space-y-4">
                     {RLT_FIT_REASONS.map((reason) => (
                       <div key={reason.id}>
                         <p className="text-sm text-foreground">{reason.label}</p>
@@ -370,7 +363,7 @@ export default function Pricing() {
                   {offRamp ? (
                     <div className="rounded-xl border border-accent/30 bg-accent/5 p-4">
                       <p className="text-sm font-medium text-foreground">
-                        This product is not the right fit
+                        This product may not be the right fit
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
                         Please get a full estate plan from a Texas law firm. These are the firms we
@@ -402,6 +395,37 @@ export default function Pricing() {
                         </p>
                       ) : null}
                     </div>
+                  ) : null}
+
+                  <div
+                    className={cn(
+                      'mt-5 flex items-start gap-3 rounded-2xl p-4',
+                      showErrors && !lsrConsent
+                        ? 'bg-destructive/5 ring-1 ring-destructive/30'
+                        : 'bg-secondary/50',
+                    )}
+                  >
+                    <Checkbox
+                      id="lsr"
+                      checked={lsrConsent}
+                      onCheckedChange={(v) => setLsrConsent(v === true)}
+                      className="mt-1"
+                    />
+                    <Label
+                      htmlFor="lsr"
+                      className="min-w-0 flex-1 cursor-pointer text-sm font-normal leading-relaxed text-muted-foreground"
+                    >
+                      <span className="font-medium text-foreground">
+                        I agree to Limited Scope Representation (LSR) with Texas AI Law Group, PLLC.
+                      </span>
+                      <span className="mt-3 block font-medium text-foreground">{LSR_FAQ.q}</span>
+                      <span className="mt-2 block">{LSR_FAQ.a}</span>
+                    </Label>
+                  </div>
+                  {showErrors && !lsrConsent ? (
+                    <p className="mt-2 px-1 text-xs text-destructive">
+                      You must agree to Limited Scope Representation to continue.
+                    </p>
                   ) : null}
                 </div>
 
@@ -495,35 +519,6 @@ export default function Pricing() {
                     </span>
                   </label>
                 </div>
-
-                <div
-                  className={cn(
-                    'flex items-start gap-3 rounded-2xl p-4',
-                    showErrors && !lsrConsent ? 'bg-destructive/5 ring-1 ring-destructive/30' : 'bg-secondary/50',
-                  )}
-                >
-                  <Checkbox
-                    id="lsr"
-                    checked={lsrConsent}
-                    onCheckedChange={(v) => setLsrConsent(v === true)}
-                    className="mt-1"
-                  />
-                  <Label
-                    htmlFor="lsr"
-                    className="min-w-0 flex-1 cursor-pointer text-sm font-normal leading-relaxed text-muted-foreground"
-                  >
-                    <span className="font-medium text-foreground">
-                      I agree to Limited Scope Representation (LSR) with Texas AI Law Group, PLLC.
-                    </span>
-                    <span className="mt-3 block font-medium text-foreground">{LSR_FAQ.q}</span>
-                    <span className="mt-2 block">{LSR_FAQ.a}</span>
-                  </Label>
-                </div>
-                {showErrors && !lsrConsent ? (
-                  <p className="px-1 text-xs text-destructive">
-                    You must agree to Limited Scope Representation to continue.
-                  </p>
-                ) : null}
               </div>
 
               <div className="border-t border-border/60 bg-primary px-6 py-6 text-primary-foreground sm:px-8 sm:py-7">
@@ -569,8 +564,8 @@ export default function Pricing() {
                   <Button
                     size="lg"
                     onClick={openPayment}
-                    disabled={offRamp}
-                    className="h-14 w-full gap-2 rounded-full bg-accent px-10 text-base font-semibold text-accent-foreground shadow-[0_12px_28px_-12px_rgba(0,0,0,0.45)] hover:bg-accent/90 sm:w-auto sm:min-w-[220px]"
+                    disabled={offRamp || !lsrConsent}
+                    className="h-14 w-full gap-2 rounded-full bg-accent px-10 text-base font-semibold text-accent-foreground shadow-[0_12px_28px_-12px_rgba(0,0,0,0.45)] hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
                   >
                     {offRamp ? 'Not available' : `Pay $${total}`}
                     {offRamp ? null : <ArrowRight className="h-4 w-4" strokeWidth={2} />}
