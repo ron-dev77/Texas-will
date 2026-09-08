@@ -23,7 +23,7 @@ export default function Faq() {
                 ? 'lsr'
                 : item.q === 'Do you make living trusts?'
                   ? 'living-trust'
-                  : item.q === 'Can I leave a gift in a special needs trust or a Texas ABLE account?'
+                  : item.q === 'Can I leave a gift in a special needs trust?'
                     ? 'special-needs'
                     : undefined
             return (

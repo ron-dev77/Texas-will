@@ -41,7 +41,7 @@ export type OrderDraft = {
   partnerEmail?: string
   /** Revocable living trust add-on (+$50). Separate from spousal testamentary trust. */
   includeTrust: boolean
-  /** Phase 2 spousal testamentary trust from qualifier (+$400 provisional). */
+  /** Phase 2 spousal testamentary trust from qualifier (+$400). */
   includeSpousalTrust: boolean
   qualifier?: QualifierSnapshot
   /** Always includes `will`; other ids are optional at the same plan price. */

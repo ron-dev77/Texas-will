@@ -205,7 +205,7 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
   async function confirmSendToClient() {
     if (!items.length) return
     if (needsSntLawyerSignoff && !sntLawyerApproved) {
-      setMsg('A licensed Texas attorney must approve the special needs / Texas ABLE language before send.')
+      setMsg('A licensed Texas attorney must approve the special needs trust language before send.')
       return
     }
     setBusy('send')

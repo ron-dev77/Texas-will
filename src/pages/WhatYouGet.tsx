@@ -2,20 +2,17 @@ import { Link } from 'react-router-dom'
 import {
   ArrowRight,
   BadgeCheck,
-  Briefcase,
-  Building2,
   FileText,
   FolderOpen,
-  Home,
   Scale,
   ScrollText,
   ShieldCheck,
   ShieldPlus,
-  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PlanPairCards } from '@/components/site/PlanPairCards'
 import { ScrollReveal } from '@/components/site/ScrollReveal'
+import { HonestyFirstSection } from '@/components/site/HonestyFirstSection'
 import { cn } from '@/lib/utils'
 import { startWillPath } from '@/lib/start-will-path'
 
@@ -57,8 +54,8 @@ const DELIVERABLES = [
   },
   {
     n: '06',
-    t: 'Honest about when a living trust is a better fit',
-    d: 'This product is a Texas will, not a living trust. If you own property out of state, a private company interest, or need extra privacy, we point you to Texas estate-planning law firms instead of selling you the wrong tool.',
+    t: 'Honest about when you need more than a will',
+    d: 'Built for straightforward Texas estates. If your situation needs more than a will alone, we tell you upfront — and when a will is still a good first step anyway.',
     Icon: ShieldPlus,
     tone: 'accent' as const,
   },
@@ -187,7 +184,7 @@ export default function WhatYouGet() {
                           ) : null}
                           {isAccent ? (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-foreground">
-                              Optional add-on
+                              Straight talk
                             </span>
                           ) : null}
                         </div>
@@ -245,55 +242,7 @@ export default function WhatYouGet() {
         />
         <div className="relative mx-auto max-w-6xl px-5 sm:px-8">
           <ScrollReveal variant="up">
-            <div className="overflow-hidden rounded-[2rem] border border-border/70 bg-card shadow-[0_28px_70px_-40px_rgba(15,23,42,0.35)]">
-              <div className="grid lg:grid-cols-[1.05fr_0.95fr]">
-                <div className="relative flex flex-col justify-center px-7 py-10 sm:px-10 sm:py-14 lg:px-12">
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -left-16 top-8 h-48 w-48 rounded-full bg-accent/10 blur-3xl"
-                  />
-                  <div className="relative text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-                    Honesty first
-                  </div>
-                  <h2 className="relative mt-4 max-w-xl font-serif text-3xl leading-tight text-foreground sm:text-4xl lg:text-[2.75rem]">
-                    When My AI Will isn't the right fit
-                  </h2>
-                  <p className="relative mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-                    If you have multiple properties, own a business, have a blended family with
-                    complicated dynamics, or significant estate-tax planning needs, we'll tell you
-                    that upfront and recommend you work directly with an attorney. We'd rather be
-                    honest than sell you something that doesn't serve you.
-                  </p>
-                </div>
-
-                <div className="relative border-t border-border/70 bg-primary p-7 text-primary-foreground sm:p-9 lg:border-l lg:border-t-0 lg:p-10">
-                  <div className="absolute inset-x-0 top-0 h-1.5 bg-accent lg:inset-x-auto lg:inset-y-0 lg:left-0 lg:h-auto lg:w-1.5" />
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-                    Better served by a full attorney
-                  </p>
-                  <ul className="mt-6 grid gap-3">
-                    {[
-                      { label: 'Multiple properties', Icon: Home },
-                      { label: 'Business ownership', Icon: Briefcase },
-                      { label: 'Complex blended family', Icon: Users },
-                      { label: 'Estate-tax planning', Icon: Building2 },
-                    ].map(({ label, Icon }) => (
-                      <li
-                        key={label}
-                        className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5 transition duration-300 hover:border-accent/40 hover:bg-white/10"
-                      >
-                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-accent transition group-hover:bg-accent group-hover:text-accent-foreground">
-                          <Icon className="h-4 w-4" strokeWidth={1.75} />
-                        </span>
-                        <span className="text-sm font-medium text-primary-foreground sm:text-base">
-                          {label}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
+            <HonestyFirstSection />
           </ScrollReveal>
         </div>
       </section>

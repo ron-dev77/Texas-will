@@ -11,9 +11,10 @@ import {
   StripeCheckoutModal,
   type PaymentSuccessInfo,
 } from '@/components/checkout/StripeCheckoutModal'
+import { BusinessOwnerAccordion, emptyWillFitAnswers } from '@/components/site/BusinessOwnerAccordion'
 import { cn } from '@/lib/utils'
 import { finalizeCheckoutPayment, savePaidOrderDraft } from '@/lib/checkout'
-import { computeTotalDollars, planPriceDollars, spousalTrustAddonDollars, trustAddonDollars } from '@/lib/pricing'
+import { computeTotalDollars, planPriceDollars, spousalTrustAddonDollars } from '@/lib/pricing'
 import {
   loadQualifierDraft,
   qualifierComplete,
@@ -21,10 +22,11 @@ import {
 } from '@/lib/qualifier'
 import {
   listedOutsideCounselFirms,
-  RLT_FIT_REASONS,
+  SPOUSAL_TRUST_CHECKOUT_NOTE,
   WILL_BASED_EDUCATION,
+  WILL_FIT_REASONS,
   needsOutsideCounsel,
-  type RltFitId,
+  type WillFitId,
 } from '@/lib/outside-counsel'
 import {
   type OrderDraft,
@@ -47,11 +49,7 @@ function questionnairePath(token?: string | null, paymentIntentId?: string | nul
   return qs ? `/questionnaire?${qs}` : '/questionnaire'
 }
 
-const EMPTY_FIT: Record<RltFitId, 'yes' | 'no' | ''> = {
-  out_of_state_property: '',
-  private_business: '',
-  privacy: '',
-}
+const EMPTY_FIT = emptyWillFitAnswers()
 
 export default function Pricing() {
   const navigate = useNavigate()
@@ -60,8 +58,7 @@ export default function Pricing() {
 
   const [email, setEmail] = useState('')
   const [partnerEmail, setPartnerEmail] = useState('')
-  const [fit, setFit] = useState<Record<RltFitId, 'yes' | 'no' | ''>>(EMPTY_FIT)
-  const [includeTrust, setIncludeTrust] = useState(false)
+  const [fit, setFit] = useState<Record<WillFitId, 'yes' | 'no' | ''>>(EMPTY_FIT)
   const [documents, setDocuments] = useState<PackageDocId[]>(['will'])
   const [lsrConsent, setLsrConsent] = useState(false)
   const [showErrors, setShowErrors] = useState(false)
@@ -140,9 +137,10 @@ export default function Pricing() {
   }
 
   const base = planPriceDollars(plan)
-  const total = computeTotalDollars(plan, includeTrust, includeSpousalTrust)
-  const fitAnswered = RLT_FIT_REASONS.every((r) => fit[r.id] === 'yes' || fit[r.id] === 'no')
+  const total = computeTotalDollars(plan, false, includeSpousalTrust)
+  const fitAnswered = WILL_FIT_REASONS.every((r) => fit[r.id] === 'yes' || fit[r.id] === 'no')
   const offRamp = needsOutsideCounsel(fit)
+  const showBusinessDetail = fit.active_business === 'yes'
   const counselFirms = listedOutsideCounselFirms()
 
   const valid = useMemo(
@@ -164,7 +162,7 @@ export default function Pricing() {
       plan,
       email: email.trim().toLowerCase(),
       partnerEmail: plan === 'couples' ? partnerEmail.trim().toLowerCase() : undefined,
-      includeTrust,
+      includeTrust: false,
       includeSpousalTrust,
       qualifier: lockedQualifier,
       documents: normalizeOrderDocuments(documents),
@@ -332,7 +330,7 @@ export default function Pricing() {
                     </p>
                   </div>
                   <div className="mt-5 space-y-4">
-                    {RLT_FIT_REASONS.map((reason) => (
+                    {WILL_FIT_REASONS.map((reason) => (
                       <div key={reason.id}>
                         <p className="text-sm text-foreground">{reason.label}</p>
                         <div className="mt-2 flex gap-2">
@@ -360,14 +358,15 @@ export default function Pricing() {
                       </div>
                     ))}
                   </div>
+                  <BusinessOwnerAccordion show={showBusinessDetail} className="mt-4" />
                   {offRamp ? (
                     <div className="rounded-xl border border-accent/30 bg-accent/5 p-4">
                       <p className="text-sm font-medium text-foreground">
                         This product may not be the right fit
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        Please get a full estate plan from a Texas law firm. These are the firms we
-                        can name:
+                        Based on your answers, your estate may need more than this will product.
+                        These Texas estate-planning law firms can help with a fuller plan:
                       </p>
                       <ul className="mt-3 space-y-2 text-sm text-foreground">
                         {counselFirms.map((firm) => (
@@ -491,34 +490,18 @@ export default function Pricing() {
                   ) : null}
                 </div>
 
-                <div className="space-y-3 rounded-2xl border border-border/70 p-4">
-                  <p className="text-sm font-medium text-foreground">Optional add-ons</p>
-                  {includeSpousalTrust ? (
-                    <p className="text-xs text-muted-foreground">
-                      Spousal testamentary trust (+${spousalTrustAddonDollars()} provisional) — selected
-                      in{' '}
+                {includeSpousalTrust ? (
+                  <div className="rounded-2xl border border-border/70 p-4">
+                    <p className="text-sm font-medium text-foreground">Spousal testamentary trust</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      +${spousalTrustAddonDollars()} — selected in{' '}
                       <Link to="/summary" className="text-accent underline-offset-2 hover:underline">
                         your summary
                       </Link>
-                      .
+                      . {SPOUSAL_TRUST_CHECKOUT_NOTE}
                     </p>
-                  ) : null}
-                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/60 p-3">
-                    <Checkbox
-                      checked={includeTrust}
-                      onCheckedChange={(v) => setIncludeTrust(v === true)}
-                      className="mt-0.5"
-                    />
-                    <span className="text-sm">
-                      <span className="font-medium text-foreground">
-                        Revocable living trust (+${trustAddonDollars()})
-                      </span>
-                      <span className="mt-1 block text-xs text-muted-foreground">
-                        Separate from the spousal trust. Optional — not required for most Texans.
-                      </span>
-                    </span>
-                  </label>
-                </div>
+                  </div>
+                ) : null}
               </div>
 
               <div className="border-t border-border/60 bg-primary px-6 py-6 text-primary-foreground sm:px-8 sm:py-7">
@@ -538,14 +521,6 @@ export default function Pricing() {
                           <span>Spousal trust</span>
                           <span className="font-medium text-primary-foreground">
                             +${spousalTrustAddonDollars()}
-                          </span>
-                        </div>
-                      ) : null}
-                      {includeTrust ? (
-                        <div className="flex justify-between gap-6 sm:max-w-xs">
-                          <span>Living trust</span>
-                          <span className="font-medium text-primary-foreground">
-                            +${trustAddonDollars()}
                           </span>
                         </div>
                       ) : null}

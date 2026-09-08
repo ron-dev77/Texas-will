@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, Users, User } from 'lucide-react'
 import { CheckoutFlowShell } from '@/components/site/CheckoutFlowShell'
 import { CheckoutFlowSteps } from '@/components/site/CheckoutFlowSteps'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { InfoHelpButton } from '@/components/ui/info-help-modal'
 import { cn } from '@/lib/utils'
 import { spousalTrustAddonDollars } from '@/lib/pricing'
 import {
@@ -49,41 +50,53 @@ function OptionCard({
   title,
   description,
   icon: Icon,
+  helpTitle,
+  helpContent,
 }: {
   selected: boolean
   onClick: () => void
   title: string
   description: string
   icon?: typeof User
+  helpTitle?: string
+  helpContent?: ReactNode
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={cn(
-        'rounded-2xl border p-4 text-left transition sm:p-5',
+        'rounded-2xl border text-left transition',
         selected
           ? 'border-accent bg-accent/5 ring-1 ring-accent/30'
           : 'border-border/70 hover:border-accent/40',
       )}
     >
-      <div className="flex items-start gap-3">
-        {Icon ? (
-          <span
-            className={cn(
-              'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-              selected ? 'bg-accent/15 text-accent' : 'bg-secondary text-muted-foreground',
-            )}
-          >
-            <Icon className="h-4 w-4" strokeWidth={1.75} />
-          </span>
-        ) : null}
-        <div>
-          <p className="font-medium">{title}</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
+      <button type="button" onClick={onClick} className="w-full p-4 text-left sm:p-5">
+        <div className="flex items-start gap-3">
+          {Icon ? (
+            <span
+              className={cn(
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+                selected ? 'bg-accent/15 text-accent' : 'bg-secondary text-muted-foreground',
+              )}
+            >
+              <Icon className="h-4 w-4" strokeWidth={1.75} />
+            </span>
+          ) : null}
+          <div>
+            <p className="font-medium">{title}</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+      {helpTitle && helpContent ? (
+        <div className="flex items-center gap-1.5 px-4 pb-4 sm:px-5">
+          <InfoHelpButton title={helpTitle} className="h-7 w-7">
+            {helpContent}
+          </InfoHelpButton>
+          <span className="text-xs font-medium text-accent">{helpTitle}</span>
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -285,7 +298,7 @@ export default function Qualify() {
             <p className="mt-2 text-sm text-muted-foreground">
               {draft.plan === 'couples'
                 ? 'Combined household — we will ask whose children on the next screen if yes.'
-                : 'Biological or adopted children from before your current marriage or partnership.'}
+                : 'If you are married or partnered, we will ask next how to balance your spouse and these children — including a spousal trust option.'}
             </p>
             <div className="mt-6 flex gap-3">
               {(['yes', 'no'] as const).map((v) => (
@@ -340,18 +353,41 @@ export default function Qualify() {
             <h1 className="mt-2 font-serif text-2xl tracking-tight">
               How should we balance your spouse and your prior-relationship children?
             </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {draft.plan === 'individual'
+                ? 'Individual plan — you can still add a spousal testamentary trust if you want your spouse supported first and your prior-relationship children to receive what remains.'
+                : 'Couples plan — each of you will complete your own will; this choice applies to your order.'}
+            </p>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <OptionCard
                 selected={draft.spousalTrustChoice === 'simple'}
                 onClick={() => patch({ spousalTrustChoice: 'simple' as SpousalTrustChoice })}
                 title="Keep it simple"
-                description="Standard will language — included in base price. Spouse and children both named; Texas law applies as-is."
+                description="You name your spouse and/or your children from a prior relationship as heirs directly in your will, side by side — no trust, no extra steps. Just determine who gets what."
+                helpTitle="Worth knowing"
+                helpContent={
+                  <>
+                    <p>
+                      If your assets go to your spouse outright, your spouse then owns them outright
+                      too. There&apos;s nothing that requires your spouse to leave anything to your
+                      children from a prior relationship later — they&apos;re free to spend those
+                      assets, or leave them to their own children, a future spouse, or anyone else
+                      in their own will.
+                    </p>
+                    <p>
+                      This is a good fit if you&apos;re comfortable with that outcome. If you want
+                      to make sure your children from a prior relationship eventually receive
+                      something no matter what your spouse does later, the spousal trust option is
+                      built for that instead.
+                    </p>
+                  </>
+                }
               />
               <OptionCard
                 selected={draft.spousalTrustChoice === 'spousal_trust'}
                 onClick={() => patch({ spousalTrustChoice: 'spousal_trust' as SpousalTrustChoice })}
                 title="Add the spousal trust"
-                description={`Testamentary trust for spouse lifetime support, remainder to prior-relationship children. Provisional +$${spousalTrustAddonDollars()}.`}
+                description={`Instead of your spouse and/or your prior-relationship children inheriting side by side, your spouse is supported first — using income or assets held in a trust for their lifetime. Whatever remains after your spouse passes goes to your children from your prior relationship. This is a common choice when you want to make sure your spouse is taken care of, and make sure your children ultimately receive their inheritance — rather than leaving that decision to your spouse's own will later on, which they'd be free to change. $${spousalTrustAddonDollars()} flat, added to your plan total.`}
               />
             </div>
             {draft.spousalTrustChoice === 'simple' ? (

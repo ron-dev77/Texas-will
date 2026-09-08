@@ -418,7 +418,7 @@ export default function OrderDocumentReviewPage() {
     }
     if (orderNeedsSpecialNeedsLawyerSignoff(data.answers) && !sntLawyerApproved) {
       setActionMsg(
-        'A licensed Texas attorney must approve the special needs / Texas ABLE language before send.',
+        'A licensed Texas attorney must approve the special needs trust language before send.',
       )
       return
     }
@@ -486,7 +486,7 @@ export default function OrderDocumentReviewPage() {
   async function markDeliveredNoEmail() {
     if (data && orderNeedsSpecialNeedsLawyerSignoff(data.answers) && !sntLawyerApproved) {
       setActionMsg(
-        'A licensed Texas attorney must approve the special needs / Texas ABLE language before marking delivered.',
+        'A licensed Texas attorney must approve the special needs trust language before marking delivered.',
       )
       return
     }

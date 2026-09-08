@@ -8,7 +8,6 @@ import {
   computeTotalDollars,
   planPriceDollars,
   spousalTrustAddonDollars,
-  trustAddonDollars,
 } from '@/lib/pricing'
 import {
   estateBracketLabel,
@@ -152,9 +151,6 @@ export default function Summary() {
               </Link>
             </Button>
           </div>
-          <p className="mt-3 text-xs text-primary-foreground/50">
-            Plan locks when you pay · Living trust (+${trustAddonDollars()}) optional on the next step
-          </p>
         </header>
 
         {/* Answers grid */}
@@ -191,7 +187,6 @@ export default function Summary() {
             <ReceiptLine
               label="Spousal testamentary trust"
               amount={`+$${spousalAddon}`}
-              note="Provisional price — may change before launch"
               accent
               action={
                 <Link

@@ -38,8 +38,8 @@ export const FAQS = [
     a: "Usually no. My AI Will is Texas will-based estate planning. For most Texas residents whose assets are in Texas, a will plus beneficiary designations is enough, because Texas independent probate is relatively fast and inexpensive. A revocable living trust may be needed only in limited cases: you own a house or land outside Texas; you own an interest in a private LLC, partnership, or closely held company; or you have a heightened need for privacy (a will is filed in court). If any of those apply, we stop checkout and send you to Texas estate-planning law firms.",
   },
   {
-    q: 'Can I leave a gift in a special needs trust or a Texas ABLE account?',
-    a: 'Yes. If someone who inherits from you may get SSI or Medicaid, the questionnaire asks whether you want a special needs trust in this will, a gift to a Texas ABLE account, or both (ABLE first, leftover in the trust). ABLE accounts have contribution limits that change; we do not invent a dollar cutoff in the form. A licensed Texas attorney must read and approve that language before the will is sent to you.',
+    q: 'Can I leave a gift in a special needs trust?',
+    a: 'Yes. If someone who inherits from you may get SSI or Medicaid, the questionnaire can add a special needs trust in this will so their share supplements — rather than replaces — those benefits. A licensed Texas attorney must read and approve that language before the will is sent to you.',
   },
   {
     q: 'Is My AI Will a law firm?',

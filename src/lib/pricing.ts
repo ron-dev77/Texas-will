@@ -7,7 +7,7 @@ export const PLAN_PRICE_CENTS = {
 
 export const TRUST_ADDON_CENTS = 5000
 
-/** Provisional Phase 2 spousal testamentary trust — Scott must confirm final price. */
+/** Spousal testamentary trust add-on — $400 flat. */
 export const SPOUSAL_TRUST_ADDON_CENTS = 40000
 
 export type CheckoutPlan = keyof typeof PLAN_PRICE_CENTS

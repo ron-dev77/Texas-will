@@ -392,12 +392,14 @@ function AnswersTab({
 
   const visibleSections = sections
     .map((section) => {
-      const fields = getVisibleFields(section, answers.answers).filter((f) => {
-        const v = answers.answers[f.id]
-        if (v == null || v === '') return false
-        if (Array.isArray(v) && v.length === 0) return false
-        return true
-      })
+      const fields = getVisibleFields(section, answers.answers, Boolean(includeSpousalTrust)).filter(
+        (f) => {
+          const v = answers.answers[f.id]
+          if (v == null || v === '') return false
+          if (Array.isArray(v) && v.length === 0) return false
+          return true
+        },
+      )
       return { section, fields }
     })
     .filter((row) => row.fields.length > 0)

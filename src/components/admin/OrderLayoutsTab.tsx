@@ -389,7 +389,7 @@ export function OrderLayoutsTab({
 
       {needsSpecialNeedsLawyerSignoff(answersRow?.answers ?? {}) ? (
         <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-foreground">
-          This partner elected a special needs trust and/or Texas ABLE gift. Do not send these
+          This partner elected a special needs trust. Do not send these
           documents until a licensed Texas attorney reads that language and signs off on the Bucket
           send.
         </p>

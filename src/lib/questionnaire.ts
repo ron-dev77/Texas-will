@@ -31,6 +31,8 @@ export type Field = {
   /** Hard max length — prevents oversized PDF paragraphs. */
   maxLength?: number
   showIf?: ShowIf
+  /** Only shown when the order includes the spousal testamentary trust add-on. */
+  requiresSpousalTrust?: boolean
 }
 
 export type Section = {
@@ -40,8 +42,6 @@ export type Section = {
   fields: readonly Field[]
   /** Hide this section unless the order includes a trust add-on. */
   requiresTrust?: boolean
-  /** Phase 2 spousal testamentary trust add-on from qualifier. */
-  requiresSpousalTrust?: boolean
   /** Final review/submit step (no questions required). */
   isReview?: boolean
 }
@@ -179,18 +179,6 @@ export const SECTIONS: readonly Section[] = [
         type: 'yesno',
         required: true,
         showIf: { field: 'marital_status', in: ['married', 'domestic_partnership'] },
-      },
-      {
-        id: 'prior_relationship_children_scope',
-        label: 'Whose prior-relationship children? (Couples plans)',
-        type: 'radio',
-        required: true,
-        options: [
-          { value: 'me', label: 'Mine only' },
-          { value: 'partner', label: "My partner's only" },
-          { value: 'both', label: 'Both of us' },
-        ],
-        showIf: { field: 'has_prior_relationship_children', equals: 'yes' },
       },
       {
         id: 'children',
@@ -373,20 +361,12 @@ export const SECTIONS: readonly Section[] = [
         maxLength: 500,
         showIf: { field: 'residuary_plan', equals: 'custom' },
       },
-    ],
-  },
-  {
-    id: 'spousal_trust',
-    title: 'Spousal testamentary trust',
-    intro:
-      'You added the spousal trust. These answers populate the trust article in your will and the separate spousal trust document. Default is spouse as sole trustee (Option 1); co-trustee is Option 2. List only your own prior-relationship children as remainder beneficiaries — your spouse\'s will covers the reverse if you are a Couples order.',
-    requiresSpousalTrust: true,
-    fields: [
       {
         id: 'spousal_trust_trustee_mode',
         label: 'Who should serve as trustee?',
         type: 'radio',
         required: true,
+        requiresSpousalTrust: true,
         options: [
           { value: 'sole', label: 'My spouse as sole trustee (Option 1)' },
           { value: 'co_trustee', label: 'My spouse and a child as co-trustees (Option 2)' },
@@ -400,6 +380,7 @@ export const SECTIONS: readonly Section[] = [
         placeholder: 'Alex Rivera',
         minLength: 3,
         maxLength: 80,
+        requiresSpousalTrust: true,
         showIf: { field: 'spousal_trust_trustee_mode', equals: 'sole' },
       },
       {
@@ -410,6 +391,7 @@ export const SECTIONS: readonly Section[] = [
         placeholder: 'Michael Robert Chen',
         minLength: 3,
         maxLength: 80,
+        requiresSpousalTrust: true,
         showIf: { field: 'spousal_trust_trustee_mode', equals: 'co_trustee' },
       },
       {
@@ -420,6 +402,7 @@ export const SECTIONS: readonly Section[] = [
         placeholder: 'Emma Grace Doe',
         minLength: 3,
         maxLength: 80,
+        requiresSpousalTrust: true,
         showIf: { field: 'spousal_trust_trustee_mode', equals: 'co_trustee' },
       },
       {
@@ -429,6 +412,7 @@ export const SECTIONS: readonly Section[] = [
         type: 'longtext',
         minLength: 3,
         maxLength: 400,
+        requiresSpousalTrust: true,
       },
     ],
   },
@@ -475,9 +459,9 @@ export const SECTIONS: readonly Section[] = [
   },
   {
     id: 'special_needs',
-    title: 'Special needs and Texas ABLE',
+    title: 'Special needs trust',
     intro:
-      'If someone who will inherit from you has a disability or may get SSI or Medicaid, you can leave their share through a special needs trust in this will, a Texas ABLE account, or both. Those options are meant to add to government benefits, not replace them. A licensed Texas attorney must read and approve this language before we send the will. We do not set a dollar cutoff here; ABLE contribution limits change.',
+      'If someone who will inherit from you has a disability or may get SSI or Medicaid, you can leave their share through a special needs trust in this will. Those distributions are meant to add to government benefits, not replace them. A licensed Texas attorney must read and approve this language before we send the will.',
     fields: [
       {
         id: 'wants_snt',
@@ -487,55 +471,15 @@ export const SECTIONS: readonly Section[] = [
         required: true,
       },
       {
-        id: 'snt_plan',
-        label: 'How should that person\'s share be left?',
-        helper:
-          'A Texas ABLE account is often used for a smaller gift. A special needs trust can hold a larger share. You can also fill an ABLE account first and put any leftover in a special needs trust. The reviewing attorney will confirm which option fits.',
-        type: 'radio',
-        required: true,
-        options: [
-          {
-            value: 'trust',
-            label: 'Special needs trust in this will',
-          },
-          {
-            value: 'able',
-            label: 'Texas ABLE account',
-          },
-          {
-            value: 'able_then_trust',
-            label: 'Texas ABLE first; leftover in a special needs trust',
-          },
-        ],
-        showIf: { field: 'wants_snt', equals: 'yes' },
-      },
-      {
         id: 'snt_beneficiary_name',
         label: 'Beneficiary — full legal name',
-        helper: 'The person whose inheritance should go into the special needs trust and/or Texas ABLE account.',
+        helper: 'The person whose inheritance should be held in the special needs trust.',
         type: 'shorttext',
         required: true,
         placeholder: 'Maya Elise Doe',
         minLength: 3,
         maxLength: 80,
         showIf: { field: 'wants_snt', equals: 'yes' },
-      },
-      {
-        id: 'able_has_account',
-        label: 'Does this beneficiary already have a Texas ABLE account?',
-        type: 'yesno',
-        required: true,
-        showIf: { field: 'snt_plan', in: ['able', 'able_then_trust'] },
-      },
-      {
-        id: 'able_account_name',
-        label: 'Name on that Texas ABLE account (if you know it)',
-        type: 'shorttext',
-        required: true,
-        placeholder: 'Maya Elise Doe Texas ABLE',
-        minLength: 3,
-        maxLength: 120,
-        showIf: { field: 'able_has_account', equals: 'yes' },
       },
       {
         id: 'snt_trustee_name',
@@ -546,7 +490,7 @@ export const SECTIONS: readonly Section[] = [
         placeholder: 'Alex Rivera Doe',
         minLength: 3,
         maxLength: 80,
-        showIf: { field: 'snt_plan', in: ['trust', 'able_then_trust'] },
+        showIf: { field: 'wants_snt', equals: 'yes' },
       },
       {
         id: 'snt_successor_trustee_name',
@@ -557,7 +501,7 @@ export const SECTIONS: readonly Section[] = [
         placeholder: 'Jordan Lee',
         minLength: 3,
         maxLength: 80,
-        showIf: { field: 'snt_plan', in: ['trust', 'able_then_trust'] },
+        showIf: { field: 'wants_snt', equals: 'yes' },
       },
       {
         id: 'snt_remainder',
@@ -567,7 +511,7 @@ export const SECTIONS: readonly Section[] = [
         required: true,
         minLength: 8,
         maxLength: 500,
-        showIf: { field: 'snt_plan', in: ['trust', 'able_then_trust'] },
+        showIf: { field: 'wants_snt', equals: 'yes' },
       },
       {
         id: 'snt_contingent_remainder',
@@ -576,7 +520,7 @@ export const SECTIONS: readonly Section[] = [
         required: true,
         minLength: 8,
         maxLength: 400,
-        showIf: { field: 'snt_plan', in: ['trust', 'able_then_trust'] },
+        showIf: { field: 'wants_snt', equals: 'yes' },
       },
       {
         id: 'snt_trustee_notes',
@@ -584,14 +528,14 @@ export const SECTIONS: readonly Section[] = [
         type: 'longtext',
         minLength: 5,
         maxLength: 400,
-        showIf: { field: 'snt_plan', in: ['trust', 'able_then_trust'] },
+        showIf: { field: 'wants_snt', equals: 'yes' },
       },
       {
         id: 'snt_has_existing',
         label: 'Does this beneficiary already have a special needs trust?',
         type: 'yesno',
         required: true,
-        showIf: { field: 'snt_plan', in: ['trust', 'able_then_trust'] },
+        showIf: { field: 'wants_snt', equals: 'yes' },
       },
       {
         id: 'snt_existing_name',
@@ -1181,7 +1125,7 @@ export function getActiveSections(
   includeTrust: boolean,
   sections: readonly Section[] = SECTIONS,
   documents: readonly string[] = ['will'],
-  includeSpousalTrust = false,
+  _includeSpousalTrust = false,
 ): Section[] {
   const docs = new Set(documents.length ? documents : ['will'])
   const willOnly = new Set([
@@ -1190,7 +1134,6 @@ export function getActiveSections(
     'specific_gifts',
     'charitable',
     'residuary',
-    'spousal_trust',
     'beneficiary_designation',
     'special_needs',
     'final_wishes',
@@ -1201,9 +1144,7 @@ export function getActiveSections(
       if (s.requiresTrust || s.id === 'trust_trustees' || s.id === 'trust_distributions') {
         return includeTrust
       }
-      if (s.requiresSpousalTrust || s.id === 'spousal_trust') {
-        return includeSpousalTrust && docs.has('will')
-      }
+      if (s.id === 'spousal_trust') return false
       if (s.id === 'medical_poa') return docs.has('mpoa')
       if (s.id === 'durable_poa') return docs.has('dpoa')
       if (s.id === 'directive') return docs.has('directive')
@@ -1263,12 +1204,27 @@ export function isFieldVisible(field: Field, answers: Record<string, unknown>): 
   return true
 }
 
-export function getVisibleFields(section: Section, answers: Record<string, unknown>): Field[] {
+export function getVisibleFields(
+  section: Section,
+  answers: Record<string, unknown>,
+  includeSpousalTrust = false,
+): Field[] {
   return section.fields.filter((f) => {
+    if (f.requiresSpousalTrust && !includeSpousalTrust) return false
     if (f.id === 'name_future_minor_guardian') return showFutureMinorGuardianToggle(answers)
     if (GUARDIAN_FIELD_IDS.has(f.id)) return showGuardianFields(answers)
     return isFieldVisible(f, answers)
   })
+}
+
+export function missingRequired(
+  section: Section,
+  answers: Record<string, unknown>,
+  includeSpousalTrust = false,
+): Field[] {
+  return getVisibleFields(section, answers, includeSpousalTrust).filter(
+    (f) => f.required && !isFieldFilled(f, answers[f.id]),
+  )
 }
 
 export function isFieldFilled(field: Field, value: unknown): boolean {
@@ -1305,15 +1261,6 @@ export function isFieldFilled(field: Field, value: unknown): boolean {
     return true
   }
   return !(value === undefined || value === null || value === '')
-}
-
-export function missingRequired(
-  section: Section,
-  answers: Record<string, unknown>,
-): Field[] {
-  return getVisibleFields(section, answers).filter(
-    (f) => f.required && !isFieldFilled(f, answers[f.id]),
-  )
 }
 
 /**

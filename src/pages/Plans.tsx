@@ -5,7 +5,7 @@ import { ScrollReveal } from '@/components/site/ScrollReveal'
 import { WillBasedFitNote } from '@/components/site/WillBasedFitNote'
 import { Button } from '@/components/ui/button'
 import { startWillPath } from '@/lib/start-will-path'
-import { trustAddonDollars } from '@/lib/pricing'
+import { spousalTrustAddonDollars } from '@/lib/pricing'
 
 const INCLUDED = [
   'Texas Last Will and Testament',
@@ -58,8 +58,9 @@ export default function Plans() {
                 ))}
               </ul>
               <p className="mt-4 text-xs text-muted-foreground">
-                Optional revocable living trust (+${trustAddonDollars()}) and spousal testamentary
-                trust (if applicable) are chosen during qualify or on the pricing step — separate from base price.
+                Married with children from a prior relationship? Individual and Couples plans both
+                offer a spousal testamentary trust (+${spousalTrustAddonDollars()}) during the
+                short qualifier — separate from the base price.
               </p>
             </div>
           </ScrollReveal>

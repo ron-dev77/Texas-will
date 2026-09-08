@@ -17,16 +17,10 @@ function nameOrPlaceholder(v: unknown, fallback: string) {
   return plain(str(v, fallback)) || fallback
 }
 
-function boldName(v: unknown, fallback: string) {
-  return `**${nameOrPlaceholder(v, fallback)}**`
-}
-
 function firstName(full: string) {
   const t = plain(full)
   return t.split(/\s+/)[0] || t
 }
-
-export type SpecialNeedsPlan = 'trust' | 'able' | 'able_then_trust'
 
 export type SpecialNeedsArticle = {
   heading: string
@@ -35,7 +29,6 @@ export type SpecialNeedsArticle = {
 
 /** Follow-up fields cleared when the client says no to special-needs planning. */
 export const SPECIAL_NEEDS_FOLLOW_UP_IDS = [
-  'snt_plan',
   'snt_beneficiary_name',
   'snt_trustee_name',
   'snt_successor_trustee_name',
@@ -45,29 +38,14 @@ export const SPECIAL_NEEDS_FOLLOW_UP_IDS = [
   'snt_has_existing',
   'snt_existing_name',
   'snt_existing_date',
-  'able_has_account',
-  'able_account_name',
 ] as const
 
-export function specialNeedsPlan(answers: Answers): SpecialNeedsPlan | null {
-  if (str(answers.wants_snt) !== 'yes') return null
-  const plan = str(answers.snt_plan)
-  if (plan === 'able' || plan === 'able_then_trust' || plan === 'trust') return plan
-  return 'trust'
-}
-
 export function wantsSpecialNeedsTrust(answers: Answers) {
-  const plan = specialNeedsPlan(answers)
-  return plan === 'trust' || plan === 'able_then_trust'
-}
-
-export function wantsAbleGift(answers: Answers) {
-  const plan = specialNeedsPlan(answers)
-  return plan === 'able' || plan === 'able_then_trust'
+  return str(answers.wants_snt) === 'yes'
 }
 
 export function needsSpecialNeedsLawyerSignoff(answers: Answers) {
-  return str(answers.wants_snt) === 'yes'
+  return wantsSpecialNeedsTrust(answers)
 }
 
 export function orderNeedsSpecialNeedsLawyerSignoff(
@@ -77,37 +55,9 @@ export function orderNeedsSpecialNeedsLawyerSignoff(
 }
 
 export const SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT =
-  'I am Scott Pappas or another licensed Texas attorney. I have reviewed this special needs trust and/or Texas ABLE language against current Texas Property Code (Chapter 111 et seq.) and current SSI/Medicaid resource-eligibility rules, and I approve sending it to the client.'
+  'I am Scott Pappas or another licensed Texas attorney. I have reviewed this special needs trust language against current Texas Property Code (Chapter 111 et seq.) and current SSI/Medicaid resource-eligibility rules, and I approve sending it to the client.'
 
-function ableFundingParagraphs(answers: Answers, leftover: string): string[] {
-  const beneficiary = boldName(answers.snt_beneficiary_name, '[Beneficiary Full Legal Name]')
-  const hasAccount = str(answers.able_has_account) === 'yes'
-  const accountName = boldName(answers.able_account_name, '[Name of existing Texas ABLE account]')
-
-  const existing = hasAccount
-    ? `If Beneficiary already has a Texas ABLE account known as ${accountName}, my Independent Executor shall contribute to that account to the extent then permitted. If that account cannot receive the gift, my Independent Executor may open or cause to be opened a Texas ABLE account of which Beneficiary is the designated beneficiary, to the extent permitted.`
-    : 'If Beneficiary does not already have a Texas ABLE account, my Independent Executor may open or cause to be opened a Texas ABLE account of which Beneficiary is the designated beneficiary, to the extent permitted by the Texas ABLE Program and applicable federal law.'
-
-  return [
-    `This Article directs a gift for the benefit of ${beneficiary} ("Beneficiary") through the Texas ABLE Program. I understand Beneficiary may be receiving, or may in the future receive, government benefits based on disability, including but not limited to Supplemental Security Income (SSI) and Medicaid, and I intend that this gift supplement, and not replace or jeopardize, such benefits.`,
-    `**Texas ABLE account.** I give the share of my estate that would otherwise pass to Beneficiary under this Will to my Independent Executor, to contribute to a Texas ABLE account of which Beneficiary is the designated beneficiary, to the maximum amount then permitted by the Texas ABLE Program and applicable federal law. I do not set a dollar cutoff in this Will. Contribution limits change, and my Independent Executor shall follow the limits in effect at my death.`,
-    existing,
-    leftover,
-  ]
-}
-
-function buildAbleArticle(answers: Answers, leftoverInTrust: boolean): SpecialNeedsArticle {
-  const beneficiary = nameOrPlaceholder(answers.snt_beneficiary_name, '[Beneficiary Full Legal Name]')
-  const leftover = leftoverInTrust
-    ? '**Amount that cannot be contributed.** Any amount that cannot then be contributed to such an account shall be held and administered under the Special Needs Trust established in this Will, and shall not be distributed to Beneficiary free of trust.'
-    : "**Amount that cannot be contributed.** Any amount that cannot then be contributed to such an account shall be held by my Independent Executor for Beneficiary's special needs, supplementing rather than replacing government benefits, and shall not be distributed outright to Beneficiary if doing so would jeopardize eligibility for those benefits."
-  return {
-    heading: `TEXAS ABLE ACCOUNT FOR ${beneficiary.toUpperCase()}`,
-    paragraphs: ableFundingParagraphs(answers, leftover),
-  }
-}
-
-/** Testamentary SNT — matches the Scott-review draft, placeholders filled from answers. */
+/** Testamentary SNT — placeholders filled from answers. */
 function buildSntArticle(answers: Answers): SpecialNeedsArticle {
   const beneficiary = nameOrPlaceholder(answers.snt_beneficiary_name, '[Beneficiary Full Legal Name]')
   const first = firstName(beneficiary) || 'Beneficiary'
@@ -158,47 +108,23 @@ function buildSntArticle(answers: Answers): SpecialNeedsArticle {
 }
 
 export function buildSpecialNeedsArticles(answers: Answers): SpecialNeedsArticle[] {
-  const plan = specialNeedsPlan(answers)
-  if (!plan) return []
-  const articles: SpecialNeedsArticle[] = []
-  if (plan === 'able' || plan === 'able_then_trust') {
-    articles.push(buildAbleArticle(answers, plan === 'able_then_trust'))
-  }
-  if (plan === 'trust' || plan === 'able_then_trust') {
-    articles.push(buildSntArticle(answers))
-  }
-  return articles
+  if (!wantsSpecialNeedsTrust(answers)) return []
+  return [buildSntArticle(answers)]
 }
 
 export function buildSpecialNeedsTrustArticle(answers: Answers): SpecialNeedsArticle | null {
   const articles = buildSpecialNeedsArticles(answers)
-  if (articles.length === 0) return null
-  if (articles.length === 1) return articles[0]
-  return {
-    heading: articles.map((a) => a.heading).join('; '),
-    paragraphs: articles.flatMap((a, i) =>
-      i === 0 ? a.paragraphs : [`**${a.heading}**`, ...a.paragraphs],
-    ),
-  }
+  return articles[0] ?? null
 }
 
 export function specialNeedsTrustClauseText(answers: Answers): string {
-  const articles = buildSpecialNeedsArticles(answers)
-  if (articles.length === 0) return ''
-  return articles
-    .map((article) => [`**ARTICLE — ${article.heading}**`, ...article.paragraphs].join('\n\n'))
-    .join('\n\n')
+  const article = buildSpecialNeedsTrustArticle(answers)
+  if (!article) return ''
+  return [`**ARTICLE — ${article.heading}**`, ...article.paragraphs].join('\n\n')
 }
 
 export function residuarySpecialNeedsNote(answers: Answers): string | null {
-  const plan = specialNeedsPlan(answers)
-  if (!plan) return null
-  const beneficiary = boldName(answers.snt_beneficiary_name, '[Beneficiary]')
-  if (plan === 'able') {
-    return `Any share that would otherwise pass outright to ${beneficiary} shall instead be contributed to a Texas ABLE account of which ${beneficiary} is the designated beneficiary, to the maximum amount then permitted, and any amount that cannot be contributed shall be held for ${beneficiary}'s special needs and shall not be distributed to ${beneficiary} free of those limits if doing so would jeopardize government benefits.`
-  }
-  if (plan === 'able_then_trust') {
-    return `Any share that would otherwise pass outright to ${beneficiary} shall first be contributed to a Texas ABLE account of which ${beneficiary} is the designated beneficiary, to the maximum amount then permitted. Any leftover amount shall be held and administered under the Special Needs Trust established in this Will, and shall not be distributed to ${beneficiary} free of trust.`
-  }
+  if (!wantsSpecialNeedsTrust(answers)) return null
+  const beneficiary = `**${nameOrPlaceholder(answers.snt_beneficiary_name, '[Beneficiary]')}**`
   return `Any share that would otherwise pass outright to ${beneficiary} shall instead be held and administered under the Special Needs Trust established in this Will, and shall not be distributed to ${beneficiary} free of trust.`
 }

@@ -83,10 +83,7 @@ export const WILL_ENGINE_FIELD_IDS = [
   'beneficiary_forms_reviewed',
   'beneficiary_update_plan',
   'wants_snt',
-  'snt_plan',
   'snt_beneficiary_name',
-  'able_has_account',
-  'able_account_name',
   'snt_trustee_name',
   'snt_successor_trustee_name',
   'snt_remainder',
@@ -240,14 +237,12 @@ const AUTO_INSERT_SECTION_IDS = new Set([
   'hipaa',
   'final_wishes',
   'beneficiary_designation',
-  'spousal_trust',
   'special_needs',
   'trust_trustees',
   'trust_distributions',
 ])
 
 const INSERT_AFTER_RESIDUARY_SECTION_IDS = [
-  'spousal_trust',
   'beneficiary_designation',
   'special_needs',
 ] as const
@@ -309,7 +304,6 @@ const BUNDLED_QUESTION_SYNC_IDS = new Set([
   'durable_poa',
   'directive',
   'beneficiary_designation',
-  'spousal_trust',
   'special_needs',
 ])
 

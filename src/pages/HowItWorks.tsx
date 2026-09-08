@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollReveal } from '@/components/site/ScrollReveal'
 import { WillBasedFitNote } from '@/components/site/WillBasedFitNote'
 import { PageCta, PageHero, PageSection } from '@/components/site/PageShell'
+import { HOW_IT_WORKS_HONEST_FIT_LEAD } from '@/lib/outside-counsel'
 import { startWillPath } from '@/lib/start-will-path'
 
 const STEPS = [
@@ -50,7 +51,7 @@ export default function HowItWorks() {
 
       <PageSection className="pt-10 pb-4 sm:pt-14">
         <ScrollReveal variant="up" className="mx-auto max-w-4xl">
-          <WillBasedFitNote showFirms />
+          <WillBasedFitNote showFirms lead={HOW_IT_WORKS_HONEST_FIT_LEAD} />
         </ScrollReveal>
       </PageSection>
 

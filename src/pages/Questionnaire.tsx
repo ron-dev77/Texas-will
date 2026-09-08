@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { DateField } from '@/components/ui/date-field'
 import { PhoneField } from '@/components/ui/phone-field'
-import { cn } from '@/lib/utils'
+import { PersonPickSelect } from '@/components/questionnaire/PersonPickSelect'
+import { InfoHelpButton } from '@/components/ui/info-help-modal'
 import { startWillPath } from '@/lib/start-will-path'
 import { loadOrderDraft, type OrderDraft } from '@/lib/order'
 import {
@@ -32,11 +33,13 @@ import {
   type Section,
 } from '@/lib/questionnaire'
 import { getActiveQuestionnaireSchema } from '@/lib/admin-forms'
+import { collectNamedPeople, supportsPersonPicker } from '@/lib/questionnaire-people'
 import {
   erisaNoteText,
   getErisaNoteLevel,
 } from '@/lib/beneficiary-designation'
 import { COUPLES_BIDIRECTIONAL_SPOUSAL_TRUST_NOTE } from '@/lib/spousal-trust'
+import { cn } from '@/lib/utils'
 
 const STORAGE_KEY = 'myaiwill.questionnaire.v1'
 
@@ -166,16 +169,19 @@ export default function Questionnaire() {
     }
   }, [activeSections.length, sectionIdx])
 
+  const includeSpousalTrust = Boolean(order?.includeSpousalTrust)
+
   const visibleFields = useMemo(
-    () => (section ? getVisibleFields(section, answers) : []),
-    [section, answers],
+    () => (section ? getVisibleFields(section, answers, includeSpousalTrust) : []),
+    [section, answers, includeSpousalTrust],
   )
   const fieldRows = useMemo(() => groupFields(visibleFields), [visibleFields])
   const missing = useMemo(
-    () => (section ? missingRequired(section, answers) : []),
-    [section, answers],
+    () => (section ? missingRequired(section, answers, includeSpousalTrust) : []),
+    [section, answers, includeSpousalTrust],
   )
   const progressPct = Math.round(((sectionIdx + 1) / totalSections) * 100)
+  const namedPeople = useMemo(() => collectNamedPeople(answers), [answers])
 
   useEffect(() => {
     let cancelled = false
@@ -351,7 +357,6 @@ export default function Questionnaire() {
         delete next.charitable_gifts
       }
       if (id === 'wants_snt' && value === 'no') {
-        delete next.snt_plan
         delete next.snt_beneficiary_name
         delete next.snt_trustee_name
         delete next.snt_successor_trustee_name
@@ -361,25 +366,6 @@ export default function Questionnaire() {
         delete next.snt_has_existing
         delete next.snt_existing_name
         delete next.snt_existing_date
-        delete next.able_has_account
-        delete next.able_account_name
-      }
-      if (id === 'snt_plan' && value === 'able') {
-        delete next.snt_trustee_name
-        delete next.snt_successor_trustee_name
-        delete next.snt_remainder
-        delete next.snt_contingent_remainder
-        delete next.snt_trustee_notes
-        delete next.snt_has_existing
-        delete next.snt_existing_name
-        delete next.snt_existing_date
-      }
-      if (id === 'snt_plan' && value === 'trust') {
-        delete next.able_has_account
-        delete next.able_account_name
-      }
-      if (id === 'able_has_account' && value === 'no') {
-        delete next.able_account_name
       }
       if (
         id === 'marital_status' &&
@@ -558,33 +544,59 @@ export default function Questionnaire() {
                 />
               ) : (
                 <div className="space-y-4">
-                  {fieldRows.map((row) => (
-                    <div
-                      key={row.map((f) => f.id).join('-')}
-                      className={cn(
-                        'grid items-start gap-4',
-                        row.length === 2 && 'sm:grid-cols-2',
-                        row.length === 3 && 'sm:grid-cols-[1.2fr_1fr_0.7fr]',
-                      )}
-                    >
-                      {row.map((field) => (
-                        <FieldCell
-                          key={field.id}
-                          field={field}
-                          value={answers[field.id]}
-                          error={fieldErrors[field.id]}
-                          onChange={(v) => update(field.id, v)}
-                          onBlurValidate={() => validateField(field, answers[field.id], true)}
-                        />
-                      ))}
-                    </div>
-                  ))}
+                  {fieldRows.map((row, rowIdx) => {
+                    const showSpousalTrustHeading =
+                      section.id === 'residuary' &&
+                      includeSpousalTrust &&
+                      row.some((f) => f.id === 'spousal_trust_trustee_mode') &&
+                      !fieldRows
+                        .slice(0, rowIdx)
+                        .some((r) => r.some((f) => f.requiresSpousalTrust))
+
+                    return (
+                      <div key={row.map((f) => f.id).join('-')}>
+                        {showSpousalTrustHeading ? (
+                          <div className="mb-4 rounded-2xl border border-accent/20 bg-accent/5 px-4 py-3.5">
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+                              Spousal testamentary trust
+                            </p>
+                            <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+                              You added the spousal trust. These answers populate the trust article
+                              in your will. Default is spouse as sole trustee (Option 1); co-trustee
+                              is Option 2. List only your own prior-relationship children as
+                              remainder beneficiaries.
+                            </p>
+                          </div>
+                        ) : null}
+                        <div
+                          className={cn(
+                            'grid items-start gap-4',
+                            row.length === 2 && 'sm:grid-cols-2',
+                            row.length === 3 && 'sm:grid-cols-[1.2fr_1fr_0.7fr]',
+                          )}
+                        >
+                          {row.map((field) => (
+                            <FieldCell
+                              key={field.id}
+                              field={field}
+                              value={answers[field.id]}
+                              error={fieldErrors[field.id]}
+                              namedPeople={namedPeople}
+                              onChange={(v) => update(field.id, v)}
+                              onBlurValidate={() => validateField(field, answers[field.id], true)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
                   {section.id === 'beneficiary_designation' ? (
                     <ErisaSpousalNote answers={answers} />
                   ) : null}
-                  {section.id === 'spousal_trust' &&
+                  {section.id === 'residuary' &&
+                  includeSpousalTrust &&
                   order?.plan === 'couples' &&
-                  answers.prior_relationship_children_scope === 'both' ? (
+                  order?.qualifier?.priorKidsScope === 'both' ? (
                     <p
                       className="rounded-xl border border-amber-300/70 bg-amber-50/90 px-4 py-3 text-sm leading-relaxed text-foreground"
                       role="note"
@@ -657,23 +669,71 @@ function FieldCell({
   field,
   value,
   error,
+  namedPeople,
   onChange,
   onBlurValidate,
 }: {
   field: Field
   value: unknown
   error?: string
+  namedPeople: ReturnType<typeof collectNamedPeople>
   onChange: (v: unknown) => void
   onBlurValidate: () => void
 }) {
   if (field.type === 'yesno') {
+    const guardianHelp =
+      field.id === 'name_future_minor_guardian' ? (
+        <InfoHelpButton title="What is a guardian?" className="h-7 w-7">
+          <p>
+            A guardian is the person who would raise your children if you and your spouse or
+            co-parent are no longer able to. This is different from naming someone to manage money
+            or property for your kids — a guardian&apos;s job is about their day-to-day care and
+            upbringing.
+          </p>
+          <p>
+            This applies to your children now, and any born after you sign your will — you
+            don&apos;t need to update your will every time you have another child.
+          </p>
+          <p className="font-medium">Who should you name?</p>
+          <p>Most people choose based on:</p>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>Someone who shares your values around how you&apos;d want your kids raised</li>
+            <li>
+              Someone with the stability and capacity to take on full-time parenting — not just
+              someone you&apos;re close to
+            </li>
+            <li>Someone your kids already know and feel safe with, if possible</li>
+          </ul>
+          <p className="font-medium">A few things worth thinking through:</p>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>
+              <span className="font-medium">Name a backup.</span> Life circumstances change — your
+              first choice might not be able to serve when the time comes. A backup guardian means
+              the court doesn&apos;t have to decide without your input.
+            </li>
+            <li>
+              <span className="font-medium">Talk to them first.</span> This is a big responsibility.
+              Make sure the person you&apos;re naming is actually willing and able to take it on.
+            </li>
+            <li>
+              <span className="font-medium">A guardian doesn&apos;t have to be a relative.</span>{' '}
+              Choose the person best suited to raise your kids the way you&apos;d want, whether
+              that&apos;s family or not.
+            </li>
+          </ul>
+        </InfoHelpButton>
+      ) : null
+
     return (
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <Label htmlFor={field.id} className="text-[12.5px] font-medium text-foreground">
-            {shortLabelFor(field)}
-            {field.required ? <span className="ml-0.5 text-destructive">*</span> : null}
-          </Label>
+          <div className="flex items-start gap-1.5">
+            <Label htmlFor={field.id} className="text-[12.5px] font-medium text-foreground">
+              {shortLabelFor(field)}
+              {field.required ? <span className="ml-0.5 text-destructive">*</span> : null}
+            </Label>
+            {guardianHelp}
+          </div>
           {field.helper ? (
             <p className="mt-0.5 text-[11.5px] leading-snug text-muted-foreground">{field.helper}</p>
           ) : null}
@@ -683,6 +743,7 @@ function FieldCell({
           field={field}
           value={value}
           error={error}
+          namedPeople={namedPeople}
           onChange={onChange}
           onBlurValidate={onBlurValidate}
         />
@@ -701,6 +762,7 @@ function FieldCell({
           field={field}
           value={value}
           error={error}
+          namedPeople={namedPeople}
           onChange={onChange}
           onBlurValidate={onBlurValidate}
         />
@@ -718,12 +780,14 @@ function FieldControl({
   field,
   value,
   error,
+  namedPeople,
   onChange,
   onBlurValidate,
 }: {
   field: Field
   value: unknown
   error?: string
+  namedPeople: ReturnType<typeof collectNamedPeople>
   onChange: (v: unknown) => void
   onBlurValidate: () => void
 }) {
@@ -862,9 +926,21 @@ function FieldControl({
   }
 
   const isZip = field.id === 'address_zip'
+  const showPersonPicker =
+    field.type === 'shorttext' && supportsPersonPicker(field.id) && namedPeople.length > 0
 
   return (
-    <Input
+    <div className="space-y-1.5">
+      {showPersonPicker ? (
+        <PersonPickSelect
+          people={namedPeople}
+          onPick={(name) => {
+            onChange(name)
+            window.setTimeout(onBlurValidate, 0)
+          }}
+        />
+      ) : null}
+      <Input
       id={field.id}
       type={inputType}
       inputMode={isZip || field.id === 'trust_distribution_age' ? 'numeric' : undefined}
@@ -895,6 +971,7 @@ function FieldControl({
         error && 'border-destructive/50 focus-visible:ring-destructive/30',
       )}
     />
+    </div>
   )
 }
 
@@ -1130,7 +1207,7 @@ function ReviewPanel({
       {/* Professional summary cards */}
       <div className="space-y-3">
         {sections.map((s, idx) => {
-          const fields = getVisibleFields(s, answers)
+          const fields = getVisibleFields(s, answers, Boolean(order?.includeSpousalTrust))
           return (
             <div
               key={s.id}

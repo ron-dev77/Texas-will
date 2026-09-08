@@ -11,9 +11,16 @@ type Props = {
   className?: string
   showFirms?: boolean
   tone?: 'light' | 'dark'
+  /** Optional opening sentence (How it works page). */
+  lead?: string
 }
 
-export function WillBasedFitNote({ className, showFirms = false, tone = 'light' }: Props) {
+export function WillBasedFitNote({
+  className,
+  showFirms = false,
+  tone = 'light',
+  lead,
+}: Props) {
   const firms = listedOutsideCounselFirms()
   const dark = tone === 'dark'
 
@@ -73,13 +80,32 @@ export function WillBasedFitNote({ className, showFirms = false, tone = 'light' 
           </div>
         </div>
 
+        {lead ? (
+          <p
+            className={cn(
+              'mt-4 max-w-3xl text-sm leading-relaxed sm:text-base',
+              dark ? 'text-primary-foreground/75' : 'text-muted-foreground',
+            )}
+          >
+            {lead}
+          </p>
+        ) : null}
         <p
           className={cn(
-            'mt-4 max-w-3xl text-sm leading-relaxed sm:text-base',
+            lead ? 'mt-3' : 'mt-4',
+            'max-w-3xl text-sm leading-relaxed sm:text-base',
             dark ? 'text-primary-foreground/75' : 'text-muted-foreground',
           )}
         >
           {WILL_BASED_EDUCATION.body}
+        </p>
+        <p
+          className={cn(
+            'mt-3 max-w-3xl text-sm leading-relaxed',
+            dark ? 'text-primary-foreground/70' : 'text-muted-foreground',
+          )}
+        >
+          {WILL_BASED_EDUCATION.closing}
         </p>
 
         <div className="mt-5">
