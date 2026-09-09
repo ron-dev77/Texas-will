@@ -563,8 +563,8 @@ export default function Questionnaire() {
                             <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
                               You added the spousal trust. These answers populate the trust article
                               in your will. Default is spouse as sole trustee (Option 1); co-trustee
-                              is Option 2. List only your own prior-relationship children as
-                              remainder beneficiaries.
+                              is Option 2. List your children as remainder beneficiaries — not your
+                              spouse&apos;s children from a prior relationship.
                             </p>
                           </div>
                         ) : null}

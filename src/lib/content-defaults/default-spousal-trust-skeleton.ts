@@ -21,7 +21,7 @@ I appoint my spouse as the sole Trustee of the {{legal_full_name}} Family Trust.
 (a) Mandatory Net Income: The Trustee shall pay to or apply for the benefit of my spouse all of the net income of the Trust, distributed at least annually or in more frequent installments. (b) Principal Discretion (HEMS Standard): The Trustee may pay to or apply for the benefit of my spouse so much of the trust principal as the Trustee deems necessary or advisable, in the Trustee's sole discretion, for my spouse's health, education, maintenance, and support in reasonable comfort (the "HEMS Standard"), taking into consideration any other financial resources known to the Trustee to be available to my spouse.
 
 ### Termination and Remainder Distribution
-Upon the death of my spouse, the {{legal_full_name}} Family Trust shall terminate. The Trustee shall distribute the remaining trust principal and any accrued but undistributed net income in equal shares to my children from my prior relationship: {{spousal_trust_remainder_children}}, per stirpes and not per capita.
+Upon the death of my spouse, the {{legal_full_name}} Family Trust shall terminate. The Trustee shall distribute the remaining trust principal and any accrued but undistributed net income in equal shares to my children: {{spousal_trust_remainder_children}}, per stirpes and not per capita.
 
 ### Texas Statutory Administration Powers
 (a) General Powers under Texas Property Code § 111.001 et seq. (b) Accounting under Tex. Prop. Code § 113.151. (c) Principal and Income under Chapter 116. (d) Non-Pro Rata Distributions under Tex. Prop. Code § 113.027.

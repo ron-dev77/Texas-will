@@ -355,7 +355,7 @@ export default function Qualify() {
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               {draft.plan === 'individual'
-                ? 'Individual plan — you can still add a spousal testamentary trust if you want your spouse supported first and your prior-relationship children to receive what remains.'
+                ? 'You can still add a spousal testamentary trust if you want your spouse supported first and all of your children — from this marriage or a prior one — to receive what remains.'
                 : 'Couples plan — each of you will complete your own will; this choice applies to your order.'}
             </p>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -387,7 +387,7 @@ export default function Qualify() {
                 selected={draft.spousalTrustChoice === 'spousal_trust'}
                 onClick={() => patch({ spousalTrustChoice: 'spousal_trust' as SpousalTrustChoice })}
                 title="Add the spousal trust"
-                description={`Instead of your spouse and/or your prior-relationship children inheriting side by side, your spouse is supported first — using income or assets held in a trust for their lifetime. Whatever remains after your spouse passes goes to your children from your prior relationship. This is a common choice when you want to make sure your spouse is taken care of, and make sure your children ultimately receive their inheritance — rather than leaving that decision to your spouse's own will later on, which they'd be free to change. $${spousalTrustAddonDollars()} flat, added to your plan total.`}
+                description={`Instead of your spouse and your children inheriting side by side, your spouse is supported first. Whatever remains after your spouse passes goes to your children — whether from your current marriage or a prior one. $${spousalTrustAddonDollars()} flat, added to your plan total.`}
               />
             </div>
             {draft.spousalTrustChoice === 'simple' ? (

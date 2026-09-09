@@ -408,7 +408,7 @@ export const SECTIONS: readonly Section[] = [
       {
         id: 'spousal_trust_remainder_children',
         label: 'Children who receive the remainder (comma-separated)',
-        helper: 'Usually your prior-relationship children. Defaults from your children list if blank.',
+        helper: 'Your children who receive what remains after your spouse — from this marriage or a prior one. Defaults from your children list if blank.',
         type: 'longtext',
         minLength: 3,
         maxLength: 400,
