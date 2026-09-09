@@ -58,7 +58,7 @@ export const BUNDLED_MPOA_SKELETON = pack('MEDICAL POWER OF ATTORNEY', [
     id: 'm-agent',
     kind: 'paragraph',
     body:
-      '**Name:** {{mpoa_agent_name}}\n**Address:** {{mpoa_agent_address}}\n**Phone:** {{mpoa_agent_phone}}',
+      '**Name:** {{mpoa_agent_name}}',
     blankLinesAfter: 1,
   },
   {
@@ -114,7 +114,7 @@ export const BUNDLED_MPOA_SKELETON = pack('MEDICAL POWER OF ATTORNEY', [
     id: 'm-alt1',
     kind: 'paragraph',
     body:
-      '**Name:** {{mpoa_alt_agent_name}}\n**Address:** {{mpoa_alt_agent_address}}\n**Phone:** {{mpoa_alt_agent_phone}}',
+      '**Name:** {{mpoa_alt_agent_name}}',
     blankLinesAfter: 1,
   },
   {
@@ -128,7 +128,7 @@ export const BUNDLED_MPOA_SKELETON = pack('MEDICAL POWER OF ATTORNEY', [
     id: 'm-alt2',
     kind: 'paragraph',
     body:
-      '**Name:** {{mpoa_alt2_agent_name}}\n**Address:** {{mpoa_alt2_agent_address}}\n**Phone:** {{mpoa_alt2_agent_phone}}',
+      '**Name:** {{mpoa_alt2_agent_name}}',
     blankLinesAfter: 1,
   },
   {
@@ -411,7 +411,7 @@ export const BUNDLED_DPOA_SKELETON = pack('STATUTORY DURABLE POWER OF ATTORNEY',
     id: 'd-appoint',
     kind: 'paragraph',
     body:
-      'I, **{{legal_full_name}}**, **{{address_street}}, {{address_city}}, Texas {{address_zip}}** (insert your name and address), appoint **{{dpoa_agent_name}}**, **{{dpoa_agent_address}}** (insert the name and address of the person appointed) as my agent to act for me in any lawful way with respect to all of the following powers that I have initialed below. (YOU MAY APPOINT CO-AGENTS. UNLESS YOU PROVIDE OTHERWISE, CO-AGENTS MAY ACT INDEPENDENTLY.)',
+      'I, **{{legal_full_name}}**, **{{address_street}}, {{address_city}}, Texas {{address_zip}}** (insert your name and address), appoint **{{dpoa_agent_name}}** (insert the name of the person appointed) as my agent to act for me in any lawful way with respect to all of the following powers that I have initialed below. (YOU MAY APPOINT CO-AGENTS. UNLESS YOU PROVIDE OTHERWISE, CO-AGENTS MAY ACT INDEPENDENTLY.)',
     blankLinesAfter: 1,
   },
   {
@@ -524,7 +524,7 @@ export const BUNDLED_DPOA_SKELETON = pack('STATUTORY DURABLE POWER OF ATTORNEY',
     id: 'd-alt1',
     kind: 'paragraph',
     body:
-      '**Name:** {{dpoa_alt_agent_name}}\n**Address:** {{dpoa_alt_agent_address}}\n**Phone:** {{dpoa_alt_agent_phone}}',
+      '**Name:** {{dpoa_alt_agent_name}}',
     blankLinesAfter: 1,
   },
   {
@@ -538,7 +538,7 @@ export const BUNDLED_DPOA_SKELETON = pack('STATUTORY DURABLE POWER OF ATTORNEY',
     id: 'd-alt2',
     kind: 'paragraph',
     body:
-      '**Name:** {{dpoa_alt2_agent_name}}\n**Address:** {{dpoa_alt2_agent_address}}\n**Phone:** {{dpoa_alt2_agent_phone}}',
+      '**Name:** {{dpoa_alt2_agent_name}}',
     blankLinesAfter: 1,
   },
   {
@@ -879,28 +879,28 @@ export const BUNDLED_HIPAA_SKELETON = pack(
       id: 'h-rep1',
       kind: 'paragraph',
       body:
-        '**Name:** {{hipaa_rep1_name}}\n**Address:** {{hipaa_rep1_address}}\n**Phone:** {{hipaa_rep1_phone}}',
+        '**Name:** {{hipaa_rep1_name}}',
       blankLinesAfter: 1,
     },
     {
       id: 'h-rep2',
       kind: 'paragraph',
       body:
-        '**Name:** {{hipaa_rep2_name}}\n**Address:** {{hipaa_rep2_address}}\n**Phone:** {{hipaa_rep2_phone}}',
+        '**Name:** {{hipaa_rep2_name}}',
       blankLinesAfter: 1,
     },
     {
       id: 'h-rep3',
       kind: 'paragraph',
       body:
-        '**Name:** {{hipaa_rep3_name}}\n**Address:** {{hipaa_rep3_address}}\n**Phone:** {{hipaa_rep3_phone}}',
+        '**Name:** {{hipaa_rep3_name}}',
       blankLinesAfter: 1,
     },
     {
       id: 'h-rep4',
       kind: 'paragraph',
       body:
-        '**Name:** {{hipaa_rep4_name}}\n**Address:** {{hipaa_rep4_address}}\n**Phone:** {{hipaa_rep4_phone}}',
+        '**Name:** {{hipaa_rep4_name}}',
       blankLinesAfter: 1,
     },
     {

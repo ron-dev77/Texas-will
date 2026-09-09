@@ -601,9 +601,9 @@ export function buildMpoaFromAnswers(answers: Answers): WillContent {
       {
         heading: 'APPOINTMENT OF AGENT',
         paragraphs: [
-          `I, **${name}**, appoint **${plain(str(answers.mpoa_agent_name, '[Agent]'))}** as my medical agent. Address: ${plain(str(answers.mpoa_agent_address)) || '—'}. Phone: ${plain(str(answers.mpoa_agent_phone)) || '—'}.`,
+          `I, **${name}**, appoint **${plain(str(answers.mpoa_agent_name, '[Agent]'))}** as my medical agent.`,
           answers.mpoa_alt_agent_name
-            ? `Alternate agent: **${plain(str(answers.mpoa_alt_agent_name))}**. Phone: ${plain(str(answers.mpoa_alt_agent_phone)) || '—'}.`
+            ? `Alternate agent: **${plain(str(answers.mpoa_alt_agent_name))}**.`
             : 'No alternate agent named.',
         ],
       },
@@ -624,7 +624,7 @@ export function buildDpoaFromAnswers(answers: Answers): WillContent {
       {
         heading: 'APPOINTMENT OF AGENT',
         paragraphs: [
-          `I, **${name}**, appoint **${plain(str(answers.dpoa_agent_name, '[Agent]'))}** of ${plain(str(answers.dpoa_agent_address)) || '[address]'} as my agent. Phone: ${plain(str(answers.dpoa_agent_phone)) || '—'}.`,
+          `I, **${name}**, appoint **${plain(str(answers.dpoa_agent_name, '[Agent]'))}** as my agent.`,
           answers.dpoa_alt_agent_name
             ? `Alternate agent: **${plain(str(answers.dpoa_alt_agent_name))}**.`
             : 'No alternate agent named.',
@@ -666,10 +666,7 @@ export function buildHipaaFromAnswers(answers: Answers): WillContent {
   const reps = [1, 2, 3, 4]
     .map((n) => {
       const person = plain(str(answers[`hipaa_rep${n}_name`]))
-      if (!person) return ''
-      const address = plain(str(answers[`hipaa_rep${n}_address`]))
-      const phone = plain(str(answers[`hipaa_rep${n}_phone`]))
-      return [person, address, phone].filter(Boolean).join(', ')
+      return person || ''
     })
     .filter(Boolean)
   return {

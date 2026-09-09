@@ -11,7 +11,7 @@ import { PhoneField } from '@/components/ui/phone-field'
 import { PersonPickSelect } from '@/components/questionnaire/PersonPickSelect'
 import { InfoHelpButton } from '@/components/ui/info-help-modal'
 import { startWillPath } from '@/lib/start-will-path'
-import { loadOrderDraft, type OrderDraft } from '@/lib/order'
+import { loadOrderDraft, resolveIncludeSpousalTrust, type OrderDraft } from '@/lib/order'
 import {
   ensureQuestionnaireSession,
   saveQuestionnaireAnswers,
@@ -32,7 +32,7 @@ import {
   type PersonRow,
   type Section,
 } from '@/lib/questionnaire'
-import { getActiveQuestionnaireSchema } from '@/lib/admin-forms'
+import { ensureSpousalTrustFieldFlags, getActiveQuestionnaireSchema } from '@/lib/admin-forms'
 import { collectNamedPeople, supportsPersonPicker } from '@/lib/questionnaire-people'
 import {
   erisaNoteText,
@@ -156,9 +156,9 @@ export default function Questionnaire() {
         Boolean(order?.includeTrust),
         formSections,
         order?.documents ?? ['will'],
-        Boolean(order?.includeSpousalTrust),
+        resolveIncludeSpousalTrust(order),
       ),
-    [order?.includeTrust, order?.includeSpousalTrust, order?.documents, formSections],
+    [order, order?.includeTrust, order?.documents, formSections],
   )
   const section = activeSections[Math.min(sectionIdx, activeSections.length - 1)] ?? activeSections[0]
   const totalSections = activeSections.length
@@ -169,7 +169,7 @@ export default function Questionnaire() {
     }
   }, [activeSections.length, sectionIdx])
 
-  const includeSpousalTrust = Boolean(order?.includeSpousalTrust)
+  const includeSpousalTrust = resolveIncludeSpousalTrust(order)
 
   const visibleFields = useMemo(
     () => (section ? getVisibleFields(section, answers, includeSpousalTrust) : []),
@@ -194,7 +194,7 @@ export default function Questionnaire() {
           ensureQuestionnaireSession(draft, local, tokenFromUrl, paymentIntentFromUrl),
         ])
         if (cancelled) return
-        setFormSections(schemaResult.sections)
+        setFormSections(ensureSpousalTrustFieldFlags(schemaResult.sections))
         sessionRef.current = result.session
         setSession(result.session)
         if (result.order) setOrder(result.order)
@@ -206,7 +206,7 @@ export default function Questionnaire() {
         if (cancelled) return
         try {
           const schemaResult = await getActiveQuestionnaireSchema()
-          if (!cancelled) setFormSections(schemaResult.sections)
+          if (!cancelled) setFormSections(ensureSpousalTrustFieldFlags(schemaResult.sections))
         } catch {
           /* keep bundled SECTIONS */
         }
@@ -518,7 +518,16 @@ export default function Questionnaire() {
               <h1 className="font-serif text-[1.55rem] leading-tight tracking-tight text-foreground">
                 {section.title}
               </h1>
-              <p className="max-w-xl text-[13px] leading-snug text-muted-foreground">{section.intro}</p>
+              <p className="max-w-xl text-[13px] leading-snug text-muted-foreground">
+                {section.intro}
+                {section.id === 'residuary' && includeSpousalTrust ? (
+                  <>
+                    {' '}
+                    Additional spousal-trust questions appear below. Income and HEMS language is
+                    included automatically in your trust document.
+                  </>
+                ) : null}
+              </p>
             </div>
 
             <div className="px-6 py-4 sm:px-8">
@@ -1239,7 +1248,7 @@ function ReviewPanel({
     Boolean(order?.includeTrust),
     formSections,
     order?.documents ?? ['will'],
-    Boolean(order?.includeSpousalTrust),
+    resolveIncludeSpousalTrust(order),
   ).filter((s) => !s.isReview && s.id !== 'review')
 
   return (
@@ -1281,7 +1290,7 @@ function ReviewPanel({
       {/* Professional summary cards */}
       <div className="space-y-3">
         {sections.map((s, idx) => {
-          const fields = getVisibleFields(s, answers, Boolean(order?.includeSpousalTrust))
+          const fields = getVisibleFields(s, answers, resolveIncludeSpousalTrust(order))
           return (
             <div
               key={s.id}

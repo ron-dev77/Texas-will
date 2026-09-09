@@ -681,7 +681,7 @@ export const SECTIONS: readonly Section[] = [
     id: 'medical_poa',
     title: 'Medical power of attorney',
     intro:
-      'Designation of health care agent. These answers fill the Texas Medical Power of Attorney (Name, Address, and Phone for each agent).',
+      'Designation of health care agent. Texas does not require your agent’s address or phone on this form — name only.',
     fields: [
       {
         id: 'mpoa_agent_name',
@@ -691,22 +691,6 @@ export const SECTIONS: readonly Section[] = [
         placeholder: 'Alex Rivera',
         minLength: 2,
         maxLength: 80,
-      },
-      {
-        id: 'mpoa_agent_address',
-        label: 'Health care agent — address',
-        type: 'longtext',
-        required: true,
-        placeholder: '123 Main St, Austin, TX 78701',
-        minLength: 8,
-        maxLength: 200,
-      },
-      {
-        id: 'mpoa_agent_phone',
-        label: 'Health care agent — phone',
-        type: 'phone',
-        required: true,
-        placeholder: '(512) 555-0100',
       },
       {
         id: 'mpoa_limitations',
@@ -724,39 +708,11 @@ export const SECTIONS: readonly Section[] = [
         maxLength: 80,
       },
       {
-        id: 'mpoa_alt_agent_address',
-        label: 'First alternate agent — address (optional)',
-        type: 'longtext',
-        placeholder: '456 Oak Ave, Dallas, TX 75201',
-        minLength: 8,
-        maxLength: 200,
-      },
-      {
-        id: 'mpoa_alt_agent_phone',
-        label: 'First alternate agent — phone (optional)',
-        type: 'phone',
-        placeholder: '(512) 555-0199',
-      },
-      {
         id: 'mpoa_alt2_agent_name',
         label: 'Second alternate agent — full name (optional)',
         type: 'shorttext',
         placeholder: 'Sam Patel',
         maxLength: 80,
-      },
-      {
-        id: 'mpoa_alt2_agent_address',
-        label: 'Second alternate agent — address (optional)',
-        type: 'longtext',
-        placeholder: '789 Pine St, Houston, TX 77002',
-        minLength: 8,
-        maxLength: 200,
-      },
-      {
-        id: 'mpoa_alt2_agent_phone',
-        label: 'Second alternate agent — phone (optional)',
-        type: 'phone',
-        placeholder: '(512) 555-0177',
       },
       {
         id: 'mpoa_expires_on',
@@ -772,7 +728,7 @@ export const SECTIONS: readonly Section[] = [
     id: 'durable_poa',
     title: 'Durable power of attorney',
     intro:
-      'Statutory Durable Power of Attorney. Name your agent and successors. This does not authorize medical or health-care decisions.',
+      'Statutory Durable Power of Attorney. Name your agent and successors — Texas does not require their address or phone here. This does not authorize medical or health-care decisions.',
     fields: [
       {
         id: 'dpoa_agent_name',
@@ -782,21 +738,6 @@ export const SECTIONS: readonly Section[] = [
         placeholder: 'Alex Rivera',
         minLength: 2,
         maxLength: 80,
-      },
-      {
-        id: 'dpoa_agent_address',
-        label: 'Agent — address',
-        type: 'longtext',
-        required: true,
-        placeholder: '123 Main St, Austin, TX 78701',
-        minLength: 8,
-        maxLength: 200,
-      },
-      {
-        id: 'dpoa_agent_phone',
-        label: 'Agent — phone (optional)',
-        type: 'phone',
-        placeholder: '(512) 555-0100',
       },
       {
         id: 'dpoa_grant_all',
@@ -863,39 +804,11 @@ export const SECTIONS: readonly Section[] = [
         maxLength: 80,
       },
       {
-        id: 'dpoa_alt_agent_address',
-        label: 'First alternate agent — address (optional)',
-        type: 'longtext',
-        placeholder: '456 Oak Ave, Dallas, TX 75201',
-        minLength: 8,
-        maxLength: 200,
-      },
-      {
-        id: 'dpoa_alt_agent_phone',
-        label: 'First alternate agent — phone (optional)',
-        type: 'phone',
-        placeholder: '(512) 555-0199',
-      },
-      {
         id: 'dpoa_alt2_agent_name',
         label: 'Second alternate agent — full name (optional)',
         type: 'shorttext',
         placeholder: 'Sam Patel',
         maxLength: 80,
-      },
-      {
-        id: 'dpoa_alt2_agent_address',
-        label: 'Second alternate agent — address (optional)',
-        type: 'longtext',
-        placeholder: '789 Pine St, Houston, TX 77002',
-        minLength: 8,
-        maxLength: 200,
-      },
-      {
-        id: 'dpoa_alt2_agent_phone',
-        label: 'Second alternate agent — phone (optional)',
-        type: 'phone',
-        placeholder: '(214) 555-0133',
       },
     ],
   },
@@ -971,7 +884,7 @@ export const SECTIONS: readonly Section[] = [
     id: 'hipaa',
     title: 'HIPAA release',
     intro:
-      'Name up to four Personal Representatives. Your Health Care Providers may disclose your Individually Identifiable Health Information to these people and discuss it with them.',
+      'Name up to four Personal Representatives. Texas does not require their address or phone — names only.',
     fields: [
       {
         id: 'hipaa_rep1_name',
@@ -983,41 +896,11 @@ export const SECTIONS: readonly Section[] = [
         maxLength: 80,
       },
       {
-        id: 'hipaa_rep1_address',
-        label: 'Personal Representative 1 — address',
-        type: 'longtext',
-        required: true,
-        placeholder: '123 Main St, Austin, TX 78701',
-        minLength: 8,
-        maxLength: 200,
-      },
-      {
-        id: 'hipaa_rep1_phone',
-        label: 'Personal Representative 1 — phone',
-        type: 'phone',
-        required: true,
-        placeholder: '(512) 555-0100',
-      },
-      {
         id: 'hipaa_rep2_name',
         label: 'Personal Representative 2 — full name (optional)',
         type: 'shorttext',
         placeholder: 'Jordan Lee',
         maxLength: 80,
-      },
-      {
-        id: 'hipaa_rep2_address',
-        label: 'Personal Representative 2 — address (optional)',
-        type: 'longtext',
-        placeholder: '456 Oak Ave, Dallas, TX 75201',
-        minLength: 8,
-        maxLength: 200,
-      },
-      {
-        id: 'hipaa_rep2_phone',
-        label: 'Personal Representative 2 — phone (optional)',
-        type: 'phone',
-        placeholder: '(512) 555-0199',
       },
       {
         id: 'hipaa_rep3_name',
@@ -1027,39 +910,11 @@ export const SECTIONS: readonly Section[] = [
         maxLength: 80,
       },
       {
-        id: 'hipaa_rep3_address',
-        label: 'Personal Representative 3 — address (optional)',
-        type: 'longtext',
-        placeholder: '789 Pine St, Houston, TX 77002',
-        minLength: 8,
-        maxLength: 200,
-      },
-      {
-        id: 'hipaa_rep3_phone',
-        label: 'Personal Representative 3 — phone (optional)',
-        type: 'phone',
-        placeholder: '(214) 555-0133',
-      },
-      {
         id: 'hipaa_rep4_name',
         label: 'Personal Representative 4 — full name (optional)',
         type: 'shorttext',
         placeholder: 'Casey Morgan Reed',
         maxLength: 80,
-      },
-      {
-        id: 'hipaa_rep4_address',
-        label: 'Personal Representative 4 — address (optional)',
-        type: 'longtext',
-        placeholder: '901 West Lynn St, Austin, TX 78703',
-        minLength: 8,
-        maxLength: 200,
-      },
-      {
-        id: 'hipaa_rep4_phone',
-        label: 'Personal Representative 4 — phone (optional)',
-        type: 'phone',
-        placeholder: '(512) 555-0177',
       },
     ],
   },

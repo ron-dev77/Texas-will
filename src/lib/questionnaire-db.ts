@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import type { OrderDraft } from '@/lib/order'
-import { normalizeOrderDocuments, saveOrderDraft } from '@/lib/order'
+import { normalizeOrderDocuments, normalizeOrderDraft, saveOrderDraft } from '@/lib/order'
 
 export const SESSION_STORAGE_KEY = 'myaiwill.questionnaire.session.v1'
 
@@ -53,7 +53,7 @@ async function invokeQuestionnaire<T>(body: Record<string, unknown>): Promise<T>
 
 function draftFromMeta(meta: QuestionnaireDraftMeta | undefined): OrderDraft | null {
   if (!meta) return null
-  const draft: OrderDraft = {
+  const draft = normalizeOrderDraft({
     plan: meta.plan,
     email: meta.email,
     partnerEmail: meta.partnerEmail,
@@ -63,7 +63,7 @@ function draftFromMeta(meta: QuestionnaireDraftMeta | undefined): OrderDraft | n
     documents: normalizeOrderDocuments(meta.documents),
     total: meta.total,
     lsrConsent: true,
-  }
+  })
   saveOrderDraft(draft)
   return draft
 }

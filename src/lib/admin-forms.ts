@@ -299,6 +299,7 @@ export function mergeMissingBundledFields(schema: Section[]): Section[] {
 
 /** Sections whose default questions must stay in lockstep with the bundled form. */
 const BUNDLED_QUESTION_SYNC_IDS = new Set([
+  'residuary',
   'medical_poa',
   'hipaa',
   'durable_poa',
@@ -1338,12 +1339,42 @@ export async function getActiveQuestionnaireSchema(): Promise<{
     return { formId: null, formName: null, sections: [...SECTIONS] }
   }
 
-  const merged = mergeMissingBundledFields(mergeMissingBundledSections(validated.sections))
+  const merged = ensureSpousalTrustFieldFlags(
+    mergeMissingBundledFields(mergeMissingBundledSections(validated.sections)),
+  )
   return {
     formId: data.id,
     formName: data.name,
     sections: data.is_default ? syncBundledDefaultQuestions(merged) : merged,
   }
+}
+
+/** Keep spousal-trust questions on residuary when the active DB form is stale. */
+export function ensureSpousalTrustFieldFlags(schema: Section[]): Section[] {
+  const bundledResiduary = SECTIONS.find((s) => s.id === 'residuary')
+  if (!bundledResiduary) return schema
+
+  const bundledById = new Map(bundledResiduary.fields.map((f) => [f.id, f]))
+
+  return schema.map((section) => {
+    if (section.id !== 'residuary') return section
+
+    const fieldIds = new Set(section.fields.map((f) => f.id))
+    const fields = section.fields.map((field) => {
+      const bundled = bundledById.get(field.id)
+      if (bundled?.requiresSpousalTrust && !field.requiresSpousalTrust) {
+        return { ...field, requiresSpousalTrust: true }
+      }
+      return field
+    })
+    const missingSpousal = bundledResiduary.fields.filter(
+      (f) => f.requiresSpousalTrust && !fieldIds.has(f.id),
+    )
+    if (missingSpousal.length === 0 && fields.every((f, i) => f === section.fields[i])) {
+      return section
+    }
+    return { ...section, fields: [...fields, ...missingSpousal] }
+  })
 }
 
 export function newSection(_index?: number): Section {

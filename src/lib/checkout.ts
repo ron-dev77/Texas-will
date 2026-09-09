@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client'
 import type { OrderDraft, PackageDocId, Plan } from '@/lib/order'
-import { normalizeOrderDocuments, saveOrderDraft } from '@/lib/order'
+import { normalizeOrderDocuments, normalizeOrderDraft, saveOrderDraft } from '@/lib/order'
 
 export type CreateCheckoutIntentResult = {
   orderId: string
@@ -116,7 +116,7 @@ export function savePaidOrderDraft(params: {
   total: number
   lsrConsent: boolean
 }) {
-  const order: OrderDraft = {
+  const order = normalizeOrderDraft({
     plan: params.plan,
     email: params.email,
     partnerEmail: params.partnerEmail,
@@ -126,6 +126,6 @@ export function savePaidOrderDraft(params: {
     documents: normalizeOrderDocuments(params.documents),
     total: params.total,
     lsrConsent: params.lsrConsent,
-  }
+  })
   saveOrderDraft(order)
 }

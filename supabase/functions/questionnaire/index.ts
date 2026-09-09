@@ -82,7 +82,9 @@ function draftFromOrder(order: {
   return {
     plan: order.plan_type === 'couples' ? 'couples' : 'individual',
     includeTrust: Boolean(addOns.trust),
-    includeSpousalTrust: Boolean(addOns.spousal_trust),
+    includeSpousalTrust:
+      Boolean(addOns.spousal_trust) ||
+      (qualifier && typeof qualifier === 'object' && qualifier.spousalTrustChoice === 'spousal_trust'),
     qualifier,
     prefillAnswers: Object.keys(prefill).length ? prefill : undefined,
     documents: docs,

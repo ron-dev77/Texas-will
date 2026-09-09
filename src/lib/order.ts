@@ -18,6 +18,7 @@ export const PACKAGE_DOC_LABEL: Record<PackageDocId, string> = {
   hipaa: 'HIPAA Release',
 }
 
+import { loadQualifierDraft } from '@/lib/qualifier'
 import type {
   EstateBracket,
   PriorKidsScope,
@@ -61,17 +62,28 @@ export function normalizeOrderDocuments(raw: unknown): PackageDocId[] {
   return ['will', ...withoutWill]
 }
 
+/** True when the order includes the spousal testamentary trust add-on. */
+export function resolveIncludeSpousalTrust(order: OrderDraft | null | undefined): boolean {
+  if (order?.includeSpousalTrust) return true
+  if (order?.qualifier?.spousalTrustChoice === 'spousal_trust') return true
+  const savedQualifier = loadQualifierDraft()
+  return savedQualifier?.spousalTrustChoice === 'spousal_trust'
+}
+
+export function normalizeOrderDraft(parsed: OrderDraft): OrderDraft {
+  return {
+    ...parsed,
+    documents: normalizeOrderDocuments(parsed.documents),
+    includeTrust: Boolean(parsed.includeTrust),
+    includeSpousalTrust: resolveIncludeSpousalTrust(parsed),
+  }
+}
+
 export function loadOrderDraft(): OrderDraft | null {
   try {
     const raw = localStorage.getItem(ORDER_STORAGE_KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as OrderDraft
-    return {
-      ...parsed,
-      documents: normalizeOrderDocuments(parsed.documents),
-      includeTrust: Boolean(parsed.includeTrust),
-      includeSpousalTrust: Boolean(parsed.includeSpousalTrust),
-    }
+    return normalizeOrderDraft(JSON.parse(raw) as OrderDraft)
   } catch {
     return null
   }
