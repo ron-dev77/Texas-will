@@ -180,7 +180,6 @@ export default function Questionnaire() {
     () => (section ? missingRequired(section, answers, includeSpousalTrust) : []),
     [section, answers, includeSpousalTrust],
   )
-  const progressPct = Math.round(((sectionIdx + 1) / totalSections) * 100)
   const namedPeople = useMemo(() => collectNamedPeople(answers), [answers])
 
   useEffect(() => {
@@ -509,21 +508,11 @@ export default function Questionnaire() {
         >
           {/* Soft section card */}
           <section className="rounded-3xl border border-border/50 bg-card/90 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.28)] backdrop-blur-sm">
-            {/* Progress in section */}
-            <div className="border-b border-border/40 px-6 pb-3.5 pt-4 sm:px-8">
-              <div className="flex items-center justify-between gap-3 text-[11px]">
-                <span className="font-semibold uppercase tracking-[0.14em] text-accent">
-                  Step {sectionIdx + 1} of {totalSections}
-                </span>
-                <span className="tabular-nums text-muted-foreground">{progressPct}% complete</span>
-              </div>
-              <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-secondary">
-                <div
-                  className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-            </div>
+            <QuestionnaireStepNav
+              sections={activeSections}
+              sectionIdx={sectionIdx}
+              onJump={goTo}
+            />
 
             <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-2 px-6 pb-1 pt-5 sm:px-8">
               <h1 className="font-serif text-[1.55rem] leading-tight tracking-tight text-foreground">
@@ -1122,6 +1111,91 @@ function GiftsEditor({
         <Plus className="h-3.5 w-3.5" />
         Add another
       </Button>
+    </div>
+  )
+}
+
+function QuestionnaireStepNav({
+  sections,
+  sectionIdx,
+  onJump,
+}: {
+  sections: Section[]
+  sectionIdx: number
+  onJump: (idx: number) => void
+}) {
+  const total = sections.length
+  const progressPct = Math.round(((sectionIdx + 1) / total) * 100)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const row = scrollRef.current
+    if (!row) return
+    const active = row.querySelector<HTMLElement>('[data-step-current="true"]')
+    active?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  }, [sectionIdx])
+
+  return (
+    <div className="border-b border-border/40 px-6 pb-4 pt-4 sm:px-8">
+      <div className="flex items-center justify-between gap-3 text-[11px]">
+        <span className="font-semibold uppercase tracking-[0.14em] text-accent">
+          Step {sectionIdx + 1} of {total}
+        </span>
+        <span className="tabular-nums text-muted-foreground">{progressPct}% complete</span>
+      </div>
+
+      <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-secondary">
+        <div
+          className="h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
+          style={{ width: `${progressPct}%` }}
+        />
+      </div>
+
+      <div
+        ref={scrollRef}
+        className="mt-2.5 flex gap-1 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        role="tablist"
+        aria-label="Questionnaire steps"
+      >
+        {sections.map((s, idx) => {
+          const done = idx < sectionIdx
+          const current = idx === sectionIdx
+          const clickable = idx < sectionIdx
+
+          return (
+            <button
+              key={s.id}
+              type="button"
+              role="tab"
+              data-step-current={current ? 'true' : undefined}
+              aria-selected={current}
+              aria-current={current ? 'step' : undefined}
+              title={s.title}
+              disabled={!clickable}
+              onClick={() => {
+                if (clickable) onJump(idx)
+              }}
+              className={cn(
+                'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums transition-all sm:h-8 sm:w-8 sm:text-xs',
+                current &&
+                  'bg-accent text-accent-foreground ring-2 ring-accent/25 ring-offset-1',
+                done &&
+                  'cursor-pointer bg-accent/15 text-accent hover:bg-accent hover:text-accent-foreground active:scale-95',
+                !done &&
+                  !current &&
+                  'cursor-default bg-secondary text-muted-foreground',
+              )}
+              aria-label={
+                clickable
+                  ? `Go back to step ${idx + 1}: ${s.title}`
+                  : `Step ${idx + 1}: ${s.title}`
+              }
+            >
+              {idx + 1}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

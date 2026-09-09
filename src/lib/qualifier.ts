@@ -21,7 +21,8 @@ export type SpousalTrustChoice = 'simple' | 'spousal_trust'
 export type QualifierDraft = {
   plan: QualifierPlan
   maritalStatus: QualifierMaritalStatus
-  hasPriorRelationshipChildren: boolean
+  /** Undefined until the user taps Yes or No on the prior-kids step. */
+  hasPriorRelationshipChildren?: boolean
   /** Set when plan is couples and hasPriorRelationshipChildren is true. */
   priorKidsScope?: PriorKidsScope
   /** Blended-family screen — only when married/partnered + prior kids. */
@@ -46,7 +47,7 @@ export function isMarriedOrPartnered(status: QualifierMaritalStatus) {
 export function showsBlendedFamilyScreen(draft: Partial<QualifierDraft>) {
   return (
     isMarriedOrPartnered(draft.maritalStatus ?? 'single') &&
-    Boolean(draft.hasPriorRelationshipChildren)
+    draft.hasPriorRelationshipChildren === true
   )
 }
 
@@ -60,8 +61,13 @@ export function estateBracketLabel(bracket: EstateBracket | undefined): string {
 
 export function qualifierComplete(draft: QualifierDraft | null): draft is QualifierDraft {
   if (!draft?.plan || !draft.maritalStatus || !draft.estateBracket) return false
+  if (draft.hasPriorRelationshipChildren === undefined) return false
   if (isOverEightMillion(draft.estateBracket)) return false
-  if (draft.plan === 'couples' && draft.hasPriorRelationshipChildren && !draft.priorKidsScope) {
+  if (
+    draft.plan === 'couples' &&
+    draft.hasPriorRelationshipChildren === true &&
+    !draft.priorKidsScope
+  ) {
     return false
   }
   if (showsBlendedFamilyScreen(draft)) {
@@ -104,7 +110,7 @@ export type QualifyStepId = 'plan' | 'marital' | 'prior_kids' | 'prior_scope' | 
 
 export function qualifyStepsForDraft(draft: Partial<QualifierDraft>): QualifyStepId[] {
   const list: QualifyStepId[] = ['plan', 'marital', 'prior_kids']
-  if (draft.plan === 'couples' && draft.hasPriorRelationshipChildren) {
+  if (draft.plan === 'couples' && draft.hasPriorRelationshipChildren === true) {
     list.push('prior_scope')
   }
   if (showsBlendedFamilyScreen(draft)) {
@@ -118,9 +124,9 @@ export function questionnairePrefillFromQualifier(draft: QualifierDraft): Record
   const next: Record<string, unknown> = {
     marital_status: maritalStatusForQuestionnaire(draft.maritalStatus),
   }
-  if (draft.hasPriorRelationshipChildren) {
+  if (draft.hasPriorRelationshipChildren === true) {
     next.has_prior_relationship_children = 'yes'
-  } else {
+  } else if (draft.hasPriorRelationshipChildren === false) {
     next.has_prior_relationship_children = 'no'
   }
   if (draft.plan === 'couples' && draft.priorKidsScope) {

@@ -41,7 +41,7 @@ const STEP_SHORT: Record<StepId, string> = {
 
 function initialDraft(): Partial<QualifierDraft> {
   const saved = loadQualifierDraft()
-  return saved ?? { plan: 'individual', hasPriorRelationshipChildren: false }
+  return saved ?? { plan: 'individual' }
 }
 
 function OptionCard({
@@ -172,7 +172,7 @@ export default function Qualify() {
     const complete: QualifierDraft = {
       plan: draft.plan,
       maritalStatus: draft.maritalStatus,
-      hasPriorRelationshipChildren: Boolean(draft.hasPriorRelationshipChildren),
+      hasPriorRelationshipChildren: draft.hasPriorRelationshipChildren === true,
       priorKidsScope: draft.priorKidsScope,
       spousalTrustChoice: draft.spousalTrustChoice,
       simpleWillAcknowledged: draft.spousalTrustChoice === 'simple' ? simpleAck : undefined,

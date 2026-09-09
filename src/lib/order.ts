@@ -29,7 +29,7 @@ import type {
 export type QualifierSnapshot = {
   plan: QualifierPlan
   maritalStatus: QualifierMaritalStatus
-  hasPriorRelationshipChildren: boolean
+  hasPriorRelationshipChildren?: boolean
   priorKidsScope?: PriorKidsScope
   spousalTrustChoice?: SpousalTrustChoice
   estateBracket: EstateBracket
