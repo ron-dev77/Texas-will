@@ -97,10 +97,15 @@ export default function OrderDocumentReviewPage() {
     try {
       const detail = await getOrderDetail(orderId)
       setData(detail)
-      const addOns = (detail.order.add_ons ?? {}) as { documents?: unknown; trust?: boolean }
+      const addOns = (detail.order.add_ons ?? {}) as {
+        documents?: unknown
+        trust?: boolean
+        spousal_trust?: boolean
+      }
       const kinds = orderedDocumentKindsForDelivery({
         documents: addOns.documents,
         includeTrust: Boolean(addOns.trust),
+        includeSpousalTrust: Boolean(addOns.spousal_trust),
       })
       setSendKinds(kinds.length ? kinds : ['will'])
       const partners: (1 | 2)[] = detail.answers.some((a) => a.partner_number === 2)
@@ -173,14 +178,18 @@ export default function OrderDocumentReviewPage() {
     [data, partner],
   )
   const includeTrust = Boolean(data?.order.add_ons?.trust)
+  const includeSpousalTrust = Boolean(
+    (data?.order.add_ons as { spousal_trust?: boolean } | null)?.spousal_trust,
+  )
   const isCouples = data?.order.plan_type === 'couples'
   const packageKinds = useMemo(
     () =>
       orderedDocumentKindsForDelivery({
         documents: (data?.order.add_ons as { documents?: unknown } | null)?.documents,
         includeTrust,
+        includeSpousalTrust,
       }),
-    [data, includeTrust],
+    [data, includeTrust, includeSpousalTrust],
   )
   const partnerDoc = data?.wills.find(
     (w) => w.partner_number === partner && w.document_kind === docKind,
@@ -196,8 +205,11 @@ export default function OrderDocumentReviewPage() {
   const viewingHistorical = Boolean(selectedHistory)
   const liveContent = useMemo(() => {
     if (!answersRow) return null
-    return buildDocumentFromAnswers(docKind, answersRow.answers, { includeTrust })
-  }, [answersRow, docKind, includeTrust])
+    return buildDocumentFromAnswers(docKind, answersRow.answers, {
+      includeTrust,
+      includeSpousalTrust,
+    })
+  }, [answersRow, docKind, includeTrust, includeSpousalTrust])
 
   const workingSkeleton = useMemo(() => {
     if (proposal?.skeleton) return proposal.skeleton
@@ -232,6 +244,7 @@ export default function OrderDocumentReviewPage() {
           answers: answersRow.answers,
           skeleton: workingSkeleton,
           includeTrust,
+          includeSpousalTrust,
         })
       }
       const content =
@@ -245,6 +258,7 @@ export default function OrderDocumentReviewPage() {
           answers: answersRow.answers,
           skeleton: workingSkeleton,
           includeTrust,
+          includeSpousalTrust,
           fallbackContent: content,
         })
       }
@@ -253,6 +267,7 @@ export default function OrderDocumentReviewPage() {
         answers: answersRow?.answers ?? {},
         skeleton: null,
         includeTrust,
+        includeSpousalTrust,
         fallbackContent: content,
       })
     }
@@ -292,6 +307,7 @@ export default function OrderDocumentReviewPage() {
     docKind,
     versionSel,
     includeTrust,
+    includeSpousalTrust,
     liveContent,
     activeSavedDoc,
     selectedHistory,
@@ -366,7 +382,10 @@ export default function OrderDocumentReviewPage() {
     setActionMsg(null)
     try {
       assertSkeletonExecutionBlocks(skel, docKind)
-      const draft = buildDocumentFromAnswers(docKind, answersRow.answers, { includeTrust })
+      const draft = buildDocumentFromAnswers(docKind, answersRow.answers, {
+        includeTrust,
+        includeSpousalTrust,
+      })
       const saved = await upsertWillDocument({
         orderId,
         partnerNumber: partner,
@@ -437,6 +456,7 @@ export default function OrderDocumentReviewPage() {
       for (const partnerNumber of sendPartners) {
         for (const kind of sendKinds) {
           if (kind === 'rlt' && !includeTrust) continue
+          if (kind === 'spousal_trust' && !includeSpousalTrust) continue
           const bytes = await buildPdfForOrderKind({
             detail: data,
             kind,

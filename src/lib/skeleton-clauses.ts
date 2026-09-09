@@ -7,6 +7,10 @@ import {
   residuarySpecialNeedsNote,
   specialNeedsTrustClauseText,
 } from '@/lib/special-needs-trust'
+import {
+  buildSpousalTrustFromAnswers,
+  spousalTrustResiduaryText,
+} from '@/lib/spousal-trust'
 
 type Answers = Record<string, unknown>
 
@@ -452,6 +456,11 @@ const COMPUTED: Record<
     const name = plain(str(answers.legal_full_name, '[Testator]'))
     const spouse = plain(str(answers.spouse_full_name))
     let body = ''
+    if (options.includeSpousalTrust) {
+      body = spousalTrustResiduaryText(answers, name)
+      const note = residuarySpecialNeedsNote(answers)
+      return note ? `${body}\n\n${note}` : body
+    }
     if (options.includeTrust) {
       const trustName = plain(str(answers.trust_name, `The ${name} Revocable Living Trust`))
       body = `I give, devise, and bequeath all of the rest, residue, and remainder of my estate, both real and personal, of whatever kind and wherever situated, to the then-acting Trustee of ${bold(trustName)}, to be added to the principal of that trust and held, administered, and distributed under its terms as then in effect. If for any reason that trust is not in existence at my death, then I give my residuary estate to the beneficiaries who would have received the residuary trust estate under that trust as if it had terminated on my death.`
@@ -485,6 +494,11 @@ const COMPUTED: Record<
     }
     const note = residuarySpecialNeedsNote(answers)
     return note ? `${body}\n\n${note}` : body
+  },
+  clause_spousal_trust(answers, options) {
+    if (!options.includeSpousalTrust) return ''
+    const article = buildSpousalTrustFromAnswers(answers)
+    return `**${article.heading}**\n\n${article.paragraphs.join('\n\n')}`
   },
   clause_special_needs_trust(answers) {
     return specialNeedsTrustClauseText(answers)

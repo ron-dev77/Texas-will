@@ -130,6 +130,11 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
       }),
       blk({
         kind: 'paragraph',
+        body: '{{clause_spousal_trust}}',
+        blankLinesAfter: 1,
+      }),
+      blk({
+        kind: 'paragraph',
         body: '{{clause_special_needs_trust}}',
         blankLinesAfter: 1,
       }),

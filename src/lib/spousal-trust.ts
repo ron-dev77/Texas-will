@@ -152,3 +152,26 @@ export function orderNeedsBidirectionalSpousalTrustReview(addOns: unknown): bool
 
 export const COUPLES_BIDIRECTIONAL_SPOUSAL_TRUST_NOTE =
   'Couples order — both spouses have prior-relationship children. Each partner\'s will must protect the other spouse with remainder to that partner\'s own children. Verify both wills before delivery.'
+
+const FORBIDDEN_REMAINDER_PHRASES = [
+  'our children',
+  'my children from my prior relationship',
+  'children from my prior relationship',
+] as const
+
+/** Ron 9/9/26 — remainder beneficiaries must be "my children" in generated trust language. */
+export function assertSpousalTrustRemainderWording(text: string): void {
+  const lower = text.toLowerCase()
+  for (const phrase of FORBIDDEN_REMAINDER_PHRASES) {
+    if (lower.includes(phrase)) {
+      throw new Error(`Spousal trust remainder must not include "${phrase}"`)
+    }
+  }
+  if (!/\bmy children\b/i.test(text)) {
+    throw new Error('Spousal trust remainder must include "my children" wording')
+  }
+}
+
+export function spousalTrustArticlePlainText(answers: Answers): string {
+  return buildSpousalTrustFromAnswers(answers).paragraphs.join('\n\n')
+}
