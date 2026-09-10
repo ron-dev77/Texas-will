@@ -11,6 +11,8 @@ export type FieldType =
   | 'people'
   | 'gifts'
   | 'charitable_gifts'
+  | 'snt_trusts'
+  | 'info'
 
 export type ShowIf = {
   field: string
@@ -55,6 +57,44 @@ export type Section = {
 
 export type PersonRow = { name: string; date_of_birth?: string }
 export type GiftRow = { item: string; recipient: string }
+
+/** One testamentary special needs trust — a separate trust per beneficiary. */
+export type SntTrustRow = {
+  beneficiary_name: string
+  trustee_name: string
+  successor_trustee_name: string
+  remainder: string
+  contingent_remainder: string
+  trustee_notes?: string
+}
+
+export const SNT_REMAINDER_LABEL =
+  'Who should receive whatever is left in the trust after this beneficiary passes away?'
+
+export const SNT_REMAINDER_HELPER =
+  "This is often another family member, but it doesn't have to be. This person or organization receives what remains once the trust has served its purpose."
+
+export const SNT_CONTINGENT_REMAINDER_LABEL =
+  'If that person is no longer living by the time this happens, who should receive it instead?'
+
+export const SNT_CONTINGENT_REMAINDER_HELPER =
+  "A backup ensures the money doesn't get held up or default to unintended heirs if your first choice has also passed away."
+
+export const SNT_EXISTING_TRUST_NOTE_LABEL = 'A note on existing special needs trusts'
+
+export const SNT_EXISTING_TRUST_NOTE_BODY =
+  "If this beneficiary already has a special needs trust — say, one set up by a grandparent — that's not a problem. A person can be the beneficiary of more than one special needs trust at the same time without affecting their eligibility for benefits.\n\nMy AI Will creates its own independent trust for this bequest. We don't have visibility into how any other existing trust was drafted, so rather than direct funds into a trust we can't verify, we create a new one we know is set up correctly."
+
+export function emptySntTrustRow(): SntTrustRow {
+  return {
+    beneficiary_name: '',
+    trustee_name: '',
+    successor_trustee_name: '',
+    remainder: '',
+    contingent_remainder: '',
+    trustee_notes: '',
+  }
+}
 
 export const SECTIONS: readonly Section[] = [
   {
@@ -474,7 +514,7 @@ export const SECTIONS: readonly Section[] = [
     id: 'special_needs',
     title: 'Special needs trust',
     intro:
-      'If someone who will inherit from you has a disability or may get SSI or Medicaid, you can leave their share through a special needs trust in this will. Those distributions are meant to add to government benefits, not replace them. A licensed Texas attorney must read and approve this language before we send the will.',
+      'If someone who will inherit from you has a disability or may get SSI or Medicaid, you can leave their share through a special needs trust in this will. Those distributions are meant to add to government benefits, not replace them.',
     fields: [
       {
         id: 'wants_snt',
@@ -484,88 +524,20 @@ export const SECTIONS: readonly Section[] = [
         required: true,
       },
       {
-        id: 'snt_beneficiary_name',
-        label: 'Beneficiary — full legal name',
-        helper: 'The person whose inheritance should be held in the special needs trust.',
-        type: 'shorttext',
-        required: true,
-        placeholder: 'Maya Elise Doe',
-        minLength: 3,
-        maxLength: 80,
-        showIf: { field: 'wants_snt', equals: 'yes' },
-      },
-      {
-        id: 'snt_trustee_name',
-        label: 'Trustee — full legal name',
-        helper: 'This person manages the trust. Do not name the beneficiary.',
-        type: 'shorttext',
-        required: true,
-        placeholder: 'Alex Rivera Doe',
-        minLength: 3,
-        maxLength: 80,
-        showIf: { field: 'wants_snt', equals: 'yes' },
-      },
-      {
-        id: 'snt_successor_trustee_name',
-        label: 'Successor trustee — full legal name',
-        helper: 'Serves if the first trustee cannot. Do not name the beneficiary.',
-        type: 'shorttext',
-        required: true,
-        placeholder: 'Jordan Lee',
-        minLength: 3,
-        maxLength: 80,
-        showIf: { field: 'wants_snt', equals: 'yes' },
-      },
-      {
-        id: 'snt_remainder',
-        label: 'Who gets leftover money when the beneficiary dies?',
-        helper: 'Name each person, their relationship, and their share (for example: 50% to Alex Rivera Doe, spouse).',
-        type: 'longtext',
-        required: true,
-        minLength: 8,
-        maxLength: 500,
-        showIf: { field: 'wants_snt', equals: 'yes' },
-      },
-      {
-        id: 'snt_contingent_remainder',
-        label: 'If a leftover person dies first, who gets that share?',
-        type: 'longtext',
-        required: true,
-        minLength: 8,
-        maxLength: 400,
-        showIf: { field: 'wants_snt', equals: 'yes' },
-      },
-      {
-        id: 'snt_trustee_notes',
-        label: 'Optional notes for the trustee (not binding)',
-        type: 'longtext',
-        minLength: 5,
-        maxLength: 400,
-        showIf: { field: 'wants_snt', equals: 'yes' },
-      },
-      {
-        id: 'snt_has_existing',
-        label: 'Does this beneficiary already have a special needs trust?',
-        type: 'yesno',
+        id: 'snt_trusts',
+        label: 'Special needs trust beneficiaries',
+        helper:
+          'Add each person who should receive their inheritance through a separate special needs trust. Parents with two children who have special needs can add one trust per child.',
+        type: 'snt_trusts',
         required: true,
         showIf: { field: 'wants_snt', equals: 'yes' },
       },
       {
-        id: 'snt_existing_name',
-        label: 'Name of the existing trust',
-        type: 'shorttext',
-        required: true,
-        placeholder: 'The Maya Elise Doe Special Needs Trust',
-        minLength: 5,
-        maxLength: 120,
-        showIf: { field: 'snt_has_existing', equals: 'yes' },
-      },
-      {
-        id: 'snt_existing_date',
-        label: 'Date that existing trust was created',
-        type: 'date',
-        required: true,
-        showIf: { field: 'snt_has_existing', equals: 'yes' },
+        id: 'snt_existing_trust_note',
+        label: SNT_EXISTING_TRUST_NOTE_LABEL,
+        helper: SNT_EXISTING_TRUST_NOTE_BODY,
+        type: 'info',
+        showIf: { field: 'wants_snt', equals: 'yes' },
       },
     ],
   },
@@ -1128,6 +1100,23 @@ export function isFieldFilled(field: Field, value: unknown): boolean {
         row.recipient.trim() !== '',
     )
   }
+  if (field.type === 'info') return true
+  if (field.type === 'date') {
+    return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
+  }
+  if (field.type === 'snt_trusts') {
+    if (!Array.isArray(value) || value.length === 0) return false
+    return value.every((row: SntTrustRow) => {
+      const required = [
+        row?.beneficiary_name,
+        row?.trustee_name,
+        row?.successor_trustee_name,
+        row?.remainder,
+        row?.contingent_remainder,
+      ]
+      return required.every((v) => typeof v === 'string' && v.trim() !== '')
+    })
+  }
   if (Array.isArray(value)) return value.length > 0
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -1187,6 +1176,68 @@ export function fieldQualityError(field: Field, value: unknown): string | null {
       }
       if (item.length > max || recipient.length > max) {
         return `Keep each gift field to ${max} characters or fewer`
+      }
+    }
+    return null
+  }
+
+  if (field.type === 'info') return null
+
+  if (field.type === 'date') {
+    const trimmed = typeof value === 'string' ? value.trim() : ''
+    if (!trimmed) return field.required ? 'This field is required' : null
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return 'Enter a valid date (mm/dd/yyyy)'
+    }
+    return null
+  }
+
+  if (field.type === 'snt_trusts') {
+    if (!Array.isArray(value) || value.length === 0) {
+      return field.required ? 'Add at least one special needs trust beneficiary' : null
+    }
+    const nameMin = 3
+    const nameMax = 80
+    const remainderMax = 120
+    for (let i = 0; i < value.length; i++) {
+      const row = value[i] as SntTrustRow
+      const label = value.length > 1 ? `Beneficiary ${i + 1}: ` : ''
+      const beneficiary = (row?.beneficiary_name ?? '').trim()
+      const trustee = (row?.trustee_name ?? '').trim()
+      const successor = (row?.successor_trustee_name ?? '').trim()
+      const remainder = (row?.remainder ?? '').trim()
+      const contingent = (row?.contingent_remainder ?? '').trim()
+      const notes = (row?.trustee_notes ?? '').trim()
+      if (!beneficiary) return `${label}Enter the beneficiary's full legal name`
+      if (beneficiary.length < nameMin) {
+        return `${label}Beneficiary name needs at least ${nameMin} characters`
+      }
+      if (beneficiary.length > nameMax) {
+        return `${label}Keep the beneficiary name to ${nameMax} characters or fewer`
+      }
+      if (!trustee) return `${label}Enter a trustee name`
+      if (trustee.length < nameMin) return `${label}Trustee name needs at least ${nameMin} characters`
+      if (!successor) return `${label}Enter a successor trustee name`
+      if (successor.length < nameMin) {
+        return `${label}Successor trustee name needs at least ${nameMin} characters`
+      }
+      if (!remainder || remainder.length < nameMin) {
+        return `${label}Enter who should receive what remains in the trust after this beneficiary passes away`
+      }
+      if (remainder.length > remainderMax) {
+        return `${label}Keep the remainder recipient to ${remainderMax} characters or fewer`
+      }
+      if (!contingent || contingent.length < nameMin) {
+        return `${label}Enter who should receive it if your first choice is no longer living`
+      }
+      if (contingent.length > remainderMax) {
+        return `${label}Keep the backup recipient to ${remainderMax} characters or fewer`
+      }
+      if (notes && notes.length < 5) {
+        return `${label}Optional trustee notes need at least 5 characters, or leave blank`
+      }
+      if (notes.length > 400) {
+        return `${label}Keep trustee notes to 400 characters or fewer`
       }
     }
     return null
@@ -1308,6 +1359,20 @@ export function formatAnswerPreview(field: Field, value: unknown): string {
         .map((r: GiftRow) =>
           r.item?.trim() || r.recipient?.trim() ? `${r.item || '—'} → ${r.recipient || '—'}` : '',
         )
+        .filter(Boolean)
+        .join('\n') || '—'
+    )
+  }
+  if (field.type === 'info') return '—'
+  if (field.type === 'snt_trusts' && Array.isArray(value)) {
+    return (
+      value
+        .map((r: SntTrustRow, i) => {
+          const name = r.beneficiary_name?.trim()
+          if (!name) return ''
+          const prefix = value.length > 1 ? `Beneficiary ${i + 1}: ` : ''
+          return `${prefix}${name} · Trustee: ${r.trustee_name?.trim() || '—'}`
+        })
         .filter(Boolean)
         .join('\n') || '—'
     )

@@ -39,9 +39,24 @@ Draft environment documentation. Not live to customers until ethics review.
 
 ### Questionnaire
 - `src/lib/questionnaire.ts` — prior-kids; spousal trust section; beneficiary designation
-- `src/lib/beneficiary-designation.ts` — IRA brackets + scaled ERISA (Scott placeholders)
-- `src/pages/Questionnaire.tsx` — ERISA callout; couples bidirectional spousal note
+- `src/lib/beneficiary-designation.ts` — IRA brackets + brief ERISA reminder (married + prior kids)
+- `src/lib/special-needs-trust.ts` — multi-beneficiary SNT rows; PDF article per child
+- `src/pages/Questionnaire.tsx` — ERISA callout; couples bidirectional spousal note; field validation on change
 - `supabase/functions/questionnaire/index.ts` — returns qualifier snapshot in draft meta
+
+#### Step 9 — Beneficiary designation (Ron, Sep 2026)
+- **Questions unchanged** (asset bracket pills, forms reviewed, update plan).
+- **Validation:** “This field is required” clears immediately after pill / Yes-No selection.
+- **Yellow callout** (`ErisaSpousalNote`): shows when married/partnered + prior-relationship kids + asset bracket is **$50k–$250k** or **$250k+**. Always the brief **“Beneficiary forms reminder”** copy (not a longer tier at $250k+).
+
+#### Step 10 — Special needs trust (Ron, Sep 2026)
+- **Intro:** removed *“A licensed Texas attorney must read and approve this language…”* (attorney approves workflow/language separately).
+- **Beneficiaries:** repeatable `snt_trusts` cards — **Add another beneficiary** (one testamentary SNT article per row in PDF).
+- **Remainder Q&A:** Scott copy for primary + contingent remainder; **Use a name from earlier steps** on both fields.
+- **Existing trust:** removed yes/no + name/date questions; replaced with static info box **“A note on existing special needs trusts”** (grandparent trust OK; My AI Will creates its own independent trust). No pour-over clause in PDF from old answers.
+
+#### Steps 1, 11–15 — Validation (Ron, Sep 2026)
+- Re-validate on every answer change; no stale blur on pills; person-picker + date fields use latest value so errors clear after valid input.
 
 ### Spousal trust documents
 - `src/lib/spousal-trust.ts` — **Scott verbatim** Option 1 & 2; couples bidirectional review helper
@@ -79,7 +94,7 @@ Checkout adds this price ID when `includeSpousalTrust` is true. Total always inc
 | Base price | $249 individual / $399 couples |
 | Spousal trust price | $400 (testing only) |
 | IRA value brackets | under $50k / $50k–$250k / $250k+ |
-| ERISA full-note threshold | $250k+ |
+| ERISA Step 9 callout | Brief reminder only ($50k+ tiers; married + prior kids) |
 | Over-$8M referral list | Email capture only |
 | Ethics review | Required before live |
 

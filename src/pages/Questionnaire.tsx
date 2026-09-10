@@ -33,12 +33,19 @@ import {
   SECTIONS,
   showGuardianFields,
   visibleFieldOptions,
+  emptySntTrustRow,
+  SNT_CONTINGENT_REMAINDER_HELPER,
+  SNT_CONTINGENT_REMAINDER_LABEL,
+  SNT_REMAINDER_HELPER,
+  SNT_REMAINDER_LABEL,
   type Field,
   type GiftRow,
   type PersonRow,
   type Section,
+  type SntTrustRow,
 } from '@/lib/questionnaire'
 import { ensureSpousalTrustFieldFlags, getActiveQuestionnaireSchema } from '@/lib/admin-forms'
+import { migrateLegacySntAnswers, SPECIAL_NEEDS_FOLLOW_UP_IDS } from '@/lib/special-needs-trust'
 import { collectNamedPeople, supportsPersonPicker } from '@/lib/questionnaire-people'
 import {
   erisaNoteText,
@@ -79,7 +86,9 @@ function isComplex(field: Field) {
     field.type === 'yesno' ||
     field.type === 'people' ||
     field.type === 'gifts' ||
-    field.type === 'charitable_gifts'
+    field.type === 'charitable_gifts' ||
+    field.type === 'snt_trusts' ||
+    field.type === 'info'
   )
 }
 
@@ -154,6 +163,8 @@ export default function Questionnaire() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const sessionRef = useRef<QuestionnaireSession | null>(null)
+  const answersRef = useRef<Answers>(answers)
+  answersRef.current = answers
   const skipNextSave = useRef(true)
 
   const activeSections = useMemo(
@@ -255,13 +266,29 @@ export default function Questionnaire() {
         next.charitable_gifts = [{ item: '', recipient: '' }]
         changed = true
       }
+      if (
+        prev.wants_snt === 'yes' &&
+        (!Array.isArray(prev.snt_trusts) || prev.snt_trusts.length === 0)
+      ) {
+        next.snt_trusts = [emptySntTrustRow()]
+        changed = true
+      }
       return changed ? next : prev
     })
   }, [
     answers.has_children,
     answers.has_specific_gifts,
     answers.has_charitable_gifts,
+    answers.wants_snt,
   ])
+
+  useEffect(() => {
+    if (!ready) return
+    setAnswers((prev) => {
+      const migrated = migrateLegacySntAnswers(prev)
+      return migrated ?? prev
+    })
+  }, [ready])
 
   // Local mirror + debounced DB save
   useEffect(() => {
@@ -368,15 +395,14 @@ export default function Questionnaire() {
         delete next.charitable_gifts
       }
       if (id === 'wants_snt' && value === 'no') {
-        delete next.snt_beneficiary_name
-        delete next.snt_trustee_name
-        delete next.snt_successor_trustee_name
-        delete next.snt_remainder
-        delete next.snt_contingent_remainder
-        delete next.snt_trustee_notes
-        delete next.snt_has_existing
-        delete next.snt_existing_name
-        delete next.snt_existing_date
+        for (const key of SPECIAL_NEEDS_FOLLOW_UP_IDS) {
+          delete next[key]
+        }
+      }
+      if (id === 'wants_snt' && value === 'yes') {
+        if (!Array.isArray(next.snt_trusts) || next.snt_trusts.length === 0) {
+          next.snt_trusts = [emptySntTrustRow()]
+        }
       }
       if (
         id === 'marital_status' &&
@@ -388,16 +414,10 @@ export default function Questionnaire() {
       return next
     })
 
-    // After blur: live-update progressive error (min → max) and clear when fixed
     const field = visibleFields.find((f) => f.id === id)
     if (field) {
-      setTouched((t) => {
-        if (t[id]) {
-          const msg = fieldQualityError(field, value)
-          setFieldError(id, msg)
-        }
-        return t
-      })
+      const msg = fieldQualityError(field, value)
+      setFieldError(id, msg)
     }
   }
 
@@ -594,7 +614,9 @@ export default function Questionnaire() {
                               namedPeople={namedPeople}
                               includeSpousalTrust={includeSpousalTrust}
                               onChange={(v) => update(field.id, v)}
-                              onBlurValidate={() => validateField(field, answers[field.id], true)}
+                              onBlurValidate={() =>
+                                validateField(field, answersRef.current[field.id], true)
+                              }
                             />
                           ))}
                         </div>
@@ -693,6 +715,28 @@ function FieldCell({
   onChange: (v: unknown) => void
   onBlurValidate: () => void
 }) {
+  if (field.type === 'info') {
+    const paragraphs = (field.helper ?? '').split(/\n\n+/).filter(Boolean)
+    return (
+      <div className="rounded-2xl border border-border/50 bg-secondary/25 px-4 py-3.5">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground">
+          {field.label}
+        </p>
+        {paragraphs.map((paragraph, index) => (
+          <p
+            key={index}
+            className={cn(
+              'text-[13px] leading-relaxed text-muted-foreground',
+              index > 0 ? 'mt-2' : 'mt-2',
+            )}
+          >
+            {paragraph}
+          </p>
+        ))}
+      </div>
+    )
+  }
+
   if (field.type === 'yesno') {
     const guardianHelp =
       field.id === 'name_future_minor_guardian' ? (
@@ -825,7 +869,6 @@ function FieldControl({
           'flex flex-wrap gap-2',
           field.type === 'yesno' && 'shrink-0 justify-end',
         )}
-        onBlur={onBlurValidate}
       >
         {options.map((opt) => {
           const selected = value === opt.value
@@ -833,11 +876,7 @@ function FieldControl({
             <button
               key={opt.value}
               type="button"
-              onClick={() => {
-                onChange(opt.value)
-                // radios/yesno: validate immediately after choose
-                window.setTimeout(onBlurValidate, 0)
-              }}
+              onClick={() => onChange(opt.value)}
               className={cn(
                 'rounded-full border px-3.5 py-1.5 text-left text-[13px] transition',
                 shortLabels && 'min-w-[4.5rem] text-center',
@@ -900,15 +939,24 @@ function FieldControl({
     )
   }
 
+  if (field.type === 'snt_trusts') {
+    return (
+      <SntTrustsEditor
+        value={(Array.isArray(value) ? value : []) as SntTrustRow[]}
+        onChange={onChange}
+        onBlurValidate={onBlurValidate}
+        namedPeople={namedPeople}
+        error={error}
+      />
+    )
+  }
+
   if (field.type === 'date') {
     return (
       <DateField
         id={field.id}
         value={typeof value === 'string' ? value : ''}
-        onChange={(v) => {
-          onChange(v)
-          window.setTimeout(onBlurValidate, 0)
-        }}
+        onChange={onChange}
         placeholder={field.placeholder ?? 'mm/dd/yyyy'}
       />
     )
@@ -951,10 +999,7 @@ function FieldControl({
       {showPersonPicker ? (
         <PersonPickSelect
           people={namedPeople}
-          onPick={(name) => {
-            onChange(name)
-            window.setTimeout(onBlurValidate, 0)
-          }}
+          onPick={onChange}
         />
       ) : null}
       <Input
@@ -1032,10 +1077,7 @@ function PeopleEditor({
           {requireDob ? (
             <DateField
               value={row.date_of_birth ?? ''}
-              onChange={(iso) => {
-                setRow(i, { date_of_birth: iso })
-                window.setTimeout(onBlurValidate, 0)
-              }}
+              onChange={(iso) => setRow(i, { date_of_birth: iso })}
               inputClassName="h-9 rounded-xl bg-background"
             />
           ) : (
@@ -1062,6 +1104,164 @@ function PeopleEditor({
       >
         <Plus className="h-3.5 w-3.5" />
         Add another
+      </Button>
+    </div>
+  )
+}
+
+function SntTrustsEditor({
+  value,
+  onChange,
+  onBlurValidate,
+  namedPeople,
+  error,
+}: {
+  value: SntTrustRow[]
+  onChange: (v: SntTrustRow[]) => void
+  onBlurValidate: () => void
+  namedPeople: ReturnType<typeof collectNamedPeople>
+  error?: string
+}) {
+  const rows = value.length > 0 ? value : [emptySntTrustRow()]
+
+  function setRow(i: number, patch: Partial<SntTrustRow>) {
+    onChange(rows.map((row, idx) => (idx === i ? { ...row, ...patch } : row)))
+  }
+
+  return (
+    <div className="space-y-3">
+      {rows.map((row, i) => (
+        <div
+          key={i}
+          className="space-y-3 rounded-2xl border border-border/50 bg-secondary/20 p-4"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground">
+              {rows.length > 1 ? `Beneficiary ${i + 1}` : 'Trust beneficiary'}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0 rounded-full text-muted-foreground"
+              onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
+              disabled={rows.length === 1}
+              aria-label="Remove beneficiary"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
+          <div className="space-y-1.5">
+            {namedPeople.length > 0 ? (
+              <PersonPickSelect
+                people={namedPeople}
+                onPick={(name) => setRow(i, { beneficiary_name: name })}
+              />
+            ) : null}
+            <Input
+              value={row.beneficiary_name}
+              maxLength={80}
+              onChange={(e) => setRow(i, { beneficiary_name: e.target.value.slice(0, 80) })}
+              onBlur={onBlurValidate}
+              placeholder="Beneficiary full legal name"
+              className={cn(
+                'h-9 rounded-xl border-border/60 bg-background text-sm',
+                error && 'border-destructive/40',
+              )}
+            />
+          </div>
+
+          <Input
+            value={row.trustee_name}
+            maxLength={80}
+            onChange={(e) => setRow(i, { trustee_name: e.target.value.slice(0, 80) })}
+            onBlur={onBlurValidate}
+            placeholder="Trustee full legal name"
+            className="h-9 rounded-xl border-border/60 bg-background text-sm"
+          />
+
+          <Input
+            value={row.successor_trustee_name}
+            maxLength={80}
+            onChange={(e) =>
+              setRow(i, { successor_trustee_name: e.target.value.slice(0, 80) })
+            }
+            onBlur={onBlurValidate}
+            placeholder="Successor trustee full legal name"
+            className="h-9 rounded-xl border-border/60 bg-background text-sm"
+          />
+
+          <div className="space-y-1.5">
+            <Label className="text-[12.5px] font-medium text-foreground">
+              {SNT_REMAINDER_LABEL}
+              <span className="ml-0.5 text-destructive">*</span>
+            </Label>
+            {namedPeople.length > 0 ? (
+              <PersonPickSelect
+                people={namedPeople}
+                onPick={(name) => setRow(i, { remainder: name })}
+              />
+            ) : null}
+            <Input
+              value={row.remainder}
+              maxLength={120}
+              onChange={(e) => setRow(i, { remainder: e.target.value.slice(0, 120) })}
+              onBlur={onBlurValidate}
+              placeholder="Full legal name or organization"
+              className="h-9 rounded-xl border-border/60 bg-background text-sm"
+            />
+            <p className="text-[11.5px] leading-snug text-muted-foreground">
+              {SNT_REMAINDER_HELPER}
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[12.5px] font-medium text-foreground">
+              {SNT_CONTINGENT_REMAINDER_LABEL}
+              <span className="ml-0.5 text-destructive">*</span>
+            </Label>
+            {namedPeople.length > 0 ? (
+              <PersonPickSelect
+                people={namedPeople}
+                onPick={(name) => setRow(i, { contingent_remainder: name })}
+              />
+            ) : null}
+            <Input
+              value={row.contingent_remainder}
+              maxLength={120}
+              onChange={(e) =>
+                setRow(i, { contingent_remainder: e.target.value.slice(0, 120) })
+              }
+              onBlur={onBlurValidate}
+              placeholder="Full legal name or organization"
+              className="h-9 rounded-xl border-border/60 bg-background text-sm"
+            />
+            <p className="text-[11.5px] leading-snug text-muted-foreground">
+              {SNT_CONTINGENT_REMAINDER_HELPER}
+            </p>
+          </div>
+
+          <Textarea
+            value={row.trustee_notes ?? ''}
+            maxLength={400}
+            onChange={(e) => setRow(i, { trustee_notes: e.target.value.slice(0, 400) })}
+            onBlur={onBlurValidate}
+            placeholder="Optional notes for the trustee (not binding)"
+            className="min-h-[56px] resize-y rounded-2xl border-border/60 bg-background text-sm"
+          />
+        </div>
+      ))}
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 gap-1.5 rounded-full text-xs"
+        onClick={() => onChange([...rows, emptySntTrustRow()])}
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Add another beneficiary
       </Button>
     </div>
   )
@@ -1238,7 +1438,7 @@ function ErisaSpousalNote({ answers }: { answers: Answers }) {
       className="rounded-2xl border border-amber-300/70 bg-amber-50/90 px-4 py-3.5 text-[13px] leading-relaxed text-amber-950"
     >
       <p className="font-medium text-amber-900">
-        {level === 'full' ? 'Spouse rights on retirement accounts' : 'Beneficiary forms reminder'}
+        Beneficiary forms reminder
       </p>
       <p className="mt-1.5">{text}</p>
     </div>

@@ -86,15 +86,7 @@ export const WILL_ENGINE_FIELD_IDS = [
   'beneficiary_forms_reviewed',
   'beneficiary_update_plan',
   'wants_snt',
-  'snt_beneficiary_name',
-  'snt_trustee_name',
-  'snt_successor_trustee_name',
-  'snt_remainder',
-  'snt_contingent_remainder',
-  'snt_trustee_notes',
-  'snt_has_existing',
-  'snt_existing_name',
-  'snt_existing_date',
+  'snt_trusts',
   'disposition',
   'service_wishes',
   'trust_name',
@@ -1347,12 +1339,14 @@ export async function getActiveQuestionnaireSchema(): Promise<{
   }
 
   const merged = ensureSpousalTrustFieldFlags(
-    mergeMissingBundledFields(mergeMissingBundledSections(validated.sections)),
+    syncBundledDefaultQuestions(
+      mergeMissingBundledFields(mergeMissingBundledSections(validated.sections)),
+    ),
   )
   return {
     formId: data.id,
     formName: data.name,
-    sections: data.is_default ? syncBundledDefaultQuestions(merged) : merged,
+    sections: merged,
   }
 }
 

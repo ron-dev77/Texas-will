@@ -1,3 +1,6 @@
+import type { SntTrustRow } from '@/lib/questionnaire'
+import { emptySntTrustRow } from '@/lib/questionnaire'
+
 type Answers = Record<string, unknown>
 
 function str(v: unknown, fallback = '') {
@@ -27,8 +30,8 @@ export type SpecialNeedsArticle = {
   paragraphs: string[]
 }
 
-/** Follow-up fields cleared when the client says no to special-needs planning. */
-export const SPECIAL_NEEDS_FOLLOW_UP_IDS = [
+/** Legacy flat fields cleared when the client says no to special-needs planning. */
+export const SPECIAL_NEEDS_LEGACY_FIELD_IDS = [
   'snt_beneficiary_name',
   'snt_trustee_name',
   'snt_successor_trustee_name',
@@ -39,6 +42,72 @@ export const SPECIAL_NEEDS_FOLLOW_UP_IDS = [
   'snt_existing_name',
   'snt_existing_date',
 ] as const
+
+export const SPECIAL_NEEDS_FOLLOW_UP_IDS = ['snt_trusts', ...SPECIAL_NEEDS_LEGACY_FIELD_IDS] as const
+
+function normalizeSntTrustRow(raw: unknown): SntTrustRow | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Partial<SntTrustRow>
+  const beneficiary_name = str(row.beneficiary_name)
+  const trustee_name = str(row.trustee_name)
+  const successor_trustee_name = str(row.successor_trustee_name)
+  const remainder = str(row.remainder)
+  const contingent_remainder = str(row.contingent_remainder)
+  const trustee_notes = str(row.trustee_notes)
+  if (
+    !beneficiary_name &&
+    !trustee_name &&
+    !successor_trustee_name &&
+    !remainder &&
+    !contingent_remainder
+  ) {
+    return null
+  }
+  return {
+    beneficiary_name,
+    trustee_name,
+    successor_trustee_name,
+    remainder,
+    contingent_remainder,
+    trustee_notes,
+  }
+}
+
+/** Read SNT rows from answers, including legacy single-beneficiary flat fields. */
+export function parseSntTrustRows(answers: Answers): SntTrustRow[] {
+  const fromArray = answers.snt_trusts
+  if (Array.isArray(fromArray) && fromArray.length > 0) {
+    return fromArray
+      .map((row) => normalizeSntTrustRow(row))
+      .filter((row): row is SntTrustRow => row !== null)
+  }
+
+  const legacyBeneficiary = str(answers.snt_beneficiary_name)
+  if (!legacyBeneficiary) return []
+
+  return [
+    {
+      beneficiary_name: legacyBeneficiary,
+      trustee_name: str(answers.snt_trustee_name),
+      successor_trustee_name: str(answers.snt_successor_trustee_name),
+      remainder: str(answers.snt_remainder),
+      contingent_remainder: str(answers.snt_contingent_remainder),
+      trustee_notes: str(answers.snt_trustee_notes),
+    },
+  ]
+}
+
+export function migrateLegacySntAnswers(answers: Answers): Answers | null {
+  if (str(answers.wants_snt) !== 'yes') return null
+  if (Array.isArray(answers.snt_trusts) && answers.snt_trusts.length > 0) return null
+  const rows = parseSntTrustRows(answers)
+  if (rows.length === 0) return { ...answers, snt_trusts: [emptySntTrustRow()] }
+  const next = { ...answers, snt_trusts: rows }
+  for (const id of SPECIAL_NEEDS_LEGACY_FIELD_IDS) {
+    delete (next as Record<string, unknown>)[id]
+  }
+  return next
+}
 
 export function wantsSpecialNeedsTrust(answers: Answers) {
   return str(answers.wants_snt) === 'yes'
@@ -57,27 +126,24 @@ export function orderNeedsSpecialNeedsLawyerSignoff(
 export const SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT =
   'I am Scott Pappas or another licensed Texas attorney. I have reviewed this special needs trust language against current Texas Property Code (Chapter 111 et seq.) and current SSI/Medicaid resource-eligibility rules, and I approve sending it to the client.'
 
-/** Testamentary SNT — placeholders filled from answers. */
-function buildSntArticle(answers: Answers): SpecialNeedsArticle {
-  const beneficiary = nameOrPlaceholder(answers.snt_beneficiary_name, '[Beneficiary Full Legal Name]')
+/** Testamentary SNT — one trust article per beneficiary row. */
+function buildSntArticleFromRow(row: SntTrustRow): SpecialNeedsArticle {
+  const beneficiary = nameOrPlaceholder(row.beneficiary_name, '[Beneficiary Full Legal Name]')
   const first = firstName(beneficiary) || 'Beneficiary'
-  const trustee = nameOrPlaceholder(answers.snt_trustee_name, '[Trustee Full Legal Name]')
+  const trustee = nameOrPlaceholder(row.trustee_name, '[Trustee Full Legal Name]')
   const successor = nameOrPlaceholder(
-    answers.snt_successor_trustee_name,
+    row.successor_trustee_name,
     '[Successor Trustee Full Legal Name]',
   )
   const remainder = nameOrPlaceholder(
-    answers.snt_remainder,
+    row.remainder,
     '[Remainder Beneficiary Name(s), Relationship(s), and Share(s)]',
   )
   const contingent = nameOrPlaceholder(
-    answers.snt_contingent_remainder,
+    row.contingent_remainder,
     '[Contingent Remainder Provision]',
   )
-  const notes = plain(str(answers.snt_trustee_notes))
-  const hasExisting = str(answers.snt_has_existing) === 'yes'
-  const existingName = nameOrPlaceholder(answers.snt_existing_name, '[Name of Existing Trust]')
-  const existingDate = nameOrPlaceholder(answers.snt_existing_date, '[Date Established]')
+  const notes = plain(str(row.trustee_notes))
 
   const paragraphs: string[] = [
     `This Article establishes a trust for the benefit of **${beneficiary}** ("Beneficiary"), to be funded upon my death with the share of my estate otherwise passing to Beneficiary under this Will. I have created this trust because I understand Beneficiary may be receiving, or may in the future receive, government benefits based on disability, including but not limited to Supplemental Security Income (SSI) and Medicaid, and I intend that Beneficiary's inheritance supplement, and not replace or jeopardize, such benefits.`,
@@ -95,12 +161,6 @@ function buildSntArticle(answers: Answers): SpecialNeedsArticle {
     `**10. Governing Law.** This Trust shall be governed by and construed in accordance with the laws of the State of Texas, including the Texas Property Code and applicable Texas Trust Code provisions.`,
   ]
 
-  if (hasExisting) {
-    paragraphs.push(
-      `**Alternative — pour-over to existing special needs trust.** If Beneficiary has an existing special needs trust at the time of my death, I give the share of my estate that would otherwise pass to Beneficiary under this Will to the Trustee of the ${existingName}, dated ${existingDate}, to be held and administered according to the terms of that trust instrument. If, for any reason, that trust is not then in existence or is unable to receive this gift, the gift shall instead be held under the terms of this Article (Testamentary Special Needs Trust), with ${trustee} serving as Trustee.`,
-    )
-  }
-
   return {
     heading: `SPECIAL NEEDS TRUST FOR ${beneficiary.toUpperCase()}`,
     paragraphs,
@@ -109,7 +169,7 @@ function buildSntArticle(answers: Answers): SpecialNeedsArticle {
 
 export function buildSpecialNeedsArticles(answers: Answers): SpecialNeedsArticle[] {
   if (!wantsSpecialNeedsTrust(answers)) return []
-  return [buildSntArticle(answers)]
+  return parseSntTrustRows(answers).map((row) => buildSntArticleFromRow(row))
 }
 
 export function buildSpecialNeedsTrustArticle(answers: Answers): SpecialNeedsArticle | null {
@@ -118,13 +178,21 @@ export function buildSpecialNeedsTrustArticle(answers: Answers): SpecialNeedsArt
 }
 
 export function specialNeedsTrustClauseText(answers: Answers): string {
-  const article = buildSpecialNeedsTrustArticle(answers)
-  if (!article) return ''
-  return [`**ARTICLE — ${article.heading}**`, ...article.paragraphs].join('\n\n')
+  const articles = buildSpecialNeedsArticles(answers)
+  if (articles.length === 0) return ''
+  return articles
+    .map((article) => `**ARTICLE — ${article.heading}**\n\n${article.paragraphs.join('\n\n')}`)
+    .join('\n\n')
 }
 
 export function residuarySpecialNeedsNote(answers: Answers): string | null {
   if (!wantsSpecialNeedsTrust(answers)) return null
-  const beneficiary = `**${nameOrPlaceholder(answers.snt_beneficiary_name, '[Beneficiary]')}**`
-  return `Any share that would otherwise pass outright to ${beneficiary} shall instead be held and administered under the Special Needs Trust established in this Will, and shall not be distributed to ${beneficiary} free of trust.`
+  const rows = parseSntTrustRows(answers)
+  if (rows.length === 0) return null
+  return rows
+    .map((row) => {
+      const beneficiary = `**${nameOrPlaceholder(row.beneficiary_name, '[Beneficiary]')}**`
+      return `Any share that would otherwise pass outright to ${beneficiary} shall instead be held and administered under the Special Needs Trust established in this Will for ${beneficiary}, and shall not be distributed to ${beneficiary} free of trust.`
+    })
+    .join('\n\n')
 }

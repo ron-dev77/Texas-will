@@ -39,7 +39,7 @@ export const FAQS = [
   },
   {
     q: 'Can I leave a gift in a special needs trust?',
-    a: 'Yes. If someone who inherits from you may get SSI or Medicaid, the questionnaire can add a special needs trust in this will so their share supplements — rather than replaces — those benefits. A licensed Texas attorney must read and approve that language before the will is sent to you.',
+    a: 'Yes. If someone who inherits from you may get SSI or Medicaid, the questionnaire can add a special needs trust in this will so their share supplements — rather than replaces — those benefits. A licensed Texas attorney reviews your will before it is sent to you.',
   },
   {
     q: 'Is My AI Will a law firm?',

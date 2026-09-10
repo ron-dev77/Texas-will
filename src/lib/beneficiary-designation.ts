@@ -42,10 +42,9 @@ export function getErisaNoteLevel(answers: Answers): ErisaNoteLevel {
     return 'none'
   }
   const bracket = retirementAccountValueBracket(answers)
-  if (!bracket) return 'none'
-  if (bracket === ERISA_FULL_NOTE_THRESHOLD) return 'full'
-  if (bracket === ERISA_BRIEF_NOTE_THRESHOLD) return 'brief'
-  return 'none'
+  if (!bracket || bracket === 'under_50k') return 'none'
+  // Same brief reminder for $50k–$250k and $250k+ (Ron did not ask for a longer tier).
+  return 'brief'
 }
 
 export const ERISA_NOTE_FULL =
