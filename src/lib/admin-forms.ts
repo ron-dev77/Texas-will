@@ -415,6 +415,62 @@ export function missingWillEngineKeys(sections: readonly Section[]): string[] {
   return WILL_ENGINE_FIELD_IDS.filter((id) => !present.has(id))
 }
 
+type FormUpgradePatch = {
+  skeleton_body?: string
+  trust_skeleton_body?: string
+  schema?: Json
+  ancillary_skeletons?: Json
+}
+
+/** Upgrade bundled schema/skeletons when Step 10 SNT or other defaults change. */
+export function buildFormUpgradePatch(mapped: QuestionnaireFormRow): FormUpgradePatch {
+  const patch: FormUpgradePatch = {}
+  if (needsDefaultWillSkeletonRefresh(mapped.skeleton_body)) {
+    patch.skeleton_body = BUNDLED_WILL_SKELETON
+  }
+  if (needsTrustSkeletonRefresh(mapped.trust_skeleton_body)) {
+    patch.trust_skeleton_body = BUNDLED_TRUST_SKELETON
+  }
+  const mergedSchema = syncBundledDefaultQuestions(
+    mergeMissingBundledFields(mergeMissingBundledSections(mapped.schema)),
+  )
+  if (JSON.stringify(mergedSchema) !== JSON.stringify(mapped.schema)) {
+    patch.schema = mergedSchema as unknown as Json
+  }
+  const anc = mapped.ancillary_skeletons
+  const bundledAnc = defaultAncillarySkeletonsMap()
+  const staleAnc = ANCILLARY_KINDS.filter((k) => {
+    const body = anc[k]?.trim() ?? ''
+    if (needsAncillaryTemplateRefresh(body)) return true
+    return false
+  })
+  if (staleAnc.length > 0) {
+    const next = { ...anc }
+    for (const k of staleAnc) next[k] = bundledAnc[k]
+    patch.ancillary_skeletons = next as unknown as Json
+  }
+  return patch
+}
+
+function refreshWillSkeletonBody(body: string | null | undefined): string {
+  if (needsDefaultWillSkeletonRefresh(body)) return BUNDLED_WILL_SKELETON
+  return body?.trim() ? body : BUNDLED_WILL_SKELETON
+}
+
+/** Sync the active questionnaire form when bundled schema/skeletons advance. */
+export async function ensureActiveFormSynced(): Promise<void> {
+  const { data: active, error } = await supabase
+    .from('questionnaire_forms')
+    .select(FORM_SELECT)
+    .eq('is_active', true)
+    .maybeSingle()
+  if (error || !active) return
+  const mapped = mapFormRow(active)
+  const patch = buildFormUpgradePatch(mapped)
+  if (Object.keys(patch).length === 0) return
+  await supabase.from('questionnaire_forms').update(patch).eq('id', active.id)
+}
+
 /** Ensure the bundled default form exists (active). Safe to call repeatedly. */
 export async function ensureDefaultForm(): Promise<QuestionnaireFormRow> {
   const { data: existing, error: existingError } = await supabase
@@ -427,39 +483,7 @@ export async function ensureDefaultForm(): Promise<QuestionnaireFormRow> {
   if (existingError) throw new Error(existingError.message)
   if (existing) {
     const mapped = mapFormRow(existing)
-    const patch: {
-      skeleton_body?: string
-      trust_skeleton_body?: string
-      schema?: Json
-      ancillary_skeletons?: Json
-    } = {}
-    // Upgrade old / outdated default will skeletons (bracket text, stacked witnesses).
-    if (needsDefaultWillSkeletonRefresh(mapped.skeleton_body)) {
-      patch.skeleton_body = BUNDLED_WILL_SKELETON
-    }
-    // Refresh outdated default living trust (notary align / duplicate title heading).
-    if (needsTrustSkeletonRefresh(mapped.trust_skeleton_body)) {
-      patch.trust_skeleton_body = BUNDLED_TRUST_SKELETON
-    }
-    const mergedSchema = syncBundledDefaultQuestions(
-      mergeMissingBundledFields(mergeMissingBundledSections(mapped.schema)),
-    )
-    const schemaChanged = JSON.stringify(mergedSchema) !== JSON.stringify(mapped.schema)
-    if (schemaChanged) {
-      patch.schema = mergedSchema as unknown as Json
-    }
-    const anc = mapped.ancillary_skeletons
-    const bundledAnc = defaultAncillarySkeletonsMap()
-    const staleAnc = ANCILLARY_KINDS.filter((k) => {
-      const body = anc[k]?.trim() ?? ''
-      if (needsAncillaryTemplateRefresh(body)) return true
-      return false
-    })
-    if (staleAnc.length > 0) {
-      const next = { ...anc }
-      for (const k of staleAnc) next[k] = bundledAnc[k]
-      patch.ancillary_skeletons = next as unknown as Json
-    }
+    const patch = buildFormUpgradePatch(mapped)
     if (Object.keys(patch).length > 0) {
       const { data: upgraded, error: upErr } = await supabase
         .from('questionnaire_forms')
@@ -1260,6 +1284,12 @@ export async function resolveSkeletonForOrder(params: {
     if (kind === 'spousal_trust' && needsSpousalTrustTemplateRefresh(params.orderSkeletonBody)) {
       return { body: BUNDLED_SPOUSAL_TRUST_SKELETON, source: 'bundled', formName: null }
     }
+    if (kind === 'will') {
+      const refreshed = refreshWillSkeletonBody(params.orderSkeletonBody)
+      if (refreshed !== params.orderSkeletonBody.trim()) {
+        return { body: refreshed, source: 'bundled', formName: null }
+      }
+    }
     return { body: params.orderSkeletonBody, source: 'order', formName: null }
   }
 
@@ -1296,6 +1326,12 @@ export async function resolveSkeletonForOrder(params: {
       .maybeSingle()
     const body = pickFromRow(data)
     if (body?.trim()) {
+      if (kind === 'will') {
+        const refreshed = refreshWillSkeletonBody(body)
+        if (refreshed !== body.trim()) {
+          return { body: refreshed, source: 'bundled', formName: data?.name ?? null }
+        }
+      }
       return { body, source: 'form', formName: data?.name ?? null }
     }
   }
@@ -1306,6 +1342,12 @@ export async function resolveSkeletonForOrder(params: {
     .maybeSingle()
   const activeBody = pickFromRow(active)
   if (activeBody?.trim()) {
+    if (kind === 'will') {
+      const refreshed = refreshWillSkeletonBody(activeBody)
+      if (refreshed !== activeBody.trim()) {
+        return { body: refreshed, source: 'bundled', formName: active?.name ?? null }
+      }
+    }
     return { body: activeBody, source: 'form', formName: active?.name ?? null }
   }
   return { body: bundled, source: 'bundled', formName: null }
@@ -1319,6 +1361,7 @@ export async function getActiveQuestionnaireSchema(): Promise<{
 }> {
   try {
     await ensureDefaultForm()
+    await ensureActiveFormSynced()
   } catch {
     /* continue with active lookup */
   }

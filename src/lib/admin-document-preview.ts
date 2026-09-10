@@ -5,11 +5,19 @@ import { parseSkeletonBody, type SkeletonDoc } from '@/lib/skeleton-doc'
 import { renderSkeletonLayoutPdf } from '@/lib/skeleton-layout-pdf'
 import type { DocumentKind } from '@/lib/document-kinds'
 import { orderHasSpousalTrust } from '@/lib/spousal-trust'
+import { hydrateSntAnswers } from '@/lib/special-needs-trust'
 import type { AnswersRow, OrderDetail, WillDocRow } from '@/lib/admin-order'
 
 export type SkeletonMeta = {
   source: 'order' | 'form' | 'bundled'
   formName: string | null
+}
+
+const LIVE_ANSWER_KINDS = new Set<DocumentKind>(['will', 'spousal_trust'])
+
+/** Normalize questionnaire answers before PDF generation (SNT legacy migration, etc.). */
+export function prepareAnswersForDocument(answers: Record<string, unknown>): Record<string, unknown> {
+  return hydrateSntAnswers(answers)
 }
 
 export async function loadSkeletonsForPartner(
@@ -51,23 +59,27 @@ export async function renderOrderDocumentPdf(params: {
   includeSpousalTrust?: boolean
   fallbackContent?: WillContent | null
 }): Promise<Uint8Array> {
+  const answers = prepareAnswersForDocument(params.answers)
+  const includeSpousalTrust =
+    params.kind === 'spousal_trust' ? true : Boolean(params.includeSpousalTrust)
+  const fillOptions =
+    params.kind === 'will' || params.kind === 'spousal_trust'
+      ? { includeTrust: params.includeTrust, includeSpousalTrust }
+      : {}
+
   if (params.skeleton) {
-    const includeSpousalTrust =
-      params.kind === 'spousal_trust' ? true : Boolean(params.includeSpousalTrust)
-    return renderSkeletonLayoutPdf(
-      params.skeleton,
-      params.answers,
-      params.kind === 'will' || params.kind === 'spousal_trust'
-        ? {
-            includeTrust: params.includeTrust,
-            includeSpousalTrust,
-          }
-        : {},
-    )
+    return renderSkeletonLayoutPdf(params.skeleton, answers, fillOptions)
   }
+
+  // Will / spousal trust: always rebuild from live answers — never stale saved will_content.
+  if (LIVE_ANSWER_KINDS.has(params.kind)) {
+    const content = buildDocumentFromAnswers(params.kind, answers, fillOptions)
+    return renderDocumentPdf(content, params.kind)
+  }
+
   const content =
     params.fallbackContent ??
-    buildDocumentFromAnswers(params.kind, params.answers, {
+    buildDocumentFromAnswers(params.kind, answers, {
       includeTrust: params.includeTrust,
       includeSpousalTrust: params.includeSpousalTrust,
     })
@@ -107,6 +119,15 @@ export async function buildPdfForOrderKind(params: {
     includeTrust: trustOn,
     includeSpousalTrust: spousalOn,
   })
+}
+
+export async function resolveSkeletonDocForOrder(params: {
+  orderFormId: string | null | undefined
+  orderSkeletonBody?: string | null
+  kind: DocumentKind
+}): Promise<SkeletonDoc> {
+  const resolved = await resolveSkeletonForOrder(params)
+  return parseSkeletonBody(resolved.body)
 }
 
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {

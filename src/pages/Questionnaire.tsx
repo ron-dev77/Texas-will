@@ -29,6 +29,7 @@ import {
   formatAnswerPreview,
   getActiveSections,
   getVisibleFields,
+  isFieldFilled,
   missingRequired,
   SECTIONS,
   showGuardianFields,
@@ -429,15 +430,36 @@ export default function Questionnaire() {
     setTouched({})
   }
 
+  function validateAllSectionsBeforeSubmit(): string | null {
+    for (const sec of activeSections) {
+      if (sec.isReview || sec.id === 'review') continue
+      for (const field of getVisibleFields(sec, answers, includeSpousalTrust)) {
+        const msg = fieldQualityError(field, answers[field.id])
+        if (msg) return `${sec.title}: ${msg}`
+        if (field.required && !isFieldFilled(field, answers[field.id])) {
+          const label = field.label.replace(/ \(optional\)$/i, '')
+          return `${sec.title}: Please complete "${label}"`
+        }
+      }
+    }
+    return null
+  }
+
   async function handleContinue() {
     if (submitting) return
     if (isReview) {
+      const validationError = validateAllSectionsBeforeSubmit()
+      if (validationError) {
+        setBootError(validationError)
+        return
+      }
       const active = sessionRef.current
       if (!active) {
         setBootError('No database session — answers were not saved. Check Supabase RLS / migration.')
         return
       }
       setSubmitting(true)
+      setBootError(null)
       try {
         await submitQuestionnaireToDb({ session: active, answers })
         setSubmitted(true)

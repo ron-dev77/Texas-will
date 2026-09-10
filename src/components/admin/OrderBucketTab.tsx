@@ -13,7 +13,11 @@ import {
   type DocumentBucketItem,
 } from '@/lib/admin-document-bucket'
 import { listWillVersions, type OrderDetail, type WillVersionRow } from '@/lib/admin-order'
-import { renderOrderDocumentPdf, sha256Hex } from '@/lib/admin-document-preview'
+import {
+  renderOrderDocumentPdf,
+  resolveSkeletonDocForOrder,
+  sha256Hex,
+} from '@/lib/admin-document-preview'
 import { parseSkeletonBody } from '@/lib/skeleton-doc'
 import {
   deliverDocumentsToClient,
@@ -22,6 +26,7 @@ import {
 } from '@/lib/admin-deliver'
 import { updateOrderStatus } from '@/lib/admin-order'
 import {
+  assertSntAnswersReadyForPdf,
   orderNeedsSpecialNeedsLawyerSignoff,
   SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT,
 } from '@/lib/special-needs-trust'
@@ -135,20 +140,26 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
       (w) =>
         w.partner_number === selected.partnerNumber && w.document_kind === selected.kind,
     )
-    const skeletonBody =
-      selected.skeletonBody?.trim() ||
-      (liveDoc?.version === selected.version ? liveDoc.skeleton_body?.trim() : '') ||
-      null
-    const skeleton = skeletonBody ? parseSkeletonBody(skeletonBody) : null
+    void (async () => {
+      try {
+        const skeletonBody =
+          selected.skeletonBody?.trim() ||
+          (liveDoc?.version === selected.version ? liveDoc.skeleton_body?.trim() : '') ||
+          null
+        const skeleton = skeletonBody
+          ? parseSkeletonBody(skeletonBody)
+          : await resolveSkeletonDocForOrder({
+              orderFormId: data.order.questionnaire_form_id,
+              orderSkeletonBody: liveDoc?.skeleton_body,
+              kind: selected.kind,
+            })
 
-    void renderOrderDocumentPdf({
-      kind: selected.kind,
-      answers: answers.answers,
-      skeleton,
-      includeTrust,
-      fallbackContent: version.will_content,
-    })
-      .then(async (bytes) => {
+        const bytes = await renderOrderDocumentPdf({
+          kind: selected.kind,
+          answers: answers.answers,
+          skeleton,
+          includeTrust,
+        })
         if (cancelled) return
         const copy = new Uint8Array(bytes)
         const hash = await sha256Hex(copy)
@@ -158,17 +169,16 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
           if (prev) URL.revokeObjectURL(prev)
           return url
         })
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!cancelled) setMsg(err instanceof Error ? err.message : 'Preview failed')
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoadingPdf(false)
-      })
+      }
+    })()
     return () => {
       cancelled = true
     }
-  }, [selected, versionCache, data.answers, data.wills, includeTrust])
+  }, [selected, versionCache, data.answers, data.wills, data.order.questionnaire_form_id, includeTrust])
 
   async function removeItem(item: DocumentBucketItem) {
     setBusy(itemKey(item))
@@ -211,6 +221,9 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
     setBusy('send')
     setMsg(null)
     try {
+      for (const row of data.answers) {
+        assertSntAnswersReadyForPdf(row.answers ?? {})
+      }
       const attachments = []
       for (const item of items) {
         const answers = data.answers.find((a) => a.partner_number === item.partnerNumber)
@@ -219,12 +232,7 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
             `Missing answers for ${DOCUMENT_KIND_LABEL[item.kind]} (partner ${item.partnerNumber})`,
           )
         }
-        const version = await resolveVersion(item)
-        if (!version) {
-          throw new Error(
-            `Missing saved version for ${DOCUMENT_KIND_LABEL[item.kind]} v${item.version}`,
-          )
-        }
+        await resolveVersion(item)
         const liveDoc = data.wills.find(
           (w) => w.partner_number === item.partnerNumber && w.document_kind === item.kind,
         )
@@ -232,13 +240,18 @@ export function OrderBucketTab({ orderId, data, onReload }: Props) {
           item.skeletonBody?.trim() ||
           (liveDoc?.version === item.version ? liveDoc.skeleton_body?.trim() : '') ||
           null
-        const skeleton = skeletonBody ? parseSkeletonBody(skeletonBody) : null
+        const skeleton = skeletonBody
+          ? parseSkeletonBody(skeletonBody)
+          : await resolveSkeletonDocForOrder({
+              orderFormId: data.order.questionnaire_form_id,
+              orderSkeletonBody: liveDoc?.skeleton_body,
+              kind: item.kind,
+            })
         const bytes = await renderOrderDocumentPdf({
           kind: item.kind,
           answers: answers.answers,
           skeleton,
           includeTrust,
-          fallbackContent: version.will_content,
         })
         attachments.push({
           kind: item.kind,

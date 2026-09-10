@@ -16,10 +16,6 @@ function plain(text: string) {
     .trim()
 }
 
-function nameOrPlaceholder(v: unknown, fallback: string) {
-  return plain(str(v, fallback)) || fallback
-}
-
 function firstName(full: string) {
   const t = plain(full)
   return t.split(/\s+/)[0] || t
@@ -28,6 +24,23 @@ function firstName(full: string) {
 export type SpecialNeedsArticle = {
   heading: string
   paragraphs: string[]
+}
+
+/** Bracket markers that must never appear in a delivered PDF. */
+export const SNT_PDF_PLACEHOLDER_MARKERS = [
+  '[Beneficiary Full Legal Name]',
+  '[Trustee Full Legal Name]',
+  '[Successor Trustee Full Legal Name]',
+  '[Remainder Beneficiary Name(s), Relationship(s), and Share(s)]',
+  '[Contingent Remainder Provision]',
+  '[Beneficiary]',
+] as const
+
+export class SntPdfNotReadyError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SntPdfNotReadyError'
+  }
 }
 
 /** Legacy flat fields cleared when the client says no to special-needs planning. */
@@ -73,6 +86,17 @@ function normalizeSntTrustRow(raw: unknown): SntTrustRow | null {
   }
 }
 
+/** All required SNT row fields for PDF generation. */
+export function isCompleteSntRow(row: SntTrustRow): boolean {
+  return (
+    Boolean(row.beneficiary_name?.trim()) &&
+    Boolean(row.trustee_name?.trim()) &&
+    Boolean(row.successor_trustee_name?.trim()) &&
+    Boolean(row.remainder?.trim()) &&
+    Boolean(row.contingent_remainder?.trim())
+  )
+}
+
 /** Read SNT rows from answers, including legacy single-beneficiary flat fields. */
 export function parseSntTrustRows(answers: Answers): SntTrustRow[] {
   const fromArray = answers.snt_trusts
@@ -97,6 +121,7 @@ export function parseSntTrustRows(answers: Answers): SntTrustRow[] {
   ]
 }
 
+/** Migrate legacy flat SNT fields into `snt_trusts` when needed. */
 export function migrateLegacySntAnswers(answers: Answers): Answers | null {
   if (str(answers.wants_snt) !== 'yes') return null
   if (Array.isArray(answers.snt_trusts) && answers.snt_trusts.length > 0) return null
@@ -109,8 +134,56 @@ export function migrateLegacySntAnswers(answers: Answers): Answers | null {
   return next
 }
 
+/** Normalize answers before PDF / admin checks (legacy migration, no mutation of source). */
+export function hydrateSntAnswers(answers: Answers): Answers {
+  return migrateLegacySntAnswers(answers) ?? answers
+}
+
+/** Rows with every required field — used for PDF output only. */
+export function parseCompleteSntTrustRows(answers: Answers): SntTrustRow[] {
+  return parseSntTrustRows(hydrateSntAnswers(answers)).filter(isCompleteSntRow)
+}
+
 export function wantsSpecialNeedsTrust(answers: Answers) {
   return str(answers.wants_snt) === 'yes'
+}
+
+export function sntClauseHasPlaceholderMarkers(text: string): boolean {
+  return SNT_PDF_PLACEHOLDER_MARKERS.some((marker) => text.includes(marker))
+}
+
+/** Throws when SNT is enabled but PDF-ready rows or clause text are missing. */
+export function assertSntAnswersReadyForPdf(answers: Answers): void {
+  if (!wantsSpecialNeedsTrust(answers)) return
+
+  const hydrated = hydrateSntAnswers(answers)
+  const allRows = parseSntTrustRows(hydrated)
+  const completeRows = allRows.filter(isCompleteSntRow)
+
+  if (completeRows.length === 0) {
+    throw new SntPdfNotReadyError(
+      'Special needs trust is enabled, but beneficiary, trustee, successor trustee, remainder, and contingent remainder must all be completed before generating the will.',
+    )
+  }
+
+  if (completeRows.length < allRows.length) {
+    throw new SntPdfNotReadyError(
+      'One or more special needs trust beneficiaries have incomplete information. Complete every trust card or remove empty beneficiaries.',
+    )
+  }
+
+  const clause = specialNeedsTrustClauseText(hydrated)
+  if (!clause.trim()) {
+    throw new SntPdfNotReadyError(
+      'Special needs trust is enabled, but no trust article could be generated from the saved answers.',
+    )
+  }
+
+  if (sntClauseHasPlaceholderMarkers(clause)) {
+    throw new SntPdfNotReadyError(
+      'Special needs trust language still contains placeholder text. Regenerate the will from current answers before sending.',
+    )
+  }
 }
 
 export function needsSpecialNeedsLawyerSignoff(answers: Answers) {
@@ -126,23 +199,20 @@ export function orderNeedsSpecialNeedsLawyerSignoff(
 export const SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT =
   'I am Scott Pappas or another licensed Texas attorney. I have reviewed this special needs trust language against current Texas Property Code (Chapter 111 et seq.) and current SSI/Medicaid resource-eligibility rules, and I approve sending it to the client.'
 
-/** Testamentary SNT — one trust article per beneficiary row. */
+/** Testamentary SNT — one trust article per complete beneficiary row. */
 function buildSntArticleFromRow(row: SntTrustRow): SpecialNeedsArticle {
-  const beneficiary = nameOrPlaceholder(row.beneficiary_name, '[Beneficiary Full Legal Name]')
+  if (!isCompleteSntRow(row)) {
+    throw new SntPdfNotReadyError(
+      'Cannot build a special needs trust article until beneficiary, trustee, successor trustee, remainder, and contingent remainder are all filled in.',
+    )
+  }
+
+  const beneficiary = plain(str(row.beneficiary_name))
   const first = firstName(beneficiary) || 'Beneficiary'
-  const trustee = nameOrPlaceholder(row.trustee_name, '[Trustee Full Legal Name]')
-  const successor = nameOrPlaceholder(
-    row.successor_trustee_name,
-    '[Successor Trustee Full Legal Name]',
-  )
-  const remainder = nameOrPlaceholder(
-    row.remainder,
-    '[Remainder Beneficiary Name(s), Relationship(s), and Share(s)]',
-  )
-  const contingent = nameOrPlaceholder(
-    row.contingent_remainder,
-    '[Contingent Remainder Provision]',
-  )
+  const trustee = plain(str(row.trustee_name))
+  const successor = plain(str(row.successor_trustee_name))
+  const remainder = plain(str(row.remainder))
+  const contingent = plain(str(row.contingent_remainder))
   const notes = plain(str(row.trustee_notes))
 
   const paragraphs: string[] = [
@@ -169,7 +239,7 @@ function buildSntArticleFromRow(row: SntTrustRow): SpecialNeedsArticle {
 
 export function buildSpecialNeedsArticles(answers: Answers): SpecialNeedsArticle[] {
   if (!wantsSpecialNeedsTrust(answers)) return []
-  return parseSntTrustRows(answers).map((row) => buildSntArticleFromRow(row))
+  return parseCompleteSntTrustRows(answers).map((row) => buildSntArticleFromRow(row))
 }
 
 export function buildSpecialNeedsTrustArticle(answers: Answers): SpecialNeedsArticle | null {
@@ -178,7 +248,7 @@ export function buildSpecialNeedsTrustArticle(answers: Answers): SpecialNeedsArt
 }
 
 export function specialNeedsTrustClauseText(answers: Answers): string {
-  const articles = buildSpecialNeedsArticles(answers)
+  const articles = buildSpecialNeedsArticles(hydrateSntAnswers(answers))
   if (articles.length === 0) return ''
   return articles
     .map((article) => `**ARTICLE — ${article.heading}**\n\n${article.paragraphs.join('\n\n')}`)
@@ -187,11 +257,11 @@ export function specialNeedsTrustClauseText(answers: Answers): string {
 
 export function residuarySpecialNeedsNote(answers: Answers): string | null {
   if (!wantsSpecialNeedsTrust(answers)) return null
-  const rows = parseSntTrustRows(answers)
+  const rows = parseCompleteSntTrustRows(answers)
   if (rows.length === 0) return null
   return rows
     .map((row) => {
-      const beneficiary = `**${nameOrPlaceholder(row.beneficiary_name, '[Beneficiary]')}**`
+      const beneficiary = `**${plain(str(row.beneficiary_name))}**`
       return `Any share that would otherwise pass outright to ${beneficiary} shall instead be held and administered under the Special Needs Trust established in this Will for ${beneficiary}, and shall not be distributed to ${beneficiary} free of trust.`
     })
     .join('\n\n')

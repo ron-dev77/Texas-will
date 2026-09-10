@@ -2,6 +2,7 @@ import type { WillContent } from '@/lib/will-render'
 import type { DocumentKind } from '@/lib/document-kinds'
 import {
   buildSpecialNeedsArticles,
+  hydrateSntAnswers,
   residuarySpecialNeedsNote,
 } from '@/lib/special-needs-trust'
 import {
@@ -701,21 +702,22 @@ export function buildDocumentFromAnswers(
   answers: Answers,
   options: BuildDocOptions = {},
 ): WillContent {
+  const hydrated = hydrateSntAnswers(answers)
   switch (kind) {
     case 'spousal_trust':
-      return buildSpousalTrustDocFromAnswers(answers)
+      return buildSpousalTrustDocFromAnswers(hydrated)
     case 'rlt':
-      return buildTrustFromAnswers(answers)
+      return buildTrustFromAnswers(hydrated)
     case 'mpoa':
-      return buildMpoaFromAnswers(answers)
+      return buildMpoaFromAnswers(hydrated)
     case 'dpoa':
-      return buildDpoaFromAnswers(answers)
+      return buildDpoaFromAnswers(hydrated)
     case 'directive':
-      return buildDirectiveFromAnswers(answers)
+      return buildDirectiveFromAnswers(hydrated)
     case 'hipaa':
-      return buildHipaaFromAnswers(answers)
+      return buildHipaaFromAnswers(hydrated)
     case 'will':
     default:
-      return buildWillFromAnswers(answers, options)
+      return buildWillFromAnswers(hydrated, options)
   }
 }

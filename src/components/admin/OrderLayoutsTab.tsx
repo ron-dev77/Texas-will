@@ -6,6 +6,7 @@ import { PreviewLoadingEffect } from '@/components/ui/loading-block'
 import { cn, pdfEmbedSrc } from '@/lib/utils'
 import { VisualSkeletonWorkspace } from '@/components/admin/VisualSkeletonWorkspace'
 import { buildDocumentFromAnswers } from '@/lib/will-content'
+import { assertSntAnswersReadyForPdf } from '@/lib/special-needs-trust'
 import {
   parseSkeletonBody,
   serializeSkeletonDoc,
@@ -242,6 +243,7 @@ export function OrderLayoutsTab({
     setBusy('save')
     setMsg(null)
     try {
+      assertSntAnswersReadyForPdf(answersRow.answers)
       assertSkeletonExecutionBlocks(skeletonByKind[docKind], docKind)
       const draft = buildDocumentFromAnswers(docKind, answersRow.answers, {
         includeTrust,
@@ -314,12 +316,13 @@ export function OrderLayoutsTab({
           setMsg('Need a layout to save before moving to bucket.')
           return
         }
+        assertSntAnswersReadyForPdf(answersRow.answers)
         assertSkeletonExecutionBlocks(skeletonByKind[docKind], docKind)
         skeletonSnap = serializeSkeletonDoc(skeletonByKind[docKind]!)
         const draft = buildDocumentFromAnswers(docKind, answersRow.answers, {
-        includeTrust,
-        includeSpousalTrust,
-      })
+          includeTrust,
+          includeSpousalTrust,
+        })
         const saved = await upsertWillDocument({
           orderId,
           partnerNumber: partner,

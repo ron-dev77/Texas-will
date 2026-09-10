@@ -43,6 +43,7 @@ import {
 import { proposeSkeletonReformat } from '@/lib/ai-skeleton-reformat'
 import { assertSkeletonExecutionBlocks } from '@/lib/skeleton-execution'
 import {
+  assertSntAnswersReadyForPdf,
   orderNeedsSpecialNeedsLawyerSignoff,
   SPECIAL_NEEDS_LAWYER_SIGNOFF_TEXT,
 } from '@/lib/special-needs-trust'
@@ -397,6 +398,7 @@ export default function OrderDocumentReviewPage() {
     setBusy('save')
     setActionMsg(null)
     try {
+      assertSntAnswersReadyForPdf(answersRow.answers)
       assertSkeletonExecutionBlocks(skel, docKind)
       const draft = buildDocumentFromAnswers(docKind, answersRow.answers, {
         includeTrust,
@@ -460,6 +462,9 @@ export default function OrderDocumentReviewPage() {
     setBusy('send')
     setActionMsg(null)
     try {
+      for (const row of data.answers) {
+        assertSntAnswersReadyForPdf(row.answers ?? {})
+      }
       const couples = data.order.plan_type === 'couples'
       const attachments: {
         kind: DocumentKind
