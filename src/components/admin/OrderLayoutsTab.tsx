@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Download, Loader2, PackagePlus, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -23,7 +23,11 @@ import {
   type OrderDetail,
   type WillVersionRow,
 } from '@/lib/admin-order'
-import { orderedDocumentKindsForDelivery } from '@/lib/admin-deliver'
+import {
+  ADMIN_DOCUMENT_PICKER_KINDS,
+  adminDocumentKindStatus,
+  isDocumentKindOrdered,
+} from '@/lib/admin-deliver'
 import {
   renderOrderDocumentPdf,
   sha256Hex,
@@ -73,17 +77,7 @@ export function OrderLayoutsTab({
   const includeTrust = Boolean(data.order.add_ons?.trust)
   const includeSpousalTrust = orderHasSpousalTrust(data.order.add_ons)
   const isCouples = data.order.plan_type === 'couples'
-  const packageKinds = useMemo(
-    () =>
-      orderedDocumentKindsForDelivery({
-        documents: (data.order.add_ons as { documents?: unknown } | null)?.documents,
-        includeTrust,
-        includeSpousalTrust,
-      }),
-    [data.order.add_ons, includeTrust, includeSpousalTrust],
-  )
-
-  const [docKind, setDocKind] = useState<DocumentKind>(packageKinds[0] ?? 'will')
+  const [docKind, setDocKind] = useState<DocumentKind>('will')
   const [prompt, setPrompt] = useState('')
   const [notes, setNotes] = useState('')
   const [lastAi, setLastAi] = useState<{
@@ -118,9 +112,7 @@ export function OrderLayoutsTab({
     return bucket.items.some((i) => i.kind === kind && i.partnerNumber === partner)
   }
 
-  useEffect(() => {
-    if (!packageKinds.includes(docKind)) setDocKind(packageKinds[0] ?? 'will')
-  }, [packageKinds, docKind])
+  const docKindOrdered = isDocumentKindOrdered(docKind, data.order.add_ons)
 
   useEffect(() => {
     setLastAi(null)
@@ -407,11 +399,18 @@ export function OrderLayoutsTab({
               Document
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {packageKinds.map((kind) => {
+              {ADMIN_DOCUMENT_PICKER_KINDS.map((kind) => {
                 const docRow = data.wills.find(
                   (w) => w.partner_number === partner && w.document_kind === kind,
                 )
                 const inBucket = isInBucket(kind)
+                const status = adminDocumentKindStatus({
+                  kind,
+                  addOns: data.order.add_ons,
+                  answersRow,
+                  liveDoc: docRow ?? null,
+                })
+                const selected = docKind === kind
                 return (
                   <button
                     key={kind}
@@ -419,24 +418,37 @@ export function OrderLayoutsTab({
                     onClick={() => setDocKind(kind)}
                     className={cn(
                       'rounded-xl px-3 pt-3 pb-2 text-center text-sm transition',
-                      docKind === kind
-                        ? 'bg-foreground text-background'
-                        : 'border border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground',
+                      !status.ordered &&
+                        'border border-dashed border-border/70 bg-muted/25 text-muted-foreground opacity-70 hover:opacity-90',
+                      status.ordered &&
+                        selected &&
+                        'bg-foreground text-background',
+                      status.ordered &&
+                        !selected &&
+                        'border border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground',
+                      !status.ordered && selected && 'ring-1 ring-border opacity-85',
                     )}
                   >
-                    <span className="block font-medium">{DOCUMENT_KIND_LABEL[kind]}</span>
+                    <span
+                      className={cn(
+                        'block font-medium',
+                        !status.ordered && 'text-muted-foreground',
+                      )}
+                    >
+                      {DOCUMENT_KIND_LABEL[kind]}
+                    </span>
                     <span
                       className={cn(
                         'mt-0.5 flex flex-wrap items-center justify-center gap-1.5 text-[11px]',
-                        docKind === kind ? 'opacity-80' : 'text-muted-foreground',
+                        selected && status.ordered ? 'opacity-80' : 'text-muted-foreground',
                       )}
                     >
-                      <span>{docRow ? `Live v${docRow.version}` : 'No live version'}</span>
-                      {inBucket ? (
+                      <span>{status.label}</span>
+                      {status.ordered && inBucket ? (
                         <span
                           className={cn(
                             'rounded-md px-1.5 py-0.5 font-medium',
-                            docKind === kind
+                            selected
                               ? 'bg-background/20 text-background'
                               : 'bg-emerald-100 text-emerald-800',
                           )}
@@ -502,20 +514,43 @@ export function OrderLayoutsTab({
           )}
         </div>
         <p className="mt-3 text-[11px] text-muted-foreground">
-          Preview, AI, and block edits apply to{' '}
-          <span className="font-medium text-foreground">{DOCUMENT_KIND_LABEL[docKind]}</span>
-          {isCouples ? (
+          {docKindOrdered ? (
             <>
-              {' '}
-              · Partner {partner} (
-              {partner === 1 ? partner1 : partner2})
+              Preview, AI, and block edits apply to{' '}
+              <span className="font-medium text-foreground">{DOCUMENT_KIND_LABEL[docKind]}</span>
+              {isCouples ? (
+                <>
+                  {' '}
+                  · Partner {partner} (
+                  {partner === 1 ? partner1 : partner2})
+                </>
+              ) : null}
+              .
             </>
-          ) : null}
-          .
+          ) : (
+            <>
+              <span className="font-medium text-foreground">{DOCUMENT_KIND_LABEL[docKind]}</span>{' '}
+              was not selected at checkout — preview and editing are disabled.
+            </>
+          )}
         </p>
       </div>
 
-      <section className="min-w-0 overflow-hidden rounded-2xl border border-border bg-card">
+      {!docKindOrdered ? (
+        <div className="rounded-2xl border border-dashed border-border/80 bg-muted/20 px-6 py-10 text-center">
+          <p className="font-medium text-muted-foreground">{DOCUMENT_KIND_LABEL[docKind]}</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Not selected at checkout. The customer did not order this document for this plan.
+          </p>
+        </div>
+      ) : null}
+
+      <section
+        className={cn(
+          'min-w-0 overflow-hidden rounded-2xl border border-border bg-card',
+          !docKindOrdered && 'hidden',
+        )}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
           <div className="min-w-0">
             <h3 className="text-sm font-medium">Document preview</h3>
@@ -604,7 +639,7 @@ export function OrderLayoutsTab({
         ) : null}
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className={cn('grid gap-4 lg:grid-cols-2', !docKindOrdered && 'hidden')}>
         <section className="rounded-2xl border border-border bg-card p-4">
           <h3 className="flex items-center gap-2 text-sm font-medium">
             <Sparkles className="h-4 w-4" />
@@ -701,7 +736,7 @@ export function OrderLayoutsTab({
         </section>
       </div>
 
-      <div className="min-w-0">
+      <div className={cn('min-w-0', !docKindOrdered && 'hidden')}>
         {skel ? (
           <VisualSkeletonWorkspace
             doc={skel}
@@ -711,7 +746,10 @@ export function OrderLayoutsTab({
             }}
             schema={layoutSchema}
             answers={answersRow?.answers}
-            fillOptions={{ includeTrust }}
+            fillOptions={{
+              includeTrust,
+              includeSpousalTrust: docKind === 'spousal_trust' || includeSpousalTrust,
+            }}
             sidebarTitle="Answers"
             showEmbeddedPdf={false}
             showFieldSidebar

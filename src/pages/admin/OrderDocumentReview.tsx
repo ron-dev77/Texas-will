@@ -25,7 +25,10 @@ import {
   type WillVersionRow,
 } from '@/lib/admin-order'
 import {
+  ADMIN_DOCUMENT_PICKER_KINDS,
+  adminDocumentKindStatus,
   deliverDocumentsToClient,
+  isDocumentKindOrdered,
   orderedDocumentKindsForDelivery,
   pdfBytesToBase64,
   pdfFilenameFor,
@@ -190,6 +193,9 @@ export default function OrderDocumentReviewPage() {
       }),
     [data, includeTrust, includeSpousalTrust],
   )
+  const docKindOrdered = data
+    ? isDocumentKindOrdered(docKind, data.order.add_ons)
+    : false
   const partnerDoc = data?.wills.find(
     (w) => w.partner_number === partner && w.document_kind === docKind,
   )
@@ -224,6 +230,16 @@ export default function OrderDocumentReviewPage() {
   }, [data, markedFinal, versions.length, activeSavedDoc, proposal])
 
   useEffect(() => {
+    if (!docKindOrdered) {
+      setPdfUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return null
+      })
+      setPdfHash(null)
+      setPreviewLoading(false)
+      return
+    }
+
     if (!answersRow && versionSel === 'live') {
       setPdfUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev)
@@ -304,6 +320,7 @@ export default function OrderDocumentReviewPage() {
     answersRow,
     workingSkeleton,
     docKind,
+    docKindOrdered,
     versionSel,
     includeTrust,
     includeSpousalTrust,
@@ -653,11 +670,17 @@ export default function OrderDocumentReviewPage() {
             Preview reflows from this order’s answers (any length). Page count updates automatically.
           </p>
           <ul className="space-y-2">
-            {packageKinds.map((kind) => {
+            {ADMIN_DOCUMENT_PICKER_KINDS.map((kind) => {
               const doc = data.wills.find(
                 (w) => w.partner_number === partner && w.document_kind === kind,
               )
-              const ready = Boolean(answersRow)
+              const status = adminDocumentKindStatus({
+                kind,
+                addOns: data.order.add_ons,
+                answersRow,
+                liveDoc: doc ?? null,
+              })
+              const selected = docKind === kind
               return (
                 <li key={kind}>
                   <button
@@ -665,19 +688,32 @@ export default function OrderDocumentReviewPage() {
                     onClick={() => setDocKind(kind)}
                     className={cn(
                       'w-full rounded-lg border px-3 py-3 text-left transition',
-                      docKind === kind
-                        ? 'border-foreground bg-foreground text-background'
-                        : 'border-border bg-card hover:border-foreground/30',
+                      !status.ordered &&
+                        'border-dashed border-border/70 bg-muted/25 opacity-70 hover:opacity-90',
+                      status.ordered &&
+                        selected &&
+                        'border-foreground bg-foreground text-background',
+                      status.ordered &&
+                        !selected &&
+                        'border-border bg-card hover:border-foreground/30',
+                      !status.ordered && selected && 'ring-1 ring-border opacity-85',
                     )}
                   >
-                    <span className="block text-sm font-medium">{DOCUMENT_KIND_LABEL[kind]}</span>
+                    <span
+                      className={cn(
+                        'block text-sm font-medium',
+                        !status.ordered && 'text-muted-foreground',
+                      )}
+                    >
+                      {DOCUMENT_KIND_LABEL[kind]}
+                    </span>
                     <span
                       className={cn(
                         'mt-1 block text-[11px]',
-                        docKind === kind ? 'opacity-80' : 'text-muted-foreground',
+                        selected && status.ordered ? 'opacity-80' : 'text-muted-foreground',
                       )}
                     >
-                      {ready ? (doc ? `Saved v${doc.version}` : 'Live default') : 'Waiting on answers'}
+                      {status.label}
                     </span>
                   </button>
                 </li>
@@ -737,7 +773,15 @@ export default function OrderDocumentReviewPage() {
             </div>
           </div>
 
-          {previewLoading ? (
+          {!docKindOrdered ? (
+            <div className="flex h-64 flex-col items-center justify-center rounded-md border border-dashed border-border/80 bg-muted/20 px-6 text-center text-sm text-muted-foreground">
+              <FileText className="mb-2 h-8 w-8 opacity-40" />
+              <p className="font-medium">Not selected at checkout</p>
+              <p className="mt-1 max-w-sm text-xs">
+                The customer did not order this document. Preview and editing are disabled.
+              </p>
+            </div>
+          ) : previewLoading ? (
             <div className="flex h-[640px] flex-col items-center justify-center rounded-md border border-dashed border-border bg-background text-sm text-muted-foreground">
               <Loader2 className="mb-2 h-6 w-6 animate-spin opacity-50" />
               Building preview…

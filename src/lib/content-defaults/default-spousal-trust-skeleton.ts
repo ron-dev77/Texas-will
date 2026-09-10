@@ -1,31 +1,75 @@
 /**
- * Bundled spousal trust skeleton — Scott Article X (Option 1 default for admin layout editor).
- * Live PDF generation uses buildSpousalTrustFromAnswers() in spousal-trust.ts
- * (verbatim Scott Option 1 or Option 2 from questionnaire answers).
+ * Bundled spousal trust skeleton — v2 layout blocks (same PDF pipeline as MPOA / Will).
+ * Body uses {{clause_spousal_trust}} so sole vs co-trustee follows questionnaire answers.
  */
-export const SPOUSAL_TRUST_TEMPLATE = 'spousal-trust-v2-scott'
-export const SPOUSAL_TRUST_MARKER = '<!-- texas-will-spousal-trust-v2-scott -->'
+export const SPOUSAL_TRUST_TEMPLATE = 'spousal-trust-v3-layout'
 
-export const BUNDLED_SPOUSAL_TRUST_SKELETON = `${SPOUSAL_TRUST_MARKER}
-# {{legal_full_name}} — Spousal Testamentary Trust
+type BlockInput = {
+  id: string
+  kind: 'heading' | 'paragraph' | 'signature' | 'signature_pair' | 'spacer'
+  heading?: string
+  body?: string
+  label?: string
+  leftLabel?: string
+  rightLabel?: string
+  align?: 'left' | 'center' | 'right'
+  blankLinesAfter?: number
+  pageBreakBefore?: boolean
+  headingBold?: boolean
+}
 
-## SPOUSAL TESTAMENTARY TRUST
-
-### Creation of Trust
-If my spouse survives me, I give, devise, and bequeath my entire residuary estate to the Trustee named below, to be held, administered, and distributed in a separate trust for the primary benefit of my spouse, designated as the "{{legal_full_name}} Family Trust."
-
-### Appointment of Trustee
-I appoint my spouse as the sole Trustee of the {{legal_full_name}} Family Trust. If my spouse fails or ceases to serve for any reason, I appoint {{spousal_trust_alternate_trustee_name}} as successor Trustee. No Trustee serving under this Instrument shall be required to post bond or other security in any jurisdiction.
-
-### Lifetime Distributions to Spouse
-(a) Mandatory Net Income: The Trustee shall pay to or apply for the benefit of my spouse all of the net income of the Trust, distributed at least annually or in more frequent installments. (b) Principal Discretion (HEMS Standard): The Trustee may pay to or apply for the benefit of my spouse so much of the trust principal as the Trustee deems necessary or advisable, in the Trustee's sole discretion, for my spouse's health, education, maintenance, and support in reasonable comfort (the "HEMS Standard"), taking into consideration any other financial resources known to the Trustee to be available to my spouse.
-
-### Termination and Remainder Distribution
-Upon the death of my spouse, the {{legal_full_name}} Family Trust shall terminate. The Trustee shall distribute the remaining trust principal and any accrued but undistributed net income in equal shares to my children: {{spousal_trust_remainder_children}}, per stirpes and not per capita.
-
-### Texas Statutory Administration Powers
-(a) General Powers under Texas Property Code § 111.001 et seq. (b) Accounting under Tex. Prop. Code § 113.151. (c) Principal and Income under Chapter 116. (d) Non-Pro Rata Distributions under Tex. Prop. Code § 113.027.
-
-### Trustee Exculpation
-To the fullest extent permitted under Texas Property Code § 114.007, no Trustee shall be personally liable except for gross negligence, willful misconduct, intentional fraud, or bad faith, with indemnification for reasonable legal fees when acting in good faith.
+function pack(title: string, blocks: BlockInput[]): string {
+  const full = blocks.map((b) => ({
+    id: b.id,
+    kind: b.kind,
+    heading: b.heading ?? '',
+    body: b.body ?? '',
+    label: b.label ?? '',
+    leftLabel: b.leftLabel ?? '',
+    rightLabel: b.rightLabel ?? '',
+    align: b.align ?? 'left',
+    blankLinesAfter: b.blankLinesAfter ?? 1,
+    pageBreakBefore: b.pageBreakBefore ?? false,
+    headingBold: b.headingBold === false ? false : true,
+  }))
+  return `<!-- texas-will-skeleton-v2 -->
+${JSON.stringify(
+  { version: 2, template: SPOUSAL_TRUST_TEMPLATE, title, pageSize: 'A4', blocks: full },
+  null,
+  2,
+)}
 `
+}
+
+export const BUNDLED_SPOUSAL_TRUST_SKELETON = pack('SPOUSAL TESTAMENTARY TRUST', [
+  {
+    id: 'st-ident-h',
+    kind: 'heading',
+    heading: 'IDENTIFICATION',
+    align: 'center',
+    blankLinesAfter: 1,
+  },
+  {
+    id: 'st-ident-p',
+    kind: 'paragraph',
+    body:
+      'I, **{{legal_full_name}}**, a resident of **{{address_county}}** County, Texas, establish the following Spousal Testamentary Trust for the benefit of my spouse, **{{spouse_full_name}}**, to be incorporated by reference into my Last Will and Testament.',
+    blankLinesAfter: 1,
+  },
+  {
+    id: 'st-trust-body',
+    kind: 'paragraph',
+    body: '{{clause_spousal_trust}}',
+    blankLinesAfter: 1,
+  },
+])
+
+/** True when stored skeleton is legacy markdown or an older bundled template. */
+export function needsSpousalTrustTemplateRefresh(body: string | null | undefined): boolean {
+  const text = body?.trim() ?? ''
+  if (!text) return true
+  if (text.includes('<!-- texas-will-spousal-trust-v2-scott -->')) return true
+  if (/^#\s/m.test(text)) return true
+  if (!text.includes('<!-- texas-will-skeleton-v2 -->')) return true
+  return !new RegExp(`"template"\\s*:\\s*"${SPOUSAL_TRUST_TEMPLATE}"`).test(text)
+}

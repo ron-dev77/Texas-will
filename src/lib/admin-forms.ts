@@ -9,7 +9,10 @@ import {
 } from '@/lib/questionnaire'
 import { BUNDLED_WILL_SKELETON } from '@/lib/admin-content'
 import { needsDefaultWillSkeletonRefresh } from '@/lib/content-defaults/default-will-skeleton'
-import { BUNDLED_SPOUSAL_TRUST_SKELETON } from '@/lib/content-defaults/default-spousal-trust-skeleton'
+import {
+  BUNDLED_SPOUSAL_TRUST_SKELETON,
+  needsSpousalTrustTemplateRefresh,
+} from '@/lib/content-defaults/default-spousal-trust-skeleton'
 import {
   ANCILLARY_KINDS,
   DOCUMENT_KIND_LABEL,
@@ -1247,6 +1250,7 @@ export function needsTrustSkeletonRefresh(body: string | null | undefined): bool
 
 export function bundledSkeletonForKind(kind: DocumentKind): string {
   if (kind === 'rlt') return BUNDLED_TRUST_SKELETON
+  if (kind === 'spousal_trust') return BUNDLED_SPOUSAL_TRUST_SKELETON
   if (isAncillaryKind(kind)) return BUNDLED_ANCILLARY_SKELETONS[kind]
   return BUNDLED_WILL_SKELETON
 }
@@ -1261,6 +1265,9 @@ export async function resolveSkeletonForOrder(params: {
   const bundled = bundledSkeletonForKind(kind)
 
   if (params.orderSkeletonBody?.trim()) {
+    if (kind === 'spousal_trust' && needsSpousalTrustTemplateRefresh(params.orderSkeletonBody)) {
+      return { body: BUNDLED_SPOUSAL_TRUST_SKELETON, source: 'bundled', formName: null }
+    }
     return { body: params.orderSkeletonBody, source: 'order', formName: null }
   }
 

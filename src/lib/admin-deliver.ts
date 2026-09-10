@@ -4,6 +4,7 @@ import type { DocumentKind } from '@/lib/document-kinds'
 import { DOCUMENT_KIND_LABEL } from '@/lib/document-kinds'
 import type { PackageDocId } from '@/lib/order'
 import { normalizeOrderDocuments } from '@/lib/order'
+import { orderHasSpousalTrust } from '@/lib/spousal-trust'
 
 export type DeliverAttachmentPayload = {
   kind: DocumentKind
@@ -29,6 +30,63 @@ export function orderedDocumentKindsForDelivery(params: {
   if (params.includeSpousalTrust) kinds.push('spousal_trust')
   if (params.includeTrust) kinds.push('rlt')
   return kinds
+}
+
+/** Every document type shown in admin pickers (ordered + not ordered). */
+export const ADMIN_DOCUMENT_PICKER_KINDS: DocumentKind[] = [
+  'will',
+  'mpoa',
+  'dpoa',
+  'directive',
+  'hipaa',
+  'spousal_trust',
+  'rlt',
+]
+
+export function isDocumentKindOrdered(
+  kind: DocumentKind,
+  addOns: Record<string, unknown> | null | undefined,
+): boolean {
+  return orderedDocumentKindsForDelivery({
+    documents: addOns?.documents,
+    includeTrust: Boolean(addOns?.trust),
+    includeSpousalTrust: orderHasSpousalTrust(addOns),
+  }).includes(kind)
+}
+
+export type AdminDocumentKindStatus = {
+  ordered: boolean
+  label: string
+}
+
+function partnerQuestionnaireSubmitted(answersRow?: {
+  submitted_at: string | null
+  review_status?: string
+} | null): boolean {
+  if (!answersRow) return false
+  if (answersRow.submitted_at) return true
+  const status = answersRow.review_status?.toLowerCase() ?? ''
+  return status === 'submitted' || status === 'complete'
+}
+
+/** Subtitle for admin document picker buttons. */
+export function adminDocumentKindStatus(params: {
+  kind: DocumentKind
+  addOns: Record<string, unknown> | null | undefined
+  answersRow?: { submitted_at: string | null; review_status?: string } | null
+  liveDoc?: { version: number } | null
+}): AdminDocumentKindStatus {
+  const ordered = isDocumentKindOrdered(params.kind, params.addOns)
+  if (!ordered) {
+    return { ordered: false, label: 'Not selected at checkout' }
+  }
+  if (!partnerQuestionnaireSubmitted(params.answersRow)) {
+    return { ordered: true, label: 'Questionnaire not submitted' }
+  }
+  if (!params.liveDoc) {
+    return { ordered: true, label: 'No live version yet' }
+  }
+  return { ordered: true, label: `Live v${params.liveDoc.version}` }
 }
 
 export function packageDocsFromAddOns(addOns: Record<string, unknown> | null | undefined): PackageDocId[] {

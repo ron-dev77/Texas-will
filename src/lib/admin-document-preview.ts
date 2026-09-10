@@ -52,13 +52,15 @@ export async function renderOrderDocumentPdf(params: {
   fallbackContent?: WillContent | null
 }): Promise<Uint8Array> {
   if (params.skeleton) {
+    const includeSpousalTrust =
+      params.kind === 'spousal_trust' ? true : Boolean(params.includeSpousalTrust)
     return renderSkeletonLayoutPdf(
       params.skeleton,
       params.answers,
-      params.kind === 'will'
+      params.kind === 'will' || params.kind === 'spousal_trust'
         ? {
             includeTrust: params.includeTrust,
-            includeSpousalTrust: params.includeSpousalTrust,
+            includeSpousalTrust,
           }
         : {},
     )
