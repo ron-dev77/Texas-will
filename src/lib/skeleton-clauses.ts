@@ -456,7 +456,7 @@ const COMPUTED: Record<
     const name = plain(str(answers.legal_full_name, '[Testator]'))
     const spouse = plain(str(answers.spouse_full_name))
     let body = ''
-    if (options.includeSpousalTrust) {
+    if (options.includeSpousalTrust || str(answers.residuary_plan) === 'spousal_trust') {
       body = spousalTrustResiduaryText(answers, name)
       const note = residuarySpecialNeedsNote(answers)
       return note ? `${body}\n\n${note}` : body
@@ -488,6 +488,9 @@ const COMPUTED: Record<
             ? `${intro} as follows: ${custom}`
             : `${intro} according to the written instructions provided with this Will.`
           break
+        case 'spousal_trust':
+          body = spousalTrustResiduaryText(answers, name)
+          break
         default:
           body = `${intro} to my heirs at law under the laws of the **State of Texas**.`
       }
@@ -496,7 +499,7 @@ const COMPUTED: Record<
     return note ? `${body}\n\n${note}` : body
   },
   clause_spousal_trust(answers, options) {
-    if (!options.includeSpousalTrust) return ''
+    if (!options.includeSpousalTrust && str(answers.residuary_plan) !== 'spousal_trust') return ''
     const article = buildSpousalTrustFromAnswers(answers)
     return `**${article.heading}**\n\n${article.paragraphs.join('\n\n')}`
   },

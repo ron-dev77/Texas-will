@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { InfoHelpButton } from '@/components/ui/info-help-modal'
 import { cn } from '@/lib/utils'
-import { spousalTrustAddonDollars } from '@/lib/pricing'
+import { useStripeCatalog } from '@/hooks/useStripeCatalog'
 import {
   ESTATE_BRACKET_OPTIONS,
   type EstateBracket,
@@ -127,6 +127,8 @@ function ListOption({
 export default function Qualify() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { catalog } = useStripeCatalog()
+  const spousalTrustPrice = catalog.spousalTrustCents / 100
   const [draft, setDraft] = useState<Partial<QualifierDraft>>(initialDraft)
   const [simpleAck, setSimpleAck] = useState(Boolean(draft.simpleWillAcknowledged))
 
@@ -387,7 +389,7 @@ export default function Qualify() {
                 selected={draft.spousalTrustChoice === 'spousal_trust'}
                 onClick={() => patch({ spousalTrustChoice: 'spousal_trust' as SpousalTrustChoice })}
                 title="Add the spousal trust"
-                description={`Instead of your spouse and your children inheriting side by side, your spouse is supported first. Whatever remains after your spouse passes goes to your children — whether from your current marriage or a prior one. $${spousalTrustAddonDollars()} flat, added to your plan total.`}
+                description={`Instead of your spouse and your children inheriting side by side, your spouse is supported first. Whatever remains after your spouse passes goes to your children — whether from your current marriage or a prior one. $${spousalTrustPrice} flat, added to your plan total.`}
               />
             </div>
             {draft.spousalTrustChoice === 'simple' ? (

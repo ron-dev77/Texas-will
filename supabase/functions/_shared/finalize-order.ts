@@ -56,6 +56,9 @@ export async function finalizePaidOrder(
   const plan: CheckoutPlan = order.plan_type === 'couples' ? 'couples' : 'individual'
   const addOns = (order.add_ons ?? {}) as {
     trust?: boolean
+    spousal_trust?: boolean
+    documents?: string[]
+    qualifier?: Record<string, unknown> | null
     plan_cents?: number
     trust_cents?: number
   }
@@ -110,6 +113,10 @@ export async function finalizePaidOrder(
     }
   }
 
+  const includeSpousalTrust =
+    Boolean(addOns.spousal_trust) ||
+    addOns.qualifier?.spousalTrustChoice === 'spousal_trust'
+
   return {
     ok: true as const,
     orderId: order.id,
@@ -119,5 +126,18 @@ export async function finalizePaidOrder(
     userEmail: order.user_email,
     partnerEmail: order.partner_email,
     questionnaireToken: order.partner1_token as string,
+    draft: {
+      plan,
+      email: String(order.user_email ?? '').trim(),
+      partnerEmail: order.partner_email?.trim() || undefined,
+      includeTrust: Boolean(addOns.trust),
+      includeSpousalTrust,
+      qualifier: addOns.qualifier ?? undefined,
+      documents: Array.isArray(addOns.documents) && addOns.documents.length > 0
+        ? addOns.documents
+        : ['will'],
+      total: Math.round(Number(order.amount_paid ?? 0) / 100),
+      lsrConsent: true,
+    },
   }
 }

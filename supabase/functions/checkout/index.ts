@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import Stripe from 'https://esm.sh/stripe@17.7.0?target=deno'
 import { finalizePaidOrder } from '../_shared/finalize-order.ts'
 import {
+  fetchStripeCatalog,
   isValidEmail,
   resolveCheckoutAmount,
   type CheckoutPlan,
@@ -59,6 +60,18 @@ Deno.serve(async (req: Request) => {
     const action = body?.action as string
     const sb = adminClient()
 
+    if (action === 'quote') {
+      const stripe = stripeClient()
+      const catalog = await fetchStripeCatalog(stripe)
+      return json({
+        individualCents: catalog.individual,
+        couplesCents: catalog.couples,
+        trustCents: catalog.trust,
+        spousalTrustCents: catalog.spousal_trust,
+        fromStripe: catalog.fromStripe,
+      })
+    }
+
     if (action === 'create_intent') {
       const plan: CheckoutPlan = body?.plan === 'couples' ? 'couples' : 'individual'
       const documents = normalizeDocs(body?.documents)
@@ -98,10 +111,9 @@ Deno.serve(async (req: Request) => {
         return json({ error: 'Select at least one document.' }, 400)
       }
 
-      // Plan + optional RLT (+$50) + optional spousal trust (+$400 provisional).
-      const priced = resolveCheckoutAmount(plan, includeTrust, includeSpousalTrust)
-      const amountCents = priced.amountCents
       const stripe = stripeClient()
+      const priced = await resolveCheckoutAmount(stripe, plan, includeTrust, includeSpousalTrust)
+      const amountCents = priced.amountCents
 
       const { data: activeForm } = await sb
         .from('questionnaire_forms')
@@ -207,6 +219,7 @@ Deno.serve(async (req: Request) => {
         userEmail: result.userEmail,
         partnerEmail: result.partnerEmail,
         questionnaireToken: result.questionnaireToken,
+        draft: result.draft,
       })
     }
 

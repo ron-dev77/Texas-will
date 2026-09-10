@@ -40,6 +40,7 @@ import type { Section } from '@/lib/questionnaire'
 import { needsSpecialNeedsLawyerSignoff } from '@/lib/special-needs-trust'
 import {
   COUPLES_BIDIRECTIONAL_SPOUSAL_TRUST_NOTE,
+  orderHasSpousalTrust,
   orderNeedsBidirectionalSpousalTrustReview,
 } from '@/lib/spousal-trust'
 import { assertSkeletonExecutionBlocks } from '@/lib/skeleton-execution'
@@ -70,9 +71,7 @@ export function OrderLayoutsTab({
   onReload,
 }: Props) {
   const includeTrust = Boolean(data.order.add_ons?.trust)
-  const includeSpousalTrust = Boolean(
-    (data.order.add_ons as { spousal_trust?: boolean } | null)?.spousal_trust,
-  )
+  const includeSpousalTrust = orderHasSpousalTrust(data.order.add_ons)
   const isCouples = data.order.plan_type === 'couples'
   const packageKinds = useMemo(
     () =>

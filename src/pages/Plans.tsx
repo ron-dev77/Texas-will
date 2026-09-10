@@ -5,7 +5,7 @@ import { ScrollReveal } from '@/components/site/ScrollReveal'
 import { WillBasedFitNote } from '@/components/site/WillBasedFitNote'
 import { Button } from '@/components/ui/button'
 import { startWillPath } from '@/lib/start-will-path'
-import { spousalTrustAddonDollars } from '@/lib/pricing'
+import { useStripeCatalog } from '@/hooks/useStripeCatalog'
 
 const INCLUDED = [
   'Texas Last Will and Testament',
@@ -18,6 +18,8 @@ const INCLUDED = [
 ] as const
 
 export default function Plans() {
+  const { catalog } = useStripeCatalog()
+  const spousalTrustPrice = catalog.spousalTrustCents / 100
   const ctaPath = startWillPath()
 
   return (
@@ -59,7 +61,7 @@ export default function Plans() {
               </ul>
               <p className="mt-4 text-xs text-muted-foreground">
                 Married with children from a prior relationship? Individual and Couples plans both
-                offer a spousal testamentary trust (+${spousalTrustAddonDollars()}) during the
+                offer a spousal testamentary trust (+${spousalTrustPrice}) during the
                 short qualifier — separate from the base price.
               </p>
             </div>

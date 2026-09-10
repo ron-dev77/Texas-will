@@ -18,6 +18,7 @@ export const PACKAGE_DOC_LABEL: Record<PackageDocId, string> = {
   hipaa: 'HIPAA Release',
 }
 
+import { computeTotalDollars } from '@/lib/pricing'
 import { loadQualifierDraft } from '@/lib/qualifier'
 import type {
   EstateBracket,
@@ -70,12 +71,25 @@ export function resolveIncludeSpousalTrust(order: OrderDraft | null | undefined)
   return savedQualifier?.spousalTrustChoice === 'spousal_trust'
 }
 
+export function resolveOrderTotal(order: OrderDraft | null | undefined): number {
+  if (!order) return 0
+  const includeSpousalTrust = resolveIncludeSpousalTrust(order)
+  const fromFlags = computeTotalDollars(
+    order.plan,
+    Boolean(order.includeTrust),
+    includeSpousalTrust,
+  )
+  return Math.max(order.total ?? 0, fromFlags)
+}
+
 export function normalizeOrderDraft(parsed: OrderDraft): OrderDraft {
+  const includeSpousalTrust = resolveIncludeSpousalTrust(parsed)
   return {
     ...parsed,
     documents: normalizeOrderDocuments(parsed.documents),
     includeTrust: Boolean(parsed.includeTrust),
-    includeSpousalTrust: resolveIncludeSpousalTrust(parsed),
+    includeSpousalTrust,
+    total: resolveOrderTotal({ ...parsed, includeSpousalTrust }),
   }
 }
 

@@ -72,6 +72,8 @@ function residuaryText(answers: Answers, spouse: string): string[] {
     'I give, devise, and bequeath all of the rest, residue, and remainder of my estate, of every kind and character, real, personal, or mixed, wheresoever situated, including all property over which I may have a power of appointment (to the extent I may exercise such power by will), as follows:'
 
   switch (plan) {
+    case 'spousal_trust':
+      return [spousalTrustResiduaryText(answers, plain(str(answers.legal_full_name, '[Testator]'))) ]
     case 'spouse_then_children':
       return [
         intro,
@@ -215,7 +217,8 @@ export function buildWillFromAnswers(
   options: BuildDocOptions = {},
 ): WillContent {
   const includeTrust = Boolean(options.includeTrust)
-  const includeSpousalTrust = Boolean(options.includeSpousalTrust)
+  const includeSpousalTrust =
+    Boolean(options.includeSpousalTrust) || str(answers.residuary_plan) === 'spousal_trust'
   const name = plain(str(answers.legal_full_name, '[Testator]'))
   const aka = plain(str(answers.also_known_as))
   const dob = formatDate(str(answers.date_of_birth))

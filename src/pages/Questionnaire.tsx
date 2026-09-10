@@ -11,7 +11,12 @@ import { PhoneField } from '@/components/ui/phone-field'
 import { PersonPickSelect } from '@/components/questionnaire/PersonPickSelect'
 import { InfoHelpButton } from '@/components/ui/info-help-modal'
 import { startWillPath } from '@/lib/start-will-path'
-import { loadOrderDraft, resolveIncludeSpousalTrust, type OrderDraft } from '@/lib/order'
+import {
+  loadOrderDraft,
+  resolveIncludeSpousalTrust,
+  resolveOrderTotal,
+  type OrderDraft,
+} from '@/lib/order'
 import {
   ensureQuestionnaireSession,
   saveQuestionnaireAnswers,
@@ -27,6 +32,7 @@ import {
   missingRequired,
   SECTIONS,
   showGuardianFields,
+  visibleFieldOptions,
   type Field,
   type GiftRow,
   type PersonRow,
@@ -170,6 +176,12 @@ export default function Questionnaire() {
   }, [activeSections.length, sectionIdx])
 
   const includeSpousalTrust = resolveIncludeSpousalTrust(order)
+
+  useEffect(() => {
+    if (!includeSpousalTrust || section?.id !== 'residuary') return
+    if (answers.residuary_plan) return
+    setAnswers((prev) => ({ ...prev, residuary_plan: 'spousal_trust' }))
+  }, [includeSpousalTrust, section?.id, answers.residuary_plan])
 
   const visibleFields = useMemo(
     () => (section ? getVisibleFields(section, answers, includeSpousalTrust) : []),
@@ -580,6 +592,7 @@ export default function Questionnaire() {
                               value={answers[field.id]}
                               error={fieldErrors[field.id]}
                               namedPeople={namedPeople}
+                              includeSpousalTrust={includeSpousalTrust}
                               onChange={(v) => update(field.id, v)}
                               onBlurValidate={() => validateField(field, answers[field.id], true)}
                             />
@@ -668,6 +681,7 @@ function FieldCell({
   value,
   error,
   namedPeople,
+  includeSpousalTrust,
   onChange,
   onBlurValidate,
 }: {
@@ -675,6 +689,7 @@ function FieldCell({
   value: unknown
   error?: string
   namedPeople: ReturnType<typeof collectNamedPeople>
+  includeSpousalTrust: boolean
   onChange: (v: unknown) => void
   onBlurValidate: () => void
 }) {
@@ -742,6 +757,7 @@ function FieldCell({
           value={value}
           error={error}
           namedPeople={namedPeople}
+          includeSpousalTrust={includeSpousalTrust}
           onChange={onChange}
           onBlurValidate={onBlurValidate}
         />
@@ -761,6 +777,7 @@ function FieldCell({
           value={value}
           error={error}
           namedPeople={namedPeople}
+          includeSpousalTrust={includeSpousalTrust}
           onChange={onChange}
           onBlurValidate={onBlurValidate}
         />
@@ -779,6 +796,7 @@ function FieldControl({
   value,
   error,
   namedPeople,
+  includeSpousalTrust,
   onChange,
   onBlurValidate,
 }: {
@@ -786,6 +804,7 @@ function FieldControl({
   value: unknown
   error?: string
   namedPeople: ReturnType<typeof collectNamedPeople>
+  includeSpousalTrust: boolean
   onChange: (v: unknown) => void
   onBlurValidate: () => void
 }) {
@@ -796,7 +815,7 @@ function FieldControl({
             { value: 'yes', label: 'Yes' },
             { value: 'no', label: 'No' },
           ]
-        : (field.options ?? [])
+        : visibleFieldOptions(field, includeSpousalTrust)
 
     const shortLabels = options.every((o) => o.label.length <= 22)
 
@@ -1243,6 +1262,8 @@ function ReviewPanel({
 }) {
   const planLabel =
     order?.plan === 'couples' ? 'Couples will' : order?.plan === 'individual' ? 'Individual will' : null
+  const includeSpousalTrust = resolveIncludeSpousalTrust(order)
+  const orderTotal = resolveOrderTotal(order)
 
   const sections = getActiveSections(
     Boolean(order?.includeTrust),
@@ -1263,6 +1284,7 @@ function ReviewPanel({
             <p className="font-serif text-xl text-foreground">
               {planLabel ?? 'Will package'}
               {order?.includeTrust ? ' + Living Trust' : ''}
+              {includeSpousalTrust ? ' + Spousal Testamentary Trust' : ''}
             </p>
             {order?.email ? (
               <p className="mt-1 text-[13px] text-muted-foreground">
@@ -1276,8 +1298,8 @@ function ReviewPanel({
               </p>
             ) : null}
           </div>
-          {order?.total != null ? (
-            <p className="font-serif text-2xl tabular-nums text-foreground">${order.total}</p>
+          {orderTotal > 0 ? (
+            <p className="font-serif text-2xl tabular-nums text-foreground">${orderTotal}</p>
           ) : null}
         </div>
       </div>

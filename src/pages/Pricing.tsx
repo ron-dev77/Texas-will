@@ -14,7 +14,11 @@ import {
 import { BusinessOwnerAccordion, emptyWillFitAnswers } from '@/components/site/BusinessOwnerAccordion'
 import { cn } from '@/lib/utils'
 import { finalizeCheckoutPayment, savePaidOrderDraft } from '@/lib/checkout'
-import { computeTotalDollars, planPriceDollars, spousalTrustAddonDollars } from '@/lib/pricing'
+import { useStripeCatalog } from '@/hooks/useStripeCatalog'
+import {
+  planCentsFromCatalog,
+  totalDollarsFromCatalog,
+} from '@/lib/stripe-catalog'
 import {
   loadQualifierDraft,
   qualifierComplete,
@@ -54,12 +58,13 @@ const EMPTY_FIT = emptyWillFitAnswers()
 export default function Pricing() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { catalog } = useStripeCatalog()
   const qualifier = useMemo(() => loadQualifierDraft(), [])
 
   const [email, setEmail] = useState('')
   const [partnerEmail, setPartnerEmail] = useState('')
   const [fit, setFit] = useState<Record<WillFitId, 'yes' | 'no' | ''>>(EMPTY_FIT)
-  const [documents, setDocuments] = useState<PackageDocId[]>(['will'])
+  const [documents, setDocuments] = useState<PackageDocId[]>([...PACKAGE_DOC_IDS])
   const [lsrConsent, setLsrConsent] = useState(false)
   const [showErrors, setShowErrors] = useState(false)
   const [payOpen, setPayOpen] = useState(false)
@@ -85,6 +90,9 @@ export default function Pricing() {
       try {
         const result = await finalizeCheckoutPayment(paymentIntentId)
         if (cancelled) return
+        if (result.draft) {
+          savePaidOrderDraft(result.draft)
+        }
         setStartingWill(true)
         navigate(
           questionnairePath(result.questionnaireToken, paymentIntentId),
@@ -113,7 +121,7 @@ export default function Pricing() {
   const includeSpousalTrust = lockedQualifier.spousalTrustChoice === 'spousal_trust'
   const isCouples = plan === 'couples'
   const planTitle = isCouples ? 'Couples plan' : 'Individual plan'
-  const qualifyTotal = computeTotalDollars(plan, false, includeSpousalTrust)
+  const qualifyTotal = totalDollarsFromCatalog(plan, false, includeSpousalTrust, catalog)
 
   const allOptionalSelected = OPTIONAL_PACKAGE_DOC_IDS.every((id) => documents.includes(id))
   const hasWill = documents.includes('will')
@@ -136,8 +144,9 @@ export default function Pricing() {
     setDocuments(on ? [...PACKAGE_DOC_IDS] : ['will'])
   }
 
-  const base = planPriceDollars(plan)
-  const total = computeTotalDollars(plan, false, includeSpousalTrust)
+  const base = planCentsFromCatalog(plan, catalog) / 100
+  const spousalTrustPrice = catalog.spousalTrustCents / 100
+  const total = totalDollarsFromCatalog(plan, false, includeSpousalTrust, catalog)
   const fitAnswered = WILL_FIT_REASONS.every((r) => fit[r.id] === 'yes' || fit[r.id] === 'no')
   const offRamp = needsOutsideCounsel(fit)
   const showBusinessDetail = fit.active_business === 'yes'
@@ -494,7 +503,7 @@ export default function Pricing() {
                   <div className="rounded-2xl border border-border/70 p-4">
                     <p className="text-sm font-medium text-foreground">Spousal testamentary trust</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      +${spousalTrustAddonDollars()} — selected in{' '}
+                      +${spousalTrustPrice} — selected in{' '}
                       <Link to="/summary" className="text-accent underline-offset-2 hover:underline">
                         your summary
                       </Link>
@@ -520,7 +529,7 @@ export default function Pricing() {
                         <div className="flex justify-between gap-6 sm:max-w-xs">
                           <span>Spousal trust</span>
                           <span className="font-medium text-primary-foreground">
-                            +${spousalTrustAddonDollars()}
+                            +${spousalTrustPrice}
                           </span>
                         </div>
                       ) : null}

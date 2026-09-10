@@ -4,11 +4,11 @@ import { ArrowRight, BadgeCheck, Pencil } from 'lucide-react'
 import { CheckoutFlowShell } from '@/components/site/CheckoutFlowShell'
 import { CheckoutFlowSteps } from '@/components/site/CheckoutFlowSteps'
 import { Button } from '@/components/ui/button'
+import { useStripeCatalog } from '@/hooks/useStripeCatalog'
 import {
-  computeTotalDollars,
-  planPriceDollars,
-  spousalTrustAddonDollars,
-} from '@/lib/pricing'
+  planCentsFromCatalog,
+  totalDollarsFromCatalog,
+} from '@/lib/stripe-catalog'
 import {
   estateBracketLabel,
   loadQualifierDraft,
@@ -82,15 +82,16 @@ function ReceiptLine({
 }
 
 export default function Summary() {
+  const { catalog } = useStripeCatalog()
   const draft = loadQualifierDraft()
   if (!qualifierComplete(draft)) {
     return <Navigate to="/qualify" replace />
   }
 
   const includeSpousalTrust = draft.spousalTrustChoice === 'spousal_trust'
-  const base = planPriceDollars(draft.plan)
-  const spousalAddon = includeSpousalTrust ? spousalTrustAddonDollars() : 0
-  const total = computeTotalDollars(draft.plan, false, includeSpousalTrust)
+  const base = planCentsFromCatalog(draft.plan, catalog) / 100
+  const spousalAddon = includeSpousalTrust ? catalog.spousalTrustCents / 100 : 0
+  const total = totalDollarsFromCatalog(draft.plan, false, includeSpousalTrust, catalog)
   const isCouples = draft.plan === 'couples'
   const planLabel = isCouples ? 'Couples plan' : 'Individual plan'
   const showBlended = showsBlendedFamilyScreen(draft)

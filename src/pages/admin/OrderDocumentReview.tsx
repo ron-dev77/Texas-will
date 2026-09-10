@@ -14,6 +14,7 @@ import {
   DOCUMENT_KIND_LABEL,
   type DocumentKind,
 } from '@/lib/document-kinds'
+import { orderHasSpousalTrust } from '@/lib/spousal-trust'
 import {
   getOrderDetail,
   listWillVersions,
@@ -105,7 +106,7 @@ export default function OrderDocumentReviewPage() {
       const kinds = orderedDocumentKindsForDelivery({
         documents: addOns.documents,
         includeTrust: Boolean(addOns.trust),
-        includeSpousalTrust: Boolean(addOns.spousal_trust),
+        includeSpousalTrust: orderHasSpousalTrust(addOns),
       })
       setSendKinds(kinds.length ? kinds : ['will'])
       const partners: (1 | 2)[] = detail.answers.some((a) => a.partner_number === 2)
@@ -178,9 +179,7 @@ export default function OrderDocumentReviewPage() {
     [data, partner],
   )
   const includeTrust = Boolean(data?.order.add_ons?.trust)
-  const includeSpousalTrust = Boolean(
-    (data?.order.add_ons as { spousal_trust?: boolean } | null)?.spousal_trust,
-  )
+  const includeSpousalTrust = orderHasSpousalTrust(data?.order.add_ons)
   const isCouples = data?.order.plan_type === 'couples'
   const packageKinds = useMemo(
     () =>

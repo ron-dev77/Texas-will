@@ -1365,6 +1365,13 @@ export function ensureSpousalTrustFieldFlags(schema: Section[]): Section[] {
       if (bundled?.requiresSpousalTrust && !field.requiresSpousalTrust) {
         return { ...field, requiresSpousalTrust: true }
       }
+      if (field.id === 'residuary_plan' && bundled?.options?.length) {
+        const existingValues = new Set((field.options ?? []).map((o) => o.value))
+        const missingOptions = bundled.options.filter((o) => !existingValues.has(o.value))
+        if (missingOptions.length > 0) {
+          return { ...field, options: [...(field.options ?? []), ...missingOptions] }
+        }
+      }
       return field
     })
     const missingSpousal = bundledResiduary.fields.filter(

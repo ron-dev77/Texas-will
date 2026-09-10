@@ -18,13 +18,20 @@ export type ShowIf = {
   in?: readonly string[]
 }
 
+export type FieldOption = {
+  value: string
+  label: string
+  /** Only show this choice when the order includes the spousal trust add-on. */
+  requiresSpousalTrust?: boolean
+}
+
 export type Field = {
   id: string
   label: string
   helper?: string
   type: FieldType
   placeholder?: string
-  options?: readonly { value: string; label: string }[]
+  options?: readonly FieldOption[]
   required?: boolean
   /** Soft min length — checked on blur (progressive: shown before max). */
   minLength?: number
@@ -344,6 +351,12 @@ export const SECTIONS: readonly Section[] = [
         type: 'radio',
         required: true,
         options: [
+          {
+            value: 'spousal_trust',
+            label:
+              'Leave everything to the Spousal Testamentary Trust (lifetime support for my spouse, then remainder to my children)',
+            requiresSpousalTrust: true,
+          },
           {
             value: 'spouse_then_children',
             label: "All to my spouse; if they don't survive me, equally to my children",
@@ -1057,6 +1070,16 @@ export function isFieldVisible(field: Field, answers: Record<string, unknown>): 
   if (cond.equals !== undefined && value !== cond.equals) return false
   if (cond.in && !cond.in.includes(value as string)) return false
   return true
+}
+
+export function visibleFieldOptions(
+  field: Field,
+  includeSpousalTrust = false,
+): readonly FieldOption[] {
+  return (field.options ?? []).filter((opt) => {
+    if (opt.requiresSpousalTrust && !includeSpousalTrust) return false
+    return true
+  })
 }
 
 export function getVisibleFields(

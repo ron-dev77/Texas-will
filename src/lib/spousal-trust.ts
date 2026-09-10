@@ -127,8 +127,13 @@ export function spousalTrustResiduaryText(answers: Answers, testatorName: string
 }
 
 export function orderHasSpousalTrust(addOns: unknown): boolean {
-  const o = (addOns ?? {}) as { spousal_trust?: boolean }
-  return Boolean(o.spousal_trust)
+  const o = (addOns ?? {}) as {
+    spousal_trust?: boolean
+    qualifier?: { spousalTrustChoice?: string } | null
+  }
+  return (
+    Boolean(o.spousal_trust) || o.qualifier?.spousalTrustChoice === 'spousal_trust'
+  )
 }
 
 type QualifierSnapshot = {

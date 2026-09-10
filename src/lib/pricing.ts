@@ -1,4 +1,7 @@
-/** Canonical app prices — UI and Stripe PaymentIntent must use these. */
+/**
+ * Fallback prices when Stripe catalog has not loaded yet.
+ * Live checkout + UI totals use Stripe Price IDs via checkout `quote` (see stripe-catalog.ts).
+ */
 
 export const PLAN_PRICE_CENTS = {
   individual: 24900,

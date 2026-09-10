@@ -18,6 +18,17 @@ export type FinalizeCheckoutResult = {
   userEmail: string
   partnerEmail: string | null
   questionnaireToken?: string
+  draft?: {
+    plan: Plan
+    email: string
+    partnerEmail?: string
+    includeTrust: boolean
+    includeSpousalTrust: boolean
+    qualifier?: OrderDraft['qualifier']
+    documents: PackageDocId[]
+    total: number
+    lsrConsent: boolean
+  }
 }
 
 async function readFunctionError(error: unknown, data: unknown): Promise<string> {

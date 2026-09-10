@@ -16,6 +16,7 @@ import {
 } from '@/lib/admin-order'
 import {
   COUPLES_BIDIRECTIONAL_SPOUSAL_TRUST_NOTE,
+  orderHasSpousalTrust,
   orderNeedsBidirectionalSpousalTrustReview,
 } from '@/lib/spousal-trust'
 import { orderedDocumentKindsForDelivery } from '@/lib/admin-deliver'
@@ -156,9 +157,7 @@ export default function OrderDetailPage() {
     [data, partner],
   )
   const includeTrust = Boolean(data?.order.add_ons?.trust)
-  const includeSpousalTrust = Boolean(
-    (data?.order.add_ons as { spousal_trust?: boolean } | null)?.spousal_trust,
-  )
+  const includeSpousalTrust = orderHasSpousalTrust(data?.order.add_ons)
   const bidirectionalSpousalTrust = orderNeedsBidirectionalSpousalTrustReview(data?.order.add_ons)
   const estateBracket = (data?.order.add_ons as { estate_bracket?: string } | null)?.estate_bracket
   const isCouples = data?.order.plan_type === 'couples'

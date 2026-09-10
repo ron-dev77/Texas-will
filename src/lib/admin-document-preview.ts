@@ -4,6 +4,7 @@ import { renderDocumentPdf, type WillContent } from '@/lib/will-render'
 import { parseSkeletonBody, type SkeletonDoc } from '@/lib/skeleton-doc'
 import { renderSkeletonLayoutPdf } from '@/lib/skeleton-layout-pdf'
 import type { DocumentKind } from '@/lib/document-kinds'
+import { orderHasSpousalTrust } from '@/lib/spousal-trust'
 import type { AnswersRow, OrderDetail, WillDocRow } from '@/lib/admin-order'
 
 export type SkeletonMeta = {
@@ -83,9 +84,7 @@ export async function buildPdfForOrderKind(params: {
   if (!answersForPartner) return null
 
   const trustOn = Boolean((params.detail.order.add_ons as { trust?: boolean } | null)?.trust)
-  const spousalOn = Boolean(
-    (params.detail.order.add_ons as { spousal_trust?: boolean } | null)?.spousal_trust,
-  )
+  const spousalOn = orderHasSpousalTrust(params.detail.order.add_ons)
   let skel = params.skeletonByKind?.[params.kind]
   if (!skel) {
     const doc = params.detail.wills.find(
