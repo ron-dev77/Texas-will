@@ -74,7 +74,8 @@ export const WILL_ENGINE_FIELD_IDS = [
   'alternate_guardian_name',
   'guardian_notes',
   'residuary_plan',
-  'residuary_custom',
+  'children_lifetime_primary_trustee_name',
+  'children_lifetime_alternate_trustee_name',
   'has_prior_relationship_children',
   'prior_relationship_children_scope',
   'spousal_trust_trustee_mode',
@@ -98,7 +99,6 @@ export const WILL_ENGINE_FIELD_IDS = [
   'trust_assets',
   'trust_specific_gifts',
   'trust_residuary_plan',
-  'trust_residuary_custom',
   'trust_distribution_age',
   'mpoa_agent_name',
   'mpoa_agent_phone',
@@ -155,6 +155,8 @@ export const FIELD_TYPES: FieldType[] = [
   'people',
   'gifts',
   'charitable_gifts',
+  'snt_trusts',
+  'info',
 ]
 
 const FIELD_TYPE_SET = new Set<string>(FIELD_TYPES)
@@ -276,6 +278,24 @@ export function mergeMissingBundledSections(schema: Section[]): Section[] {
   return sortSectionsCanonical(next)
 }
 
+/** Residuary: merge Step 8 / spousal fields and keep bundled field order (not appended at end). */
+function mergeResiduarySectionFields(section: Section, bundled: Section): Section {
+  const byId = new Map(section.fields.map((f) => [f.id, f]))
+  for (const f of bundled.fields) {
+    if (!byId.has(f.id)) byId.set(f.id, f)
+  }
+  const ordered = bundled.fields.map((f) => {
+    const cur = byId.get(f.id)!
+    if (f.id === 'residuary_plan') {
+      return { ...cur, options: f.options ? [...f.options] : cur.options }
+    }
+    return cur
+  })
+  const bundledIds = new Set(bundled.fields.map((f) => f.id))
+  const extras = section.fields.filter((f) => !bundledIds.has(f.id))
+  return { ...section, fields: [...ordered, ...extras] }
+}
+
 /** Add new bundled questions onto existing sections (does not overwrite edited copy). */
 export function mergeMissingBundledFields(schema: Section[]): Section[] {
   const bundledById = new Map(SECTIONS.map((s) => [s.id, s]))
@@ -283,6 +303,13 @@ export function mergeMissingBundledFields(schema: Section[]): Section[] {
   const next = schema.map((section) => {
     const bundled = bundledById.get(section.id)
     if (!bundled) return section
+    if (section.id === 'residuary') {
+      const merged = mergeResiduarySectionFields(section, bundled)
+      const beforeIds = section.fields.map((f) => f.id).join('|')
+      const afterIds = merged.fields.map((f) => f.id).join('|')
+      if (beforeIds !== afterIds) changed = true
+      return merged
+    }
     const have = new Set(section.fields.map((f) => f.id))
     const missing = bundled.fields.filter((f) => !have.has(f.id))
     if (missing.length === 0) return section
@@ -303,6 +330,19 @@ const BUNDLED_QUESTION_SYNC_IDS = new Set([
   'special_needs',
 ])
 
+const STEP8_RESIDUARY_FIELD_IDS = [
+  'children_lifetime_trust_intro',
+  'children_lifetime_no_descendants_note',
+  'children_lifetime_snt_note',
+  'children_lifetime_primary_trustee_name',
+  'children_lifetime_alternate_trustee_name',
+] as const
+
+function residuarySectionMissingStep8Fields(section: Section): boolean {
+  const have = new Set(section.fields.map((f) => f.id))
+  return STEP8_RESIDUARY_FIELD_IDS.some((id) => !have.has(id))
+}
+
 function bundledSectionFingerprint(section: Section): string {
   return JSON.stringify({
     title: section.title,
@@ -314,6 +354,7 @@ function bundledSectionFingerprint(section: Section): string {
       required: Boolean(f.required),
       helper: f.helper ?? '',
       placeholder: f.placeholder ?? '',
+      showIf: f.showIf ?? null,
     })),
   })
 }
@@ -326,6 +367,13 @@ export function syncBundledDefaultQuestions(schema: Section[]): Section[] {
     if (!BUNDLED_QUESTION_SYNC_IDS.has(section.id)) return section
     const bundled = bundledById.get(section.id)
     if (!bundled) return section
+    if (
+      section.id === 'residuary' &&
+      residuarySectionMissingStep8Fields(section)
+    ) {
+      changed = true
+      return { ...bundled, fields: [...bundled.fields] }
+    }
     if (bundledSectionFingerprint(section) === bundledSectionFingerprint(bundled)) {
       return section
     }
@@ -1421,10 +1469,11 @@ export function ensureSpousalTrustFieldFlags(schema: Section[]): Section[] {
     const missingSpousal = bundledResiduary.fields.filter(
       (f) => f.requiresSpousalTrust && !fieldIds.has(f.id),
     )
-    if (missingSpousal.length === 0 && fields.every((f, i) => f === section.fields[i])) {
-      return section
-    }
-    return { ...section, fields: [...fields, ...missingSpousal] }
+    const withSpousal =
+      missingSpousal.length === 0 && fields.every((f, i) => f === section.fields[i])
+        ? section
+        : { ...section, fields: [...fields, ...missingSpousal] }
+    return mergeResiduarySectionFields(withSpousal, bundledResiduary)
   })
 }
 

@@ -16,6 +16,8 @@ export const PERSON_NAME_FIELD_IDS = new Set([
   'hipaa_rep2_name',
   'hipaa_rep3_name',
   'hipaa_rep4_name',
+  'children_lifetime_primary_trustee_name',
+  'children_lifetime_alternate_trustee_name',
 ])
 
 function addPerson(
@@ -42,6 +44,8 @@ export function collectNamedPeople(answers: Record<string, unknown>): NamedPerso
   addPerson(seen, out, answers.alt_executor_name, 'Alternate executor')
   addPerson(seen, out, answers.primary_guardian_name, 'Guardian')
   addPerson(seen, out, answers.alternate_guardian_name, 'Alternate guardian')
+  addPerson(seen, out, answers.children_lifetime_primary_trustee_name, 'Children\'s trust adult trustee')
+  addPerson(seen, out, answers.children_lifetime_alternate_trustee_name, 'Alternate adult trustee')
   addPerson(seen, out, answers.spousal_trust_alternate_trustee_name, 'Spousal trust alternate trustee')
   addPerson(seen, out, answers.spousal_trust_co_trustee_name, 'Co-trustee')
   if (Array.isArray(answers.snt_trusts)) {

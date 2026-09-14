@@ -80,6 +80,15 @@ export const SNT_CONTINGENT_REMAINDER_LABEL =
 export const SNT_CONTINGENT_REMAINDER_HELPER =
   "A backup ensures the money doesn't get held up or default to unintended heirs if your first choice has also passed away."
 
+export const CHILDREN_LIFETIME_TRUST_INTRO =
+  'The remainder of your estate will be divided into equal shares — one for each of your children — and held in a separate trust for each child\'s lifetime.\n\nEach child manages their own trust share once they turn 30. Until then, the adult trustee you name below manages it on their behalf.\n\nThis structure protects each child\'s inheritance from creditors, lawsuits, and divorce for their entire lifetime — not just until a certain age.'
+
+export const CHILDREN_LIFETIME_NO_DESCENDANTS_NOTE =
+  'If one of your children passes away without descendants of their own, that child\'s trust share will be added to your other children\'s shares (or their descendants, if a child has also passed away).'
+
+export const CHILDREN_LIFETIME_SNT_OVERRIDE_NOTE =
+  'Any beneficiary you set up for a special needs trust is not covered by the lifetime trust structure above. That person\'s share is handled only in your special needs trust article.'
+
 export const SNT_EXISTING_TRUST_NOTE_LABEL = 'A note on existing special needs trusts'
 
 export const SNT_EXISTING_TRUST_NOTE_BODY =
@@ -404,16 +413,51 @@ export const SECTIONS: readonly Section[] = [
           },
           { value: 'children_equally', label: 'Equally among my children' },
           { value: 'spouse_only', label: 'All to my spouse' },
-          { value: 'custom', label: "A custom split — I'll describe it" },
         ],
       },
       {
-        id: 'residuary_custom',
-        label: 'Describe your custom split',
-        type: 'longtext',
-        minLength: 15,
-        maxLength: 500,
-        showIf: { field: 'residuary_plan', equals: 'custom' },
+        id: 'children_lifetime_trust_intro',
+        label: 'Lifetime trust for each child\'s share',
+        helper: CHILDREN_LIFETIME_TRUST_INTRO,
+        type: 'info',
+        showIf: { field: 'residuary_plan', in: ['children_equally', 'spouse_then_children'] },
+      },
+      {
+        id: 'children_lifetime_no_descendants_note',
+        label: 'If a child dies with no descendants',
+        helper: CHILDREN_LIFETIME_NO_DESCENDANTS_NOTE,
+        type: 'info',
+        showIf: { field: 'residuary_plan', in: ['children_equally', 'spouse_then_children'] },
+      },
+      {
+        id: 'children_lifetime_snt_note',
+        label: 'Special needs children',
+        helper: CHILDREN_LIFETIME_SNT_OVERRIDE_NOTE,
+        type: 'info',
+        showIf: { field: 'residuary_plan', in: ['children_equally', 'spouse_then_children'] },
+      },
+      {
+        id: 'children_lifetime_primary_trustee_name',
+        label: 'Primary adult trustee (for children under 30 at your death)',
+        helper:
+          'This person manages each child\'s trust share until that child turns 30. Choose someone you trust, such as your executor or a family member.',
+        type: 'shorttext',
+        required: true,
+        placeholder: 'Full legal name',
+        minLength: 3,
+        maxLength: 80,
+        showIf: { field: 'residuary_plan', in: ['children_equally', 'spouse_then_children'] },
+      },
+      {
+        id: 'children_lifetime_alternate_trustee_name',
+        label: 'Alternate / successor adult trustee',
+        helper: 'If the primary adult trustee cannot serve, this person takes over until the child reaches 30.',
+        type: 'shorttext',
+        required: true,
+        placeholder: 'Full legal name',
+        minLength: 3,
+        maxLength: 80,
+        showIf: { field: 'residuary_plan', in: ['children_equally', 'spouse_then_children'] },
       },
       {
         id: 'spousal_trust_trustee_mode',
@@ -642,16 +686,7 @@ export const SECTIONS: readonly Section[] = [
             value: 'same_as_will',
             label: "Same beneficiaries and shares as my will's residuary",
           },
-          { value: 'custom', label: "A custom split — I'll describe it" },
         ],
-      },
-      {
-        id: 'trust_residuary_custom',
-        label: "Describe the trust's residuary split",
-        type: 'longtext',
-        minLength: 15,
-        maxLength: 500,
-        showIf: { field: 'trust_residuary_plan', equals: 'custom' },
       },
       {
         id: 'trust_distribution_age',
@@ -1051,9 +1086,23 @@ export function visibleFieldOptions(
 ): readonly FieldOption[] {
   return (field.options ?? []).filter((opt) => {
     if (opt.requiresSpousalTrust && !includeSpousalTrust) return false
+    if (
+      (field.id === 'residuary_plan' || field.id === 'trust_residuary_plan') &&
+      opt.value === 'custom'
+    ) {
+      return false
+    }
     return true
   })
 }
+
+const CHILDREN_LIFETIME_FIELD_IDS = new Set([
+  'children_lifetime_trust_intro',
+  'children_lifetime_no_descendants_note',
+  'children_lifetime_snt_note',
+  'children_lifetime_primary_trustee_name',
+  'children_lifetime_alternate_trustee_name',
+])
 
 export function getVisibleFields(
   section: Section,
@@ -1064,6 +1113,15 @@ export function getVisibleFields(
     if (f.requiresSpousalTrust && !includeSpousalTrust) return false
     if (f.id === 'name_future_minor_guardian') return showFutureMinorGuardianToggle(answers)
     if (GUARDIAN_FIELD_IDS.has(f.id)) return showGuardianFields(answers)
+    if (CHILDREN_LIFETIME_FIELD_IDS.has(f.id) && answers.has_children !== 'yes') {
+      return false
+    }
+    if (f.id === 'children_lifetime_snt_note') {
+      if (answers.has_children !== 'yes') return false
+      if (answers.wants_snt !== 'yes') return false
+      const plan = answers.residuary_plan
+      if (plan !== 'children_equally' && plan !== 'spouse_then_children') return false
+    }
     return isFieldVisible(f, answers)
   })
 }

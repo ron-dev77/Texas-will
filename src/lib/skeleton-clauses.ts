@@ -8,9 +8,17 @@ import {
   specialNeedsTrustClauseText,
 } from '@/lib/special-needs-trust'
 import {
+  buildChildrenResiduaryTrustArticleText,
+  resolveFinalWishesArticleRoman,
+  resolveFirstSntArticleRoman,
+  resolveGeneralProvisionsArticleRoman,
+  resolveNoContestArticleRoman,
+  resolveSimultaneousDeathArticleRoman,
+  usesChildrenLifetimeResiduaryTrust,
+} from '@/lib/children-residuary-trust-article'
+import {
   buildRonArticleVResiduarySpousalText,
   buildRonWillOpeningParagraph,
-  DEFAULT_FIRST_SNT_ARTICLE_ROMAN,
   RON_ARTICLE_III_DEBTS_TAXES,
 } from '@/lib/spousal-residuary-article-v'
 
@@ -473,7 +481,7 @@ const COMPUTED: Record<
     let body = ''
     if (options.includeSpousalTrust || str(answers.residuary_plan) === 'spousal_trust') {
       return buildRonArticleVResiduarySpousalText(answers, {
-        firstSntArticleRoman: DEFAULT_FIRST_SNT_ARTICLE_ROMAN,
+        firstSntArticleRoman: resolveFirstSntArticleRoman(answers, options),
       })
     }
     if (options.includeTrust) {
@@ -486,12 +494,20 @@ const COMPUTED: Record<
         'I give, devise, and bequeath all of the rest, residue, and remainder of my estate, both real and personal, of whatever kind and wherever situated,'
       switch (plan) {
         case 'spouse_then_children':
-          body = spouse
-            ? `${intro} to my spouse, ${bold(spouse)}, if my spouse survives me. If my spouse does not survive me, then in equal shares to my children who survive me, **per stirpes**.`
-            : `${intro} to my spouse if my spouse survives me, and if not, in equal shares to my children who survive me, **per stirpes**.`
+          if (usesChildrenLifetimeResiduaryTrust(answers)) {
+            body = spouse
+              ? `${intro} to my spouse, ${bold(spouse)}, if my spouse survives me. If my spouse does not survive me, then to my Trustee, in trust, to be held and administered in accordance with **Article VI** of this Will (Trust for Children).`
+              : `${intro} to my spouse if my spouse survives me, and if not, then to my Trustee, in trust, to be held and administered in accordance with **Article VI** of this Will (Trust for Children).`
+          } else {
+            body = spouse
+              ? `${intro} to my spouse, ${bold(spouse)}, if my spouse survives me. If my spouse does not survive me, then in equal shares to my children who survive me, **per stirpes**.`
+              : `${intro} to my spouse if my spouse survives me, and if not, in equal shares to my children who survive me, **per stirpes**.`
+          }
           break
         case 'children_equally':
-          body = `${intro} in equal shares to my children who survive me, **per stirpes**.`
+          body = usesChildrenLifetimeResiduaryTrust(answers)
+            ? `${intro} to my Trustee, in trust, to be held and administered in accordance with **Article VI** of this Will (Trust for Children).`
+            : `${intro} in equal shares to my children who survive me, **per stirpes**.`
           break
         case 'spouse_only':
           body = spouse
@@ -505,7 +521,7 @@ const COMPUTED: Record<
           break
         case 'spousal_trust':
           body = buildRonArticleVResiduarySpousalText(answers, {
-            firstSntArticleRoman: DEFAULT_FIRST_SNT_ARTICLE_ROMAN,
+            firstSntArticleRoman: resolveFirstSntArticleRoman(answers, options),
           })
           return body
         default:
@@ -519,6 +535,23 @@ const COMPUTED: Record<
     const parts = [body, survival]
     if (note) parts.push(note)
     return parts.join('\n\n')
+  },
+  clause_article_vii_simultaneous_death_heading(answers) {
+    return `ARTICLE ${resolveSimultaneousDeathArticleRoman(answers)} — SIMULTANEOUS DEATH`
+  },
+  clause_article_viii_no_contest_heading(answers) {
+    return `ARTICLE ${resolveNoContestArticleRoman(answers)} — NO CONTEST`
+  },
+  clause_article_ix_final_wishes_heading(answers) {
+    return `ARTICLE ${resolveFinalWishesArticleRoman(answers)} — FINAL WISHES`
+  },
+  clause_article_x_general_provisions_heading(answers) {
+    return `ARTICLE ${resolveGeneralProvisionsArticleRoman(answers)} — GENERAL PROVISIONS`
+  },
+  clause_children_residuary_trust(answers, options) {
+    return buildChildrenResiduaryTrustArticleText(answers, {
+      firstSntArticleRoman: resolveFirstSntArticleRoman(answers, options),
+    })
   },
   clause_spousal_trust() {
     return ''

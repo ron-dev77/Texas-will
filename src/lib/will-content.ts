@@ -6,9 +6,13 @@ import {
   residuarySpecialNeedsNote,
 } from '@/lib/special-needs-trust'
 import {
+  buildChildrenResiduaryTrustArticleText,
+  resolveFirstSntArticleRoman,
+  usesChildrenLifetimeResiduaryTrust,
+} from '@/lib/children-residuary-trust-article'
+import {
   buildRonArticleVResiduarySpousalText,
   buildRonWillOpeningParagraph,
-  DEFAULT_FIRST_SNT_ARTICLE_ROMAN,
   RON_ARTICLE_III_DEBTS_TAXES,
 } from '@/lib/spousal-residuary-article-v'
 import { buildSpousalTrustFromAnswers, spousalTrustResiduaryText } from '@/lib/spousal-trust'
@@ -79,6 +83,15 @@ function residuaryText(answers: Answers, spouse: string): string[] {
     case 'spousal_trust':
       return [spousalTrustResiduaryText(answers, plain(str(answers.legal_full_name, '[Testator]'))) ]
     case 'spouse_then_children':
+      if (usesChildrenLifetimeResiduaryTrust(answers)) {
+        return [
+          intro,
+          spouse
+            ? `To my spouse, **${spouse}**, if my spouse survives me.`
+            : 'To my spouse, if my spouse survives me.',
+          'If my spouse does not survive me, then to my Trustee, in trust, to be held and administered in accordance with **Article VI** of this Will (Trust for Children).',
+        ]
+      }
       return [
         intro,
         spouse
@@ -87,6 +100,12 @@ function residuaryText(answers: Answers, spouse: string): string[] {
         'If my spouse does not survive me, then in equal shares to my children who survive me, **per stirpes**. If a child of mine predeceases me leaving issue who survive me, such issue shall take, **per stirpes**, the share such deceased child would have taken if living.',
       ]
     case 'children_equally':
+      if (usesChildrenLifetimeResiduaryTrust(answers)) {
+        return [
+          intro,
+          'To my Trustee, in trust, to be held and administered in accordance with **Article VI** of this Will (Trust for Children).',
+        ]
+      }
       return [
         intro,
         'In equal shares to my children who survive me, **per stirpes**. If a child of mine predeceases me leaving issue who survive me, such issue shall take, **per stirpes**, the share such deceased child would have taken if living.',
@@ -409,7 +428,9 @@ export function buildWillFromAnswers(
   const residuaryParagraphs: string[] = includeSpousalTrust
     ? [
         buildRonArticleVResiduarySpousalText(answers, {
-          firstSntArticleRoman: DEFAULT_FIRST_SNT_ARTICLE_ROMAN,
+          firstSntArticleRoman: resolveFirstSntArticleRoman(answers, {
+            includeSpousalTrust,
+          }),
         }),
       ]
     : includeTrust
@@ -422,6 +443,19 @@ export function buildWillFromAnswers(
       ? residuaryParagraphs
       : withSpecialNeedsResiduaryNote(answers, residuaryParagraphs),
   })
+
+  const childrenTrustArticle = buildChildrenResiduaryTrustArticleText(answers, {
+    firstSntArticleRoman: resolveFirstSntArticleRoman(answers, { includeSpousalTrust }),
+  })
+  if (childrenTrustArticle) {
+    sections.push({
+      heading: `ARTICLE ${roman(article++)}. TRUST FOR CHILDREN`,
+      paragraphs: childrenTrustArticle
+        .replace(/^\*\*ARTICLE VI — TRUST FOR CHILDREN\*\*\s*/i, '')
+        .split(/\n\n+/)
+        .filter(Boolean),
+    })
+  }
 
   for (const snt of buildSpecialNeedsArticles(answers)) {
     sections.push({

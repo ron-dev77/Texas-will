@@ -45,7 +45,11 @@ import {
   type Section,
   type SntTrustRow,
 } from '@/lib/questionnaire'
-import { ensureSpousalTrustFieldFlags, getActiveQuestionnaireSchema } from '@/lib/admin-forms'
+import {
+  ensureSpousalTrustFieldFlags,
+  getActiveQuestionnaireSchema,
+  mergeMissingBundledFields,
+} from '@/lib/admin-forms'
 import { migrateLegacySntAnswers, SPECIAL_NEEDS_FOLLOW_UP_IDS } from '@/lib/special-needs-trust'
 import { collectNamedPeople, supportsPersonPicker } from '@/lib/questionnaire-people'
 import {
@@ -218,7 +222,9 @@ export default function Questionnaire() {
           ensureQuestionnaireSession(draft, local, tokenFromUrl, paymentIntentFromUrl),
         ])
         if (cancelled) return
-        setFormSections(ensureSpousalTrustFieldFlags(schemaResult.sections))
+        setFormSections(
+          ensureSpousalTrustFieldFlags(mergeMissingBundledFields(schemaResult.sections)),
+        )
         sessionRef.current = result.session
         setSession(result.session)
         if (result.order) setOrder(result.order)
@@ -230,7 +236,11 @@ export default function Questionnaire() {
         if (cancelled) return
         try {
           const schemaResult = await getActiveQuestionnaireSchema()
-          if (!cancelled) setFormSections(ensureSpousalTrustFieldFlags(schemaResult.sections))
+          if (!cancelled) {
+            setFormSections(
+              ensureSpousalTrustFieldFlags(mergeMissingBundledFields(schemaResult.sections)),
+            )
+          }
         } catch {
           /* keep bundled SECTIONS */
         }

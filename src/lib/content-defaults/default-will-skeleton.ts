@@ -136,6 +136,11 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
       }),
       blk({
         kind: 'paragraph',
+        body: '{{clause_children_residuary_trust}}',
+        blankLinesAfter: 1,
+      }),
+      blk({
+        kind: 'paragraph',
         body: '{{clause_special_needs_trust}}',
         blankLinesAfter: 1,
       }),
@@ -148,7 +153,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
 
       blk({
         kind: 'heading',
-        heading: 'ARTICLE VII — SIMULTANEOUS DEATH',
+        heading: '{{clause_article_vii_simultaneous_death_heading}}',
         align: 'center',
         blankLinesAfter: 1,
       }),
@@ -160,7 +165,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
 
       blk({
         kind: 'heading',
-        heading: 'ARTICLE VIII — NO CONTEST',
+        heading: '{{clause_article_viii_no_contest_heading}}',
         align: 'center',
         blankLinesAfter: 1,
       }),
@@ -172,7 +177,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
 
       blk({
         kind: 'heading',
-        heading: 'ARTICLE IX — FINAL WISHES',
+        heading: '{{clause_article_ix_final_wishes_heading}}',
         align: 'center',
         blankLinesAfter: 1,
       }),
@@ -184,7 +189,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
 
       blk({
         kind: 'heading',
-        heading: 'ARTICLE X — GENERAL PROVISIONS',
+        heading: '{{clause_article_x_general_provisions_heading}}',
         align: 'center',
         blankLinesAfter: 1,
         pageBreakBefore: true,
@@ -397,6 +402,8 @@ export function needsDefaultWillSkeletonRefresh(body: string | null | undefined)
     !t.includes('{{clause_charitable}}') ||
     !t.includes('{{clause_will_opening}}') ||
     !t.includes('{{clause_residuary_article_heading}}') ||
+    !t.includes('{{clause_children_residuary_trust}}') ||
+    !t.includes('{{clause_article_vii_simultaneous_death_heading}}') ||
     !/LAST WILL OF/i.test(t) ||
     /ARTICLE VI\s*[—\-]\s*RESIDUARY/i.test(t) ||
     /ARTICLE V\s*[—\-]\s*CHARITABLE/i.test(t) ||

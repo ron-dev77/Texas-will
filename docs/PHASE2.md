@@ -67,6 +67,12 @@ Draft environment documentation. Not live to customers until ethics review.
 - `src/lib/will-content.ts` — legacy PDF path aligned with Ron Article V when `includeSpousalTrust`
 - Questionnaire **Spousal testamentary trust** — sole vs co-trustee (`spousal_trust_trustee_mode`)
 
+#### Step 8 — Children’s lifetime residuary trust (MVP + Rev 1, Sep 2026)
+- **Questionnaire** (`residuary` section): when plan is **Equally among my children** or **spouse then children** and **has children**, shows MVP info copy, **SNT override** note when special needs is enabled, and required **primary / alternate adult trustee** (person picker). **Custom residuary split** removed from UI.
+- **Will PDF:** **Article VI — Trust for Children** (Rev 1 Sections 1–6). Residuary **5.1** + **SNT pour-over** under 5.1 when applicable; trailing article headings renumber after VI/VII blocks.
+- Template: [`src/lib/children-residuary-trust-article.ts`](src/lib/children-residuary-trust-article.ts) — fixed text, no AI generation.
+- **No DB migration** — legacy `residuary_plan: custom` answers still render if already saved.
+
 #### Will skeleton — Ron 9/13/26 (Will Edits doc)
 - **Q6/Q7 copy:** specific and charitable gifts use item or dollar amount — not a percentage of residuary.
 - **Admin preview:** Last Will tab shows charitable article, Ron Art III, and unified spousal residuary (5.1–5.6). Separate **Spousal Testamentary Trust** admin tab unchanged (7 document pickers).
