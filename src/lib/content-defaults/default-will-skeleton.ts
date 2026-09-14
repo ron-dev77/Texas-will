@@ -1,4 +1,5 @@
 import { serializeSkeletonDoc, type SkeletonBlock, type SkeletonDoc } from '@/lib/skeleton-doc'
+import { RON_ARTICLE_III_DEBTS_TAXES } from '@/lib/spousal-residuary-article-v'
 
 /**
  * Production-ready Texas Last Will skeleton.
@@ -24,7 +25,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
   })
 
   return {
-    title: 'LAST WILL AND TESTAMENT',
+    title: 'LAST WILL OF {{legal_full_name}}',
     pageSize: 'A4',
     blocks: [
       blk({
@@ -35,7 +36,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
       }),
       blk({
         kind: 'paragraph',
-        body: 'I, **{{legal_full_name}}**, a resident of **{{address_county}}** County, Texas, being of sound and disposing mind and memory, and being eighteen (18) years of age or older, do hereby make, publish, and declare this to be my Last Will and Testament, hereby revoking any and all former wills and codicils made by me at any time heretofore.',
+        body: '{{clause_will_opening}}',
         blankLinesAfter: 1,
       }),
 
@@ -85,13 +86,13 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
 
       blk({
         kind: 'heading',
-        heading: 'ARTICLE III — PAYMENT OF DEBTS AND EXPENSES',
+        heading: 'ARTICLE III — PAYMENT OF DEBTS, EXPENSES, AND TAXES',
         align: 'center',
         blankLinesAfter: 1,
       }),
       blk({
         kind: 'paragraph',
-        body: 'I direct my Executor to pay all of my just debts, funeral expenses, and costs of administering my estate as soon as reasonably practicable after my death, to the extent my estate has sufficient assets.',
+        body: RON_ARTICLE_III_DEBTS_TAXES,
         blankLinesAfter: 1,
       }),
 
@@ -111,26 +112,26 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
         body: '**4.2 Lapse.** If any beneficiary of a specific bequest predeceases me, that bequest shall lapse and become part of the residuary estate unless otherwise stated herein.',
         blankLinesAfter: 1,
       }),
+      blk({
+        kind: 'paragraph',
+        body: '**4.3 Charitable Gifts.** {{clause_charitable}}',
+        blankLinesAfter: 1,
+      }),
+      blk({
+        kind: 'paragraph',
+        body: '**4.4 Charitable Lapse.** If any charitable organization named herein is not in existence or is not a qualified charitable organization at my death, that gift shall lapse and become part of the residuary estate unless otherwise stated herein.',
+        blankLinesAfter: 1,
+      }),
 
       blk({
         kind: 'heading',
-        heading: 'ARTICLE V — RESIDUARY ESTATE',
+        heading: '{{clause_residuary_article_heading}}',
         align: 'center',
         blankLinesAfter: 1,
       }),
       blk({
         kind: 'paragraph',
-        body: '**5.1 Disposition of Residuary Estate.** {{clause_residuary}}',
-        blankLinesAfter: 1,
-      }),
-      blk({
-        kind: 'paragraph',
-        body: '**5.2 Survival.** If any beneficiary under this Will fails to survive me by thirty (30) days, that beneficiary shall be deemed to have predeceased me for all purposes of this Will.',
-        blankLinesAfter: 1,
-      }),
-      blk({
-        kind: 'paragraph',
-        body: '{{clause_spousal_trust}}',
+        body: '{{clause_residuary}}',
         blankLinesAfter: 1,
       }),
       blk({
@@ -364,11 +365,15 @@ export function needsWillNotaryRightAlign(body: string | null | undefined): bool
   return false
 }
 
-/** ARTICLE X still starts mid-page (orphans the heading). */
+/** General provisions article still starts mid-page (orphans the heading). */
 export function needsArticleXPageBreak(body: string | null | undefined): boolean {
   const t = body ?? ''
-  if (!/ARTICLE X\s*[—\-]\s*GENERAL PROVISIONS/i.test(t)) return false
-  return !/"heading":\s*"ARTICLE X[^"]*"[\s\S]{0,160}"pageBreakBefore":\s*true/.test(t)
+  const articleMatch = t.match(/ARTICLE (X|XI)\s*[—\-]\s*GENERAL PROVISIONS/i)
+  if (!articleMatch) return false
+  const num = articleMatch[1]!.toUpperCase()
+  return !new RegExp(
+    `"heading":\\s*"ARTICLE ${num}[^"]*"[\\s\\S]{0,160}"pageBreakBefore":\\s*true`,
+  ).test(t)
 }
 
 /** Notary Public / Commission Expires lines were too tight for signing. */
@@ -388,6 +393,14 @@ export function needsDefaultWillSkeletonRefresh(body: string | null | undefined)
     needsWillNotaryRightAlign(body) ||
     needsArticleXPageBreak(body) ||
     needsNotarySignatureSpacing(body) ||
-    !t.includes('{{clause_special_needs_trust}}')
+    !t.includes('{{clause_special_needs_trust}}') ||
+    !t.includes('{{clause_charitable}}') ||
+    !t.includes('{{clause_will_opening}}') ||
+    !t.includes('{{clause_residuary_article_heading}}') ||
+    !/LAST WILL OF/i.test(t) ||
+    /ARTICLE VI\s*[—\-]\s*RESIDUARY/i.test(t) ||
+    /ARTICLE V\s*[—\-]\s*CHARITABLE/i.test(t) ||
+    (/ARTICLE III\s*[—\-]\s*PAYMENT OF DEBTS, EXPENSES, AND TAXES/i.test(t) &&
+      !/3\.1 Death Tax/i.test(t))
   )
 }

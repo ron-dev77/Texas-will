@@ -6,9 +6,12 @@ import {
   residuarySpecialNeedsNote,
 } from '@/lib/special-needs-trust'
 import {
-  buildSpousalTrustFromAnswers,
-  spousalTrustResiduaryText,
-} from '@/lib/spousal-trust'
+  buildRonArticleVResiduarySpousalText,
+  buildRonWillOpeningParagraph,
+  DEFAULT_FIRST_SNT_ARTICLE_ROMAN,
+  RON_ARTICLE_III_DEBTS_TAXES,
+} from '@/lib/spousal-residuary-article-v'
+import { buildSpousalTrustFromAnswers, spousalTrustResiduaryText } from '@/lib/spousal-trust'
 
 type Answers = Record<string, unknown>
 
@@ -224,10 +227,6 @@ export function buildWillFromAnswers(
   const aka = plain(str(answers.also_known_as))
   const dob = formatDate(str(answers.date_of_birth))
   const phone = plain(str(answers.phone))
-  const street = plain(str(answers.address_street))
-  const city = plain(str(answers.address_city))
-  const county = plain(str(answers.address_county))
-  const zip = plain(str(answers.address_zip))
   const marital = str(answers.marital_status)
   const spouse = plain(str(answers.spouse_full_name))
   const marriageDate = formatDate(str(answers.marriage_date))
@@ -247,26 +246,16 @@ export function buildWillFromAnswers(
   const disposition = str(answers.disposition)
   const serviceWishes = plain(str(answers.service_wishes))
 
-  const residence =
-    [street, city, county ? `${county} County` : '', zip ? `Texas ${zip}` : 'Texas']
-      .filter(Boolean)
-      .join(', ') || 'the State of Texas'
-
   const identityBits: string[] = []
-  let opening = `I, **${name}**`
-  if (aka) opening += `, also known as **${aka}**`
-  if (dob) opening += `, born **${dob}**`
-  opening += `, a resident of **${residence}**, being of sound and disposing mind and memory, and not acting under duress, menace, fraud, or undue influence, do hereby make, publish, and declare this instrument to be my **Last Will and Testament**, and I hereby revoke all wills and codicils heretofore made by me.`
-  identityBits.push(opening)
-
-  identityBits.push(
-    'I declare that I am eighteen (18) years of age or older, and that I understand the nature and extent of my property and the natural objects of my bounty.',
-  )
-
+  identityBits.push(buildRonWillOpeningParagraph(answers))
+  if (aka) {
+    identityBits.push(`I am also known as **${aka}**.`)
+  }
+  if (dob) {
+    identityBits.push(`I was born **${dob}**.`)
+  }
   if (phone) {
-    identityBits.push(
-      `For purposes of notice and administration, my telephone number is **${phone}**.`,
-    )
+    identityBits.push(`My telephone number is **${phone}**.`)
   }
 
   if (marital === 'married' && spouse) {
@@ -344,6 +333,11 @@ export function buildWillFromAnswers(
     paragraphs: executorParas,
   })
 
+  sections.push({
+    heading: `ARTICLE ${roman(article++)}. PAYMENT OF DEBTS, EXPENSES, AND TAXES`,
+    paragraphs: [RON_ARTICLE_III_DEBTS_TAXES],
+  })
+
   if (hasChildren && guardian) {
     const guardianParas: string[] = [
       guardianRel
@@ -413,23 +407,21 @@ export function buildWillFromAnswers(
   }
 
   const residuaryParagraphs: string[] = includeSpousalTrust
-    ? [spousalTrustResiduaryText(answers, name)]
+    ? [
+        buildRonArticleVResiduarySpousalText(answers, {
+          firstSntArticleRoman: DEFAULT_FIRST_SNT_ARTICLE_ROMAN,
+        }),
+      ]
     : includeTrust
       ? pourOverResiduaryText(answers, name)
       : residuaryText(answers, spouse)
 
   sections.push({
     heading: `ARTICLE ${roman(article++)}. RESIDUARY ESTATE`,
-    paragraphs: withSpecialNeedsResiduaryNote(answers, residuaryParagraphs),
+    paragraphs: includeSpousalTrust
+      ? residuaryParagraphs
+      : withSpecialNeedsResiduaryNote(answers, residuaryParagraphs),
   })
-
-  if (includeSpousalTrust) {
-    const snt = buildSpousalTrustFromAnswers(answers)
-    sections.push({
-      heading: `ARTICLE ${roman(article++)}. ${snt.heading}`,
-      paragraphs: snt.paragraphs,
-    })
-  }
 
   for (const snt of buildSpecialNeedsArticles(answers)) {
     sections.push({
@@ -473,7 +465,7 @@ export function buildWillFromAnswers(
   })
 
   return {
-    title: 'LAST WILL AND TESTAMENT',
+    title: `LAST WILL OF ${name.toUpperCase()}`,
     testatorName: name,
     sections,
   }

@@ -8,9 +8,11 @@ import {
   specialNeedsTrustClauseText,
 } from '@/lib/special-needs-trust'
 import {
-  buildSpousalTrustFromAnswers,
-  spousalTrustResiduaryText,
-} from '@/lib/spousal-trust'
+  buildRonArticleVResiduarySpousalText,
+  buildRonWillOpeningParagraph,
+  DEFAULT_FIRST_SNT_ARTICLE_ROMAN,
+  RON_ARTICLE_III_DEBTS_TAXES,
+} from '@/lib/spousal-residuary-article-v'
 
 type Answers = Record<string, unknown>
 
@@ -452,14 +454,27 @@ const COMPUTED: Record<
     }
     return 'I make no charitable gifts under this Will.'
   },
+  clause_will_opening(answers) {
+    return buildRonWillOpeningParagraph(answers)
+  },
+  clause_article_iii_debts_taxes() {
+    return RON_ARTICLE_III_DEBTS_TAXES
+  },
+  clause_residuary_article_heading(answers, options) {
+    const spousal =
+      options.includeSpousalTrust || str(answers.residuary_plan) === 'spousal_trust'
+    return spousal
+      ? 'ARTICLE V — RESIDUARY ESTATE & SPOUSAL TESTAMENTARY TRUST'
+      : 'ARTICLE V — RESIDUARY ESTATE'
+  },
   clause_residuary(answers, options) {
     const name = plain(str(answers.legal_full_name, '[Testator]'))
     const spouse = plain(str(answers.spouse_full_name))
     let body = ''
     if (options.includeSpousalTrust || str(answers.residuary_plan) === 'spousal_trust') {
-      body = spousalTrustResiduaryText(answers, name)
-      const note = residuarySpecialNeedsNote(answers)
-      return note ? `${body}\n\n${note}` : body
+      return buildRonArticleVResiduarySpousalText(answers, {
+        firstSntArticleRoman: DEFAULT_FIRST_SNT_ARTICLE_ROMAN,
+      })
     }
     if (options.includeTrust) {
       const trustName = plain(str(answers.trust_name, `The ${name} Revocable Living Trust`))
@@ -489,19 +504,24 @@ const COMPUTED: Record<
             : `${intro} according to the written instructions provided with this Will.`
           break
         case 'spousal_trust':
-          body = spousalTrustResiduaryText(answers, name)
-          break
+          body = buildRonArticleVResiduarySpousalText(answers, {
+            firstSntArticleRoman: DEFAULT_FIRST_SNT_ARTICLE_ROMAN,
+          })
+          return body
         default:
           body = `${intro} to my heirs at law under the laws of the **State of Texas**.`
       }
     }
     const note = residuarySpecialNeedsNote(answers)
-    return note ? `${body}\n\n${note}` : body
+    const survival =
+      '**5.2 Survival.** If any beneficiary under this Will fails to survive me by thirty (30) days, that beneficiary shall be deemed to have predeceased me for all purposes of this Will (Tex. Est. Code § 121.101).'
+    body = `**5.1 Disposition of Residuary Estate.** ${body}`
+    const parts = [body, survival]
+    if (note) parts.push(note)
+    return parts.join('\n\n')
   },
-  clause_spousal_trust(answers, options) {
-    if (!options.includeSpousalTrust && str(answers.residuary_plan) !== 'spousal_trust') return ''
-    const article = buildSpousalTrustFromAnswers(answers)
-    return `**${article.heading}**\n\n${article.paragraphs.join('\n\n')}`
+  clause_spousal_trust() {
+    return ''
   },
   clause_special_needs_trust(answers) {
     return specialNeedsTrustClauseText(answers)

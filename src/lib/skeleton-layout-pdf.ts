@@ -291,7 +291,10 @@ export async function renderSkeletonLayoutPdf(
     y -= lineHeight * n
   }
 
-  const title = (doc.title || 'LAST WILL AND TESTAMENT').toUpperCase().replace(/\s+/g, ' ').trim()
+  const title = fillSkeletonTokens(doc.title || 'LAST WILL AND TESTAMENT', answers, options)
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+    .trim()
   const normalizeHeading = (raw: string) =>
     fillSkeletonTokens(raw, answers, options)
       .toUpperCase()

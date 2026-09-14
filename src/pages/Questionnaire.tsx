@@ -953,7 +953,9 @@ function FieldControl({
         value={(Array.isArray(value) ? value : []) as GiftRow[]}
         onChange={onChange}
         onBlurValidate={onBlurValidate}
-        itemLabel={field.type === 'charitable_gifts' ? 'Amount or %' : 'Item / description'}
+        itemLabel={
+          field.type === 'charitable_gifts' ? 'Item or dollar amount' : 'Item or dollar amount'
+        }
         recipientLabel={field.type === 'charitable_gifts' ? 'Charity name' : 'Who receives it'}
         maxLength={field.maxLength ?? 120}
         error={error}

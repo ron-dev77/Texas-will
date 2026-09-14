@@ -60,9 +60,16 @@ Draft environment documentation. Not live to customers until ethics review.
 
 ### Spousal trust documents
 - `src/lib/spousal-trust.ts` — **Scott verbatim** Option 1 & 2; couples bidirectional review helper
+- `src/lib/spousal-residuary-article-v.ts` — Ron 9/13/26 **Article V (5.1–5.6)** in the Will; opening paragraph; Article III debts/taxes; SNT pour-over in 5.2 and 5.4(d)
 - `src/lib/content-defaults/default-spousal-trust-skeleton.ts` — admin skeleton (Option 1 default)
-- `src/lib/will-content.ts` — residuary pour-over + trust article when `includeSpousalTrust`
+- `src/lib/content-defaults/default-will-skeleton.ts` — title `LAST WILL OF {{legal_full_name}}`; Art III Ron; **Art V charitable** (`{{clause_charitable}}`); **Art VI residuary** (Ron Article V when spousal trust)
+- `src/lib/skeleton-clauses.ts` — wires Ron clauses; no duplicate `residuarySpecialNeedsNote` on spousal Article V
+- `src/lib/will-content.ts` — legacy PDF path aligned with Ron Article V when `includeSpousalTrust`
 - Questionnaire **Spousal testamentary trust** — sole vs co-trustee (`spousal_trust_trustee_mode`)
+
+#### Will skeleton — Ron 9/13/26 (Will Edits doc)
+- **Q6/Q7 copy:** specific and charitable gifts use item or dollar amount — not a percentage of residuary.
+- **Admin preview:** Last Will tab shows charitable article, Ron Art III, and unified spousal residuary (5.1–5.6). Separate **Spousal Testamentary Trust** admin tab unchanged (7 document pickers).
 
 **Couples + both have prior kids:** Each partner fills their own questionnaire; admin shows **“Couples spousal trust — review both”** badge. Not auto-generated as a pair — attorney must verify both wills.
 

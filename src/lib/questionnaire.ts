@@ -345,7 +345,8 @@ export const SECTIONS: readonly Section[] = [
       {
         id: 'specific_gifts',
         label: 'Specific gifts',
-        helper: 'Describe each item and who it goes to.',
+        helper:
+          'Describe each item (or a dollar amount) on the left and the heir who receives it on the right. Do not use a percentage of your residuary estate here.',
         type: 'gifts',
         required: true,
         minLength: 2,
@@ -370,7 +371,7 @@ export const SECTIONS: readonly Section[] = [
         id: 'charitable_gifts',
         label: 'Charitable gifts',
         helper:
-          'Enter the dollar amount or percentage on the left, and the full legal name of the charity on the right.',
+          'Enter a specific item or dollar amount on the left and the full legal name of the charity on the right. Do not use a percentage of your residuary estate here.',
         type: 'charitable_gifts',
         required: true,
         minLength: 2,
@@ -1171,6 +1172,9 @@ export function fieldQualityError(field: Field, value: unknown): string | null {
       const item = (row?.item ?? '').trim()
       const recipient = (row?.recipient ?? '').trim()
       if (!item || !recipient) return 'Complete both columns for each gift'
+      if (/^\d+(\.\d+)?\s*%$/.test(item) || /%\s*of\s+(the\s+)?residuary/i.test(item)) {
+        return 'Use a specific item or dollar amount, not a percentage of your residuary estate'
+      }
       if (item.length < min || recipient.length < min) {
         return `Enter at least ${min} characters in each gift field`
       }
