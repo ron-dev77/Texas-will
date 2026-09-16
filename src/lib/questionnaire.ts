@@ -505,8 +505,9 @@ export const SECTIONS: readonly Section[] = [
       },
       {
         id: 'spousal_trust_remainder_children',
-        label: 'Children who receive the remainder (comma-separated)',
-        helper: 'Your children who receive what remains after your spouse — from this marriage or a prior one. Defaults from your children list if blank.',
+        label: 'List the children who will receive the remainder (comma-separated)',
+        helper:
+          "List each child who you want to receive what remains in the trust after your spouse passes. This defaults to the children you named in Question 4. Do not list your spouse's children below unless you want them to split the inheritance with your biological or adopted children.",
         type: 'longtext',
         minLength: 3,
         maxLength: 400,

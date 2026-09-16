@@ -35,7 +35,6 @@ import {
   showGuardianFields,
   visibleFieldOptions,
   emptySntTrustRow,
-  SNT_CONTINGENT_REMAINDER_HELPER,
   SNT_CONTINGENT_REMAINDER_LABEL,
   SNT_REMAINDER_HELPER,
   SNT_REMAINDER_LABEL,
@@ -584,13 +583,6 @@ export default function Questionnaire() {
               </h1>
               <p className="max-w-xl text-[13px] leading-snug text-muted-foreground">
                 {section.intro}
-                {section.id === 'residuary' && includeSpousalTrust ? (
-                  <>
-                    {' '}
-                    Additional spousal-trust questions appear below. Income and HEMS language is
-                    included automatically in your trust document.
-                  </>
-                ) : null}
               </p>
             </div>
 
@@ -606,30 +598,9 @@ export default function Questionnaire() {
                 />
               ) : (
                 <div className="space-y-4">
-                  {fieldRows.map((row, rowIdx) => {
-                    const showSpousalTrustHeading =
-                      section.id === 'residuary' &&
-                      includeSpousalTrust &&
-                      row.some((f) => f.id === 'spousal_trust_trustee_mode') &&
-                      !fieldRows
-                        .slice(0, rowIdx)
-                        .some((r) => r.some((f) => f.requiresSpousalTrust))
-
+                  {fieldRows.map((row) => {
                     return (
                       <div key={row.map((f) => f.id).join('-')}>
-                        {showSpousalTrustHeading ? (
-                          <div className="mb-4 rounded-2xl border border-accent/20 bg-accent/5 px-4 py-3.5">
-                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
-                              Spousal testamentary trust
-                            </p>
-                            <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-                              You added the spousal trust. These answers populate the trust article
-                              in your will. Default is spouse as sole trustee (Option 1); co-trustee
-                              is Option 2. List your children as remainder beneficiaries — not your
-                              spouse&apos;s children from a prior relationship.
-                            </p>
-                          </div>
-                        ) : null}
                         <div
                           className={cn(
                             'grid items-start gap-4',
@@ -1206,25 +1177,49 @@ function SntTrustsEditor({
             />
           </div>
 
-          <Input
-            value={row.trustee_name}
-            maxLength={80}
-            onChange={(e) => setRow(i, { trustee_name: e.target.value.slice(0, 80) })}
-            onBlur={onBlurValidate}
-            placeholder="Trustee full legal name"
-            className="h-9 rounded-xl border-border/60 bg-background text-sm"
-          />
+          <div className="space-y-1.5">
+            <Label className="text-[12.5px] font-medium text-foreground">
+              Trustee
+              <span className="ml-0.5 text-destructive">*</span>
+            </Label>
+            {namedPeople.length > 0 ? (
+              <PersonPickSelect
+                people={namedPeople}
+                onPick={(name) => setRow(i, { trustee_name: name })}
+              />
+            ) : null}
+            <Input
+              value={row.trustee_name}
+              maxLength={80}
+              onChange={(e) => setRow(i, { trustee_name: e.target.value.slice(0, 80) })}
+              onBlur={onBlurValidate}
+              placeholder="Trustee full legal name"
+              className="h-9 rounded-xl border-border/60 bg-background text-sm"
+            />
+          </div>
 
-          <Input
-            value={row.successor_trustee_name}
-            maxLength={80}
-            onChange={(e) =>
-              setRow(i, { successor_trustee_name: e.target.value.slice(0, 80) })
-            }
-            onBlur={onBlurValidate}
-            placeholder="Successor trustee full legal name"
-            className="h-9 rounded-xl border-border/60 bg-background text-sm"
-          />
+          <div className="space-y-1.5">
+            <Label className="text-[12.5px] font-medium text-foreground">
+              Successor trustee
+              <span className="ml-0.5 text-destructive">*</span>
+            </Label>
+            {namedPeople.length > 0 ? (
+              <PersonPickSelect
+                people={namedPeople}
+                onPick={(name) => setRow(i, { successor_trustee_name: name })}
+              />
+            ) : null}
+            <Input
+              value={row.successor_trustee_name}
+              maxLength={80}
+              onChange={(e) =>
+                setRow(i, { successor_trustee_name: e.target.value.slice(0, 80) })
+              }
+              onBlur={onBlurValidate}
+              placeholder="Successor trustee full legal name"
+              className="h-9 rounded-xl border-border/60 bg-background text-sm"
+            />
+          </div>
 
           <div className="space-y-1.5">
             <Label className="text-[12.5px] font-medium text-foreground">
@@ -1248,6 +1243,18 @@ function SntTrustsEditor({
             <p className="text-[11.5px] leading-snug text-muted-foreground">
               {SNT_REMAINDER_HELPER}
             </p>
+            {i === rows.length - 1 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-1 h-8 gap-1.5 rounded-full text-xs"
+                onClick={() => onChange([...rows, emptySntTrustRow()])}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add another beneficiary
+              </Button>
+            ) : null}
           </div>
 
           <div className="space-y-1.5">
@@ -1271,9 +1278,6 @@ function SntTrustsEditor({
               placeholder="Full legal name or organization"
               className="h-9 rounded-xl border-border/60 bg-background text-sm"
             />
-            <p className="text-[11.5px] leading-snug text-muted-foreground">
-              {SNT_CONTINGENT_REMAINDER_HELPER}
-            </p>
           </div>
 
           <Textarea
@@ -1286,17 +1290,6 @@ function SntTrustsEditor({
           />
         </div>
       ))}
-
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-8 gap-1.5 rounded-full text-xs"
-        onClick={() => onChange([...rows, emptySntTrustRow()])}
-      >
-        <Plus className="h-3.5 w-3.5" />
-        Add another beneficiary
-      </Button>
     </div>
   )
 }

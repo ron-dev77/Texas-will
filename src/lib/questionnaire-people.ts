@@ -48,6 +48,7 @@ export function collectNamedPeople(answers: Record<string, unknown>): NamedPerso
   addPerson(seen, out, answers.children_lifetime_alternate_trustee_name, 'Alternate adult trustee')
   addPerson(seen, out, answers.spousal_trust_alternate_trustee_name, 'Spousal trust alternate trustee')
   addPerson(seen, out, answers.spousal_trust_co_trustee_name, 'Co-trustee')
+  addPerson(seen, out, answers.spousal_trust_successor_trustee_name, 'Spousal trust successor trustee')
   if (Array.isArray(answers.snt_trusts)) {
     for (const row of answers.snt_trusts) {
       const r = row as {
