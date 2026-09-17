@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { PlanPairCards } from '@/components/site/PlanPairCards'
 import { ScrollReveal } from '@/components/site/ScrollReveal'
-import ceoPhoto from '@/assets/ceo.webp'
+import ceoFounderPortrait from '@/assets/ceo-founder-portrait.jpg'
 
 const PRINCIPLES = [
   {
@@ -147,9 +147,9 @@ export default function About() {
               <div className="grid lg:grid-cols-[0.95fr_1.05fr]">
                 <div className="relative min-h-[420px] overflow-hidden bg-primary sm:min-h-[480px] lg:min-h-[560px]">
                   <img
-                    src={ceoPhoto}
+                    src={ceoFounderPortrait}
                     alt="Scott Pappas, licensed Texas attorney and founder of My AI Will"
-                    className="absolute inset-0 h-full w-full object-cover object-[center_18%] transition-transform duration-700 hover:scale-105"
+                    className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 hover:scale-105"
                   />
                   <div
                     aria-hidden="true"
