@@ -22,14 +22,14 @@ import { WillBasedFitNote } from '@/components/site/WillBasedFitNote'
 import { FAQS } from '@/lib/faqs'
 import { loadQualifierDraft, qualifierComplete } from '@/lib/qualifier'
 import { cn } from '@/lib/utils'
-import ceoPhoto from '@/assets/ceo.webp'
+import ceoFounderPortrait from '@/assets/ceo-founder-portrait.jpg'
 
 function FounderPhoto() {
   return (
     <img
-      src={ceoPhoto}
+      src={ceoFounderPortrait}
       alt="Scott Pappas, licensed Texas attorney and founder of My AI Will"
-      className="absolute inset-0 h-full w-full object-cover object-[center_20%] transition-transform duration-700 ease-out group-hover:scale-110"
+      className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
     />
   )
 }
@@ -441,7 +441,7 @@ export default function Home() {
               <div className="relative border-t border-border/70 bg-primary text-primary-foreground lg:border-l lg:border-t-0">
                 <div className="absolute inset-x-0 top-0 z-10 h-1.5 bg-accent" />
                 <div className="grid h-full lg:grid-cols-1">
-                  <div className="group relative aspect-[4/5] w-full cursor-pointer overflow-hidden sm:aspect-[5/4] lg:aspect-[4/5]">
+                  <div className="group relative aspect-[4/5] w-full min-h-[22rem] cursor-pointer overflow-hidden sm:min-h-[26rem]">
                     <FounderPhoto />
                     <div
                       aria-hidden="true"
