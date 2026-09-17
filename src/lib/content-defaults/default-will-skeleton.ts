@@ -29,12 +29,6 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
     pageSize: 'A4',
     blocks: [
       blk({
-        kind: 'heading',
-        heading: 'PREAMBLE',
-        align: 'center',
-        blankLinesAfter: 1,
-      }),
-      blk({
         kind: 'paragraph',
         body: '{{clause_will_opening}}',
         blankLinesAfter: 1,
@@ -408,6 +402,7 @@ export function needsDefaultWillSkeletonRefresh(body: string | null | undefined)
     /ARTICLE VI\s*[—\-]\s*RESIDUARY/i.test(t) ||
     /ARTICLE V\s*[—\-]\s*CHARITABLE/i.test(t) ||
     (/ARTICLE III\s*[—\-]\s*PAYMENT OF DEBTS, EXPENSES, AND TAXES/i.test(t) &&
-      !/3\.1 Death Tax/i.test(t))
+      !/3\.1 Death Tax/i.test(t)) ||
+    /"heading"\s*:\s*"PREAMBLE"/i.test(t)
   )
 }

@@ -31,11 +31,63 @@ function plain(text: string) {
     .trim()
 }
 
-export function usesChildrenLifetimeResiduaryTrust(answers: Answers): boolean {
-  if (str(answers.residuary_plan) === 'spousal_trust') return false
+const RESIDUARY_PLANS_WITH_CHILDREN_SHARE = new Set([
+  'spousal_trust',
+  'spouse_then_children',
+  'children_equally',
+])
+
+/** Module O — full residuary clause (children equally, outright). */
+export const CHILDREN_OUTRIGHT_RESIDUARY_MODULE_O =
+  'I give the residue of my estate, after payment of debts, expenses, and specific bequests, in equal shares, to my then-living children, outright and free of trust, and if a child of mine does not survive me but leaves then-living descendants, to that child\'s then-living descendants, per stirpes.'
+
+/** Aligns outright gifts with Trust Article Section 5 when a child has no descendants. */
+export const CHILDREN_OUTRIGHT_NO_DESCENDANTS_REALLOCATION =
+  'If a child of mine does not survive me and has no then-living descendants, that child\'s share shall instead be added, in equal shares, to the shares passing to my other then-living children, or if a child of mine is not then living, to that deceased child\'s then-living descendants, per stirpes.'
+
+/** Embedded in spouse-first / spousal remainder sentences (after a leading intro). */
+export const CHILDREN_OUTRIGHT_RESIDUARY_PHRASE =
+  'in equal shares, to my then-living children, outright and free of trust, and if a child of mine does not survive me but leaves then-living descendants, to that child\'s then-living descendants, per stirpes'
+
+export function childrenOutrightResiduaryStandaloneText(): string {
+  return `${CHILDREN_OUTRIGHT_RESIDUARY_MODULE_O} ${CHILDREN_OUTRIGHT_NO_DESCENDANTS_REALLOCATION}`
+}
+
+export function childrenOutrightResiduaryContingentText(): string {
+  return `${CHILDREN_OUTRIGHT_RESIDUARY_PHRASE}. ${CHILDREN_OUTRIGHT_NO_DESCENDANTS_REALLOCATION}`
+}
+
+export function childrenResiduaryPlanMayPassToChildren(answers: Answers): boolean {
   if (answers.has_children !== 'yes') return false
+  return RESIDUARY_PLANS_WITH_CHILDREN_SHARE.has(str(answers.residuary_plan))
+}
+
+function childrenResiduaryDelivery(answers: Answers): 'outright' | 'lifetime_trust' | '' {
+  const v = str(answers.children_residuary_delivery)
+  if (v === 'outright' || v === 'lifetime_trust') return v
+  return ''
+}
+
+/** Legacy orders (pre–Step 8 redesign): lifetime trust fields applied without Q2. */
+function legacyAssumesLifetimeTrust(answers: Answers): boolean {
+  if (childrenResiduaryDelivery(answers)) return false
   const plan = str(answers.residuary_plan)
   return plan === 'children_equally' || plan === 'spouse_then_children'
+}
+
+export function usesChildrenLifetimeResiduaryTrust(answers: Answers): boolean {
+  if (!childrenResiduaryPlanMayPassToChildren(answers)) return false
+  const delivery = childrenResiduaryDelivery(answers)
+  if (delivery === 'lifetime_trust') return true
+  if (delivery === 'outright') return false
+  return legacyAssumesLifetimeTrust(answers)
+}
+
+export function usesChildrenOutrightResiduary(answers: Answers): boolean {
+  return (
+    childrenResiduaryPlanMayPassToChildren(answers) &&
+    !usesChildrenLifetimeResiduaryTrust(answers)
+  )
 }
 
 /** Article VI when children lifetime trust is used; SNT follows as VII. */
@@ -46,13 +98,21 @@ export function resolveFirstSntArticleRoman(
   answers: Answers,
   options: { includeSpousalTrust?: boolean } = {},
 ): string {
-  if (options.includeSpousalTrust || str(answers.residuary_plan) === 'spousal_trust') {
-    return 'VI'
-  }
+  const spousal =
+    options.includeSpousalTrust || str(answers.residuary_plan) === 'spousal_trust'
   if (usesChildrenLifetimeResiduaryTrust(answers)) {
-    return DEFAULT_FIRST_SNT_AFTER_CHILDREN_TRUST_ROMAN
+    return spousal ? 'VII' : DEFAULT_FIRST_SNT_AFTER_CHILDREN_TRUST_ROMAN
   }
+  if (spousal) return 'VI'
   return 'VI'
+}
+
+/** Phrase for spousal-trust 5.2 / 5.4(d) remainder or contingent child distribution. */
+export function childrenResiduaryDistributionPhrase(answers: Answers): string {
+  if (usesChildrenLifetimeResiduaryTrust(answers)) {
+    return `to my Trustee, in trust, to be held and administered in accordance with **Article ${CHILDREN_LIFETIME_TRUST_ARTICLE_ROMAN}** of this Will (Trust for Children)`
+  }
+  return childrenOutrightResiduaryContingentText()
 }
 
 /** Full articles inserted after Article V (children trust body, SNT block, etc.). */

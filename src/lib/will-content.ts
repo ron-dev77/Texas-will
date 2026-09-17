@@ -7,9 +7,12 @@ import {
 } from '@/lib/special-needs-trust'
 import {
   buildChildrenResiduaryTrustArticleText,
+  childrenOutrightResiduaryContingentText,
+  childrenOutrightResiduaryStandaloneText,
   resolveFirstSntArticleRoman,
   usesChildrenLifetimeResiduaryTrust,
 } from '@/lib/children-residuary-trust-article'
+import { sntArticleRomanNumeral } from '@/lib/spousal-residuary-article-v'
 import {
   buildRonArticleVResiduarySpousalText,
   buildRonWillOpeningParagraph,
@@ -97,7 +100,7 @@ function residuaryText(answers: Answers, spouse: string): string[] {
         spouse
           ? `To my spouse, **${spouse}**, if my spouse survives me.`
           : 'To my spouse, if my spouse survives me.',
-        'If my spouse does not survive me, then in equal shares to my children who survive me, **per stirpes**. If a child of mine predeceases me leaving issue who survive me, such issue shall take, **per stirpes**, the share such deceased child would have taken if living.',
+        `If my spouse does not survive me, then ${childrenOutrightResiduaryContingentText()}`,
       ]
     case 'children_equally':
       if (usesChildrenLifetimeResiduaryTrust(answers)) {
@@ -106,10 +109,7 @@ function residuaryText(answers: Answers, spouse: string): string[] {
           'To my Trustee, in trust, to be held and administered in accordance with **Article VI** of this Will (Trust for Children).',
         ]
       }
-      return [
-        intro,
-        'In equal shares to my children who survive me, **per stirpes**. If a child of mine predeceases me leaving issue who survive me, such issue shall take, **per stirpes**, the share such deceased child would have taken if living.',
-      ]
+      return [childrenOutrightResiduaryStandaloneText()]
     case 'spouse_only':
       return [
         intro,
@@ -457,9 +457,13 @@ export function buildWillFromAnswers(
     })
   }
 
-  for (const snt of buildSpecialNeedsArticles(answers)) {
+  const firstSntRoman = resolveFirstSntArticleRoman(answers, { includeSpousalTrust })
+  const sntArticles = buildSpecialNeedsArticles(answers)
+  for (let i = 0; i < sntArticles.length; i++) {
+    const snt = sntArticles[i]!
+    const sntRoman = sntArticleRomanNumeral(firstSntRoman, i)
     sections.push({
-      heading: `ARTICLE ${roman(article++)}. ${snt.heading}`,
+      heading: `ARTICLE ${sntRoman} — ${snt.heading}`,
       paragraphs: snt.paragraphs,
     })
   }

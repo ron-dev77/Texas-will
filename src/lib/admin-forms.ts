@@ -74,6 +74,7 @@ export const WILL_ENGINE_FIELD_IDS = [
   'alternate_guardian_name',
   'guardian_notes',
   'residuary_plan',
+  'children_residuary_delivery',
   'children_lifetime_primary_trustee_name',
   'children_lifetime_alternate_trustee_name',
   'has_prior_relationship_children',
@@ -289,10 +290,26 @@ function mergeResiduarySectionFields(section: Section, bundled: Section): Sectio
     if (f.id === 'residuary_plan') {
       return { ...cur, options: f.options ? [...f.options] : cur.options }
     }
+    if (STEP8_RESIDUARY_FIELD_IDS.includes(f.id as (typeof STEP8_RESIDUARY_FIELD_IDS)[number])) {
+      return {
+        ...cur,
+        label: f.label,
+        helper: f.helper,
+        type: f.type,
+        required: f.required,
+        showIf: f.showIf,
+        options: f.options ? [...f.options] : cur.options,
+        placeholder: f.placeholder,
+        minLength: f.minLength,
+        maxLength: f.maxLength,
+      }
+    }
     return cur
   })
   const bundledIds = new Set(bundled.fields.map((f) => f.id))
-  const extras = section.fields.filter((f) => !bundledIds.has(f.id))
+  const extras = section.fields.filter(
+    (f) => !bundledIds.has(f.id) && !DEPRECATED_RESIDUARY_FIELD_IDS.has(f.id),
+  )
   return { ...section, fields: [...ordered, ...extras] }
 }
 
@@ -331,16 +348,28 @@ const BUNDLED_QUESTION_SYNC_IDS = new Set([
 ])
 
 const STEP8_RESIDUARY_FIELD_IDS = [
-  'children_lifetime_trust_intro',
-  'children_lifetime_no_descendants_note',
+  'children_residuary_education',
+  'children_residuary_delivery',
+  'children_lifetime_trust_guidance',
   'children_lifetime_snt_note',
   'children_lifetime_primary_trustee_name',
   'children_lifetime_alternate_trustee_name',
 ] as const
 
+const DEPRECATED_RESIDUARY_FIELD_IDS = new Set([
+  'children_lifetime_trust_intro',
+  'children_lifetime_no_descendants_note',
+])
+
 function residuarySectionMissingStep8Fields(section: Section): boolean {
   const have = new Set(section.fields.map((f) => f.id))
   return STEP8_RESIDUARY_FIELD_IDS.some((id) => !have.has(id))
+}
+
+function residuaryPlanOptionsStale(section: Section): boolean {
+  const plan = section.fields.find((f) => f.id === 'residuary_plan')
+  if (!plan?.options?.length) return false
+  return plan.options.some((o) => o.value === 'spouse_only')
 }
 
 function bundledSectionFingerprint(section: Section): string {
@@ -367,12 +396,11 @@ export function syncBundledDefaultQuestions(schema: Section[]): Section[] {
     if (!BUNDLED_QUESTION_SYNC_IDS.has(section.id)) return section
     const bundled = bundledById.get(section.id)
     if (!bundled) return section
-    if (
-      section.id === 'residuary' &&
-      residuarySectionMissingStep8Fields(section)
-    ) {
-      changed = true
-      return { ...bundled, fields: [...bundled.fields] }
+    if (section.id === 'residuary') {
+      if (residuarySectionMissingStep8Fields(section) || residuaryPlanOptionsStale(section)) {
+        changed = true
+        return { ...bundled, fields: [...bundled.fields] }
+      }
     }
     if (bundledSectionFingerprint(section) === bundledSectionFingerprint(bundled)) {
       return section

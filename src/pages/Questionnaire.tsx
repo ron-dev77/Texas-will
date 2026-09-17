@@ -31,6 +31,7 @@ import {
   getVisibleFields,
   isFieldFilled,
   missingRequired,
+  migrateResiduaryAnswers,
   SECTIONS,
   showGuardianFields,
   visibleFieldOptions,
@@ -295,8 +296,10 @@ export default function Questionnaire() {
   useEffect(() => {
     if (!ready) return
     setAnswers((prev) => {
-      const migrated = migrateLegacySntAnswers(prev)
-      return migrated ?? prev
+      let next = migrateResiduaryAnswers(prev) ?? prev
+      const snt = migrateLegacySntAnswers(next)
+      if (snt) next = snt
+      return next !== prev ? next : prev
     })
   }, [ready])
 
@@ -722,20 +725,37 @@ function FieldCell({
     const paragraphs = (field.helper ?? '').split(/\n\n+/).filter(Boolean)
     return (
       <div className="rounded-2xl border border-border/50 bg-secondary/25 px-4 py-3.5">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-foreground">
+        <p className="text-[15px] font-semibold leading-snug tracking-normal text-foreground">
           {field.label}
         </p>
-        {paragraphs.map((paragraph, index) => (
-          <p
-            key={index}
-            className={cn(
-              'text-[13px] leading-relaxed text-muted-foreground',
-              index > 0 ? 'mt-2' : 'mt-2',
-            )}
-          >
-            {paragraph}
-          </p>
-        ))}
+        {paragraphs.map((paragraph, index) => {
+          const lineBreak = paragraph.indexOf('\n')
+          const hasSubheading =
+            lineBreak > 0 && lineBreak < 64 && !paragraph.slice(0, lineBreak).includes('.')
+          if (hasSubheading) {
+            const title = paragraph.slice(0, lineBreak).trim()
+            const body = paragraph.slice(lineBreak + 1).trim()
+            return (
+              <div key={index} className={cn(index >= 0 && 'mt-3')}>
+                <p className="text-[13px] font-semibold text-foreground">{title}</p>
+                {body ? (
+                  <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{body}</p>
+                ) : null}
+              </div>
+            )
+          }
+          return (
+            <p
+              key={index}
+              className={cn(
+                'text-[13px] leading-relaxed text-muted-foreground',
+                'mt-2',
+              )}
+            >
+              {paragraph}
+            </p>
+          )
+        })}
       </div>
     )
   }

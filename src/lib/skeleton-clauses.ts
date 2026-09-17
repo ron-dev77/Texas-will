@@ -9,6 +9,8 @@ import {
 } from '@/lib/special-needs-trust'
 import {
   buildChildrenResiduaryTrustArticleText,
+  childrenOutrightResiduaryContingentText,
+  childrenOutrightResiduaryStandaloneText,
   resolveFinalWishesArticleRoman,
   resolveFirstSntArticleRoman,
   resolveGeneralProvisionsArticleRoman,
@@ -500,14 +502,14 @@ const COMPUTED: Record<
               : `${intro} to my spouse if my spouse survives me, and if not, then to my Trustee, in trust, to be held and administered in accordance with **Article VI** of this Will (Trust for Children).`
           } else {
             body = spouse
-              ? `${intro} to my spouse, ${bold(spouse)}, if my spouse survives me. If my spouse does not survive me, then in equal shares to my children who survive me, **per stirpes**.`
-              : `${intro} to my spouse if my spouse survives me, and if not, in equal shares to my children who survive me, **per stirpes**.`
+              ? `${intro} to my spouse, ${bold(spouse)}, if my spouse survives me. If my spouse does not survive me, then ${childrenOutrightResiduaryContingentText()}`
+              : `${intro} to my spouse if my spouse survives me, and if not, then ${childrenOutrightResiduaryContingentText()}`
           }
           break
         case 'children_equally':
           body = usesChildrenLifetimeResiduaryTrust(answers)
             ? `${intro} to my Trustee, in trust, to be held and administered in accordance with **Article VI** of this Will (Trust for Children).`
-            : `${intro} in equal shares to my children who survive me, **per stirpes**.`
+            : childrenOutrightResiduaryStandaloneText()
           break
         case 'spouse_only':
           body = spouse
@@ -556,8 +558,11 @@ const COMPUTED: Record<
   clause_spousal_trust() {
     return ''
   },
-  clause_special_needs_trust(answers) {
-    return specialNeedsTrustClauseText(answers)
+  clause_special_needs_trust(answers, options) {
+    return specialNeedsTrustClauseText(answers, {
+      includeSpousalTrust: options.includeSpousalTrust,
+      firstSntArticleRoman: resolveFirstSntArticleRoman(answers, options),
+    })
   },
   clause_guardian(answers) {
     const guardian = plain(str(answers.primary_guardian_name))

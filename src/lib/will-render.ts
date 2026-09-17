@@ -357,8 +357,7 @@ export async function renderWillToPdf(
 
   const colGap = 24
   const colWidth = (contentWidth - colGap) / 2
-  // Theme ivory: --background / --ivory oklch(0.975 0.012 85) ≈ #F7F3EA
-  const pageBg = rgb(247 / 255, 243 / 255, 234 / 255)
+  const pageBg = rgb(1, 1, 1)
   const ink = rgb(0.14, 0.16, 0.2)
 
   const pages: PDFPage[] = []

@@ -80,14 +80,27 @@ export const SNT_CONTINGENT_REMAINDER_LABEL =
 export const SNT_CONTINGENT_REMAINDER_HELPER =
   "A backup ensures the money doesn't get held up or default to unintended heirs if your first choice has also passed away."
 
-export const CHILDREN_LIFETIME_TRUST_INTRO =
-  'The remainder of your estate will be divided into equal shares — one for each of your children — and held in a separate trust for each child\'s lifetime.\n\nEach child manages their own trust share once they turn 30. Until then, the adult trustee you name below manages it on their behalf.\n\nThis structure protects each child\'s inheritance from creditors, lawsuits, and divorce for their entire lifetime — not just until a certain age.'
-
-export const CHILDREN_LIFETIME_NO_DESCENDANTS_NOTE =
+/** Shown when Q2 = lifetime trust — Ron Step 8 Rev 1 informational copy. */
+export const CHILDREN_LIFETIME_TRUST_GUIDANCE =
+  'What your will will do\n' +
+  'The remainder of your estate will be divided into equal shares — one for each of your children — and held in a separate trust for each child\'s lifetime.\n\n' +
+  'Each child manages their own trust share once they turn 30. Until then, the adult trustee you name below manages it on their behalf.\n\n' +
+  'This structure protects each child\'s inheritance from creditors, lawsuits, and divorce for their entire lifetime — not just until a certain age.\n\n' +
+  'If a child dies with no descendants\n' +
   'If one of your children passes away without descendants of their own, that child\'s trust share will be added to your other children\'s shares (or their descendants, if a child has also passed away).'
 
 export const CHILDREN_LIFETIME_SNT_OVERRIDE_NOTE =
-  'Any beneficiary you set up for a special needs trust is not covered by the lifetime trust structure above. That person\'s share is handled only in your special needs trust article.'
+  'If you set up a special needs trust for a child on a later step, that child is not included in these lifetime trust shares. Their inheritance is handled only through the special needs trust.'
+
+/** Step 8 info message — paragraphs split on \\n\\n; use "Title\\nBody" for subheadings in the UI. */
+export const CHILDREN_RESIDUARY_EDUCATION =
+  'Before you decide, here\'s what actually matters most: roughly how much each child stands to receive.\n\n' +
+  'Outright distribution\n' +
+  'Each child receives their share directly, with nothing to manage or maintain afterward. This is simpler and has no ongoing cost — but once received, the money is exposed to that child\'s creditors, a lawsuit, or a divorce, the same as any of their own assets would be.\n\n' +
+  'Lifetime trust\n' +
+  'Each child\'s share is held in a trust for their entire life instead of being handed to them outright. Once they turn 30, they manage it themselves as trustee — but the money stays legally protected from creditors, lawsuits, and divorce for as long as it remains in the trust, even though they\'re the one controlling it.\n\n' +
+  'The tradeoff\n' +
+  'A trust requires a small amount of ongoing upkeep — its own tax ID and its own annual tax return, separate from your child\'s personal taxes. For a large inheritance, that upkeep is minor compared to the protection it buys. For a smaller inheritance, the upkeep can outweigh the benefit. As a rough guideline, many attorneys suggest a lifetime trust starts to make sense once a child\'s share is likely to be $500,000 or more — below that, the ongoing cost and hassle often aren\'t worth it for the protection gained. This is a general guideline, not a rule — the right choice depends on your own family and comfort level.'
 
 export const SNT_EXISTING_TRUST_NOTE_LABEL = 'A note on existing special needs trusts'
 
@@ -412,29 +425,40 @@ export const SECTIONS: readonly Section[] = [
             label: "All to my spouse; if they don't survive me, equally to my children",
           },
           { value: 'children_equally', label: 'Equally among my children' },
-          { value: 'spouse_only', label: 'All to my spouse' },
         ],
       },
       {
-        id: 'children_lifetime_trust_intro',
-        label: 'Lifetime trust for each child\'s share',
-        helper: CHILDREN_LIFETIME_TRUST_INTRO,
+        id: 'children_residuary_education',
+        label: 'How should your children receive their share?',
+        helper: CHILDREN_RESIDUARY_EDUCATION,
         type: 'info',
-        showIf: { field: 'residuary_plan', in: ['children_equally', 'spouse_then_children'] },
       },
       {
-        id: 'children_lifetime_no_descendants_note',
-        label: 'If a child dies with no descendants',
-        helper: CHILDREN_LIFETIME_NO_DESCENDANTS_NOTE,
+        id: 'children_residuary_delivery',
+        label: 'Choose one',
+        type: 'radio',
+        required: true,
+        options: [
+          { value: 'outright', label: 'Outright: my children receive their share directly' },
+          {
+            value: 'lifetime_trust',
+            label: "Lifetime trust: my children's shares are held in trust for their lifetime",
+          },
+        ],
+      },
+      {
+        id: 'children_lifetime_trust_guidance',
+        label: 'How the lifetime trust works',
+        helper: CHILDREN_LIFETIME_TRUST_GUIDANCE,
         type: 'info',
-        showIf: { field: 'residuary_plan', in: ['children_equally', 'spouse_then_children'] },
+        showIf: { field: 'children_residuary_delivery', equals: 'lifetime_trust' },
       },
       {
         id: 'children_lifetime_snt_note',
-        label: 'Special needs children',
+        label: 'Special needs planning',
         helper: CHILDREN_LIFETIME_SNT_OVERRIDE_NOTE,
         type: 'info',
-        showIf: { field: 'residuary_plan', in: ['children_equally', 'spouse_then_children'] },
+        showIf: { field: 'children_residuary_delivery', equals: 'lifetime_trust' },
       },
       {
         id: 'children_lifetime_primary_trustee_name',
@@ -446,7 +470,7 @@ export const SECTIONS: readonly Section[] = [
         placeholder: 'Full legal name',
         minLength: 3,
         maxLength: 80,
-        showIf: { field: 'residuary_plan', in: ['children_equally', 'spouse_then_children'] },
+        showIf: { field: 'children_residuary_delivery', equals: 'lifetime_trust' },
       },
       {
         id: 'children_lifetime_alternate_trustee_name',
@@ -457,7 +481,7 @@ export const SECTIONS: readonly Section[] = [
         placeholder: 'Full legal name',
         minLength: 3,
         maxLength: 80,
-        showIf: { field: 'residuary_plan', in: ['children_equally', 'spouse_then_children'] },
+        showIf: { field: 'children_residuary_delivery', equals: 'lifetime_trust' },
       },
       {
         id: 'spousal_trust_trustee_mode',
@@ -1097,13 +1121,78 @@ export function visibleFieldOptions(
   })
 }
 
+const CHILDREN_RESIDUARY_Q2_FIELD_IDS = new Set([
+  'children_residuary_education',
+  'children_residuary_delivery',
+])
+
 const CHILDREN_LIFETIME_FIELD_IDS = new Set([
-  'children_lifetime_trust_intro',
-  'children_lifetime_no_descendants_note',
+  'children_lifetime_trust_guidance',
   'children_lifetime_snt_note',
   'children_lifetime_primary_trustee_name',
   'children_lifetime_alternate_trustee_name',
 ])
+
+/** Replaced by children_lifetime_trust_guidance — drop from synced forms. */
+export const DEPRECATED_CHILDREN_LIFETIME_INFO_FIELD_IDS = [
+  'children_lifetime_trust_intro',
+  'children_lifetime_no_descendants_note',
+] as const
+
+/** Map removed residuary options to supported plans. */
+export function migrateResiduaryAnswers(
+  answers: Record<string, unknown>,
+): Record<string, unknown> | null {
+  if (answers.residuary_plan !== 'spouse_only') return null
+  return { ...answers, residuary_plan: 'spouse_then_children' }
+}
+
+export class ResiduaryStep8NotReadyError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ResiduaryStep8NotReadyError'
+  }
+}
+
+/** Block will PDF when Step 8 Q2 (or lifetime trustees) is missing for this order. */
+export function assertResiduaryStep8ReadyForPdf(
+  answers: Record<string, unknown>,
+  includeSpousalTrust = false,
+): void {
+  if (!showChildrenResiduaryQuestion2(answers, includeSpousalTrust)) return
+  const delivery = answers.children_residuary_delivery
+  if (delivery !== 'outright' && delivery !== 'lifetime_trust') {
+    throw new ResiduaryStep8NotReadyError(
+      'Step 8 is incomplete: choose outright or lifetime trust for how children receive their share.',
+    )
+  }
+  if (delivery === 'lifetime_trust') {
+    const primary =
+      typeof answers.children_lifetime_primary_trustee_name === 'string'
+        ? answers.children_lifetime_primary_trustee_name.trim()
+        : ''
+    const alternate =
+      typeof answers.children_lifetime_alternate_trustee_name === 'string'
+        ? answers.children_lifetime_alternate_trustee_name.trim()
+        : ''
+    if (primary.length < 3 || alternate.length < 3) {
+      throw new ResiduaryStep8NotReadyError(
+        'Step 8 lifetime trust: enter primary and alternate adult trustee names before generating the will.',
+      )
+    }
+  }
+}
+
+export function showChildrenResiduaryQuestion2(
+  answers: Record<string, unknown>,
+  includeSpousalTrust = false,
+): boolean {
+  if (answers.has_children !== 'yes') return false
+  const plan = answers.residuary_plan
+  if (plan === 'children_equally' || plan === 'spouse_then_children') return true
+  if (plan === 'spousal_trust') return includeSpousalTrust
+  return false
+}
 
 export function getVisibleFields(
   section: Section,
@@ -1114,14 +1203,14 @@ export function getVisibleFields(
     if (f.requiresSpousalTrust && !includeSpousalTrust) return false
     if (f.id === 'name_future_minor_guardian') return showFutureMinorGuardianToggle(answers)
     if (GUARDIAN_FIELD_IDS.has(f.id)) return showGuardianFields(answers)
-    if (CHILDREN_LIFETIME_FIELD_IDS.has(f.id) && answers.has_children !== 'yes') {
-      return false
+    if (CHILDREN_RESIDUARY_Q2_FIELD_IDS.has(f.id)) {
+      return showChildrenResiduaryQuestion2(answers, includeSpousalTrust)
+    }
+    if (CHILDREN_LIFETIME_FIELD_IDS.has(f.id)) {
+      if (!showChildrenResiduaryQuestion2(answers, includeSpousalTrust)) return false
     }
     if (f.id === 'children_lifetime_snt_note') {
-      if (answers.has_children !== 'yes') return false
       if (answers.wants_snt !== 'yes') return false
-      const plan = answers.residuary_plan
-      if (plan !== 'children_equally' && plan !== 'spouse_then_children') return false
     }
     return isFieldVisible(f, answers)
   })

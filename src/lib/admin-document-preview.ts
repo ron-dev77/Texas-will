@@ -5,6 +5,7 @@ import { parseSkeletonBody, type SkeletonDoc } from '@/lib/skeleton-doc'
 import { renderSkeletonLayoutPdf } from '@/lib/skeleton-layout-pdf'
 import type { DocumentKind } from '@/lib/document-kinds'
 import { orderHasSpousalTrust } from '@/lib/spousal-trust'
+import { assertResiduaryStep8ReadyForPdf, migrateResiduaryAnswers } from '@/lib/questionnaire'
 import { hydrateSntAnswers } from '@/lib/special-needs-trust'
 import type { AnswersRow, OrderDetail, WillDocRow } from '@/lib/admin-order'
 
@@ -17,7 +18,8 @@ const LIVE_ANSWER_KINDS = new Set<DocumentKind>(['will', 'spousal_trust'])
 
 /** Normalize questionnaire answers before PDF generation (SNT legacy migration, etc.). */
 export function prepareAnswersForDocument(answers: Record<string, unknown>): Record<string, unknown> {
-  return hydrateSntAnswers(answers)
+  const migrated = migrateResiduaryAnswers(answers) ?? answers
+  return hydrateSntAnswers(migrated)
 }
 
 export async function loadSkeletonsForPartner(
@@ -62,6 +64,9 @@ export async function renderOrderDocumentPdf(params: {
   const answers = prepareAnswersForDocument(params.answers)
   const includeSpousalTrust =
     params.kind === 'spousal_trust' ? true : Boolean(params.includeSpousalTrust)
+  if (params.kind === 'will') {
+    assertResiduaryStep8ReadyForPdf(answers, includeSpousalTrust)
+  }
   const fillOptions =
     params.kind === 'will' || params.kind === 'spousal_trust'
       ? { includeTrust: params.includeTrust, includeSpousalTrust }

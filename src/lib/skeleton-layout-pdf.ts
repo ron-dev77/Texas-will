@@ -135,7 +135,7 @@ export async function renderSkeletonLayoutPdf(
   const sigBlockH = 38
   const sigLineOffset = 20
   const ink = rgb(0.12, 0.14, 0.18)
-  const pageBg = rgb(247 / 255, 243 / 255, 234 / 255)
+  const pageBg = rgb(1, 1, 1)
 
   const pages: PDFPage[] = []
   const startPage = () => {

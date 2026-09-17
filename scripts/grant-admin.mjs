@@ -3,7 +3,8 @@
  *
  * Usage (PowerShell):
  *   $env:ADMIN_EMAIL="scott@myaiwill.com"
- *   $env:ADMIN_PASSWORD="their-password"   # required if Auth user does not exist yet
+ *   $env:ADMIN_PASSWORD='their-password'   # use SINGLE quotes if password contains $
+ *   # Wrong: "NebraskaTexa1$$" → PowerShell stores NebraskaTexa1$ (one dollar sign)
  *   $env:ADMIN_ROLE="admin"                # optional: admin | staff (default admin)
  *   node scripts/grant-admin.mjs
  *

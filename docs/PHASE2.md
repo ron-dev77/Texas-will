@@ -66,6 +66,8 @@ Draft environment documentation. Not live to customers until ethics review.
 - `src/lib/skeleton-clauses.ts` — wires Ron clauses; no duplicate `residuarySpecialNeedsNote` on spousal Article V
 - `src/lib/will-content.ts` — legacy PDF path aligned with Ron Article V when `includeSpousalTrust`
 - Questionnaire **Spousal testamentary trust** — sole vs co-trustee (`spousal_trust_trustee_mode`)
+- **Step 8 redesign (MVP):** residuary Q1 = 3 options (no bare spouse-only); Q2 `children_residuary_delivery` outright vs lifetime trust + education; PDF uses Module O (`CHILDREN_OUTRIGHT_RESIDUARY_PHRASE`) or Article VI children trust per Q2; legacy `spouse_only` → `spouse_then_children` on load
+- **Will PDF:** default skeleton drops PREAMBLE heading; skeleton PDF white pages + centered page numbers; SNT articles use Roman numerals, full-name trust title, Ron §9 termination text
 
 #### Step 8 — Children’s lifetime residuary trust (MVP + Rev 1, Sep 2026)
 - **Questionnaire** (`residuary` section): when plan is **Equally among my children** or **spouse then children** and **has children**, shows MVP info copy, **SNT override** note when special needs is enabled, and required **primary / alternate adult trustee** (person picker). **Custom residuary split** removed from UI.
