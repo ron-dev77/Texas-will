@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { PlanPairCards } from '@/components/site/PlanPairCards'
 import { ScrollReveal } from '@/components/site/ScrollReveal'
-import ceoFounderPortrait from '@/assets/ceo-founder-portrait.jpg'
+import { FounderPhoto } from '@/components/site/FounderPhoto'
 
 const PRINCIPLES = [
   {
@@ -145,15 +145,11 @@ export default function About() {
           <ScrollReveal variant="up">
             <div className="overflow-hidden rounded-[2rem] border border-border/70 bg-card shadow-[0_28px_70px_-40px_rgba(15,23,42,0.4)]">
               <div className="grid lg:grid-cols-[0.95fr_1.05fr]">
-                <div className="relative min-h-[420px] overflow-hidden bg-primary sm:min-h-[480px] lg:min-h-[560px]">
-                  <img
-                    src={ceoFounderPortrait}
-                    alt="Scott Pappas, licensed Texas attorney and founder of My AI Will"
-                    className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 hover:scale-105"
-                  />
+                <div className="group relative min-h-[420px] cursor-pointer overflow-hidden bg-primary sm:min-h-[480px] lg:min-h-[560px]">
+                  <FounderPhoto />
                   <div
                     aria-hidden="true"
-                    className="absolute inset-0 bg-gradient-to-t from-primary via-primary/30 to-transparent"
+                    className="pointer-events-none absolute inset-0 bg-gradient-to-t from-primary via-primary/20 to-transparent"
                   />
                   <div className="absolute inset-x-0 bottom-0 p-8 sm:p-10">
                     <div className="font-serif text-3xl text-primary-foreground sm:text-4xl">
