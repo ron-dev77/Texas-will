@@ -6,6 +6,11 @@ import {
   type TextAlign,
   type SkeletonFillOptions,
 } from '@/lib/skeleton-doc'
+import {
+  isWillPdfPageNumberingStopHeading,
+  shouldNumberWillPdfPage,
+  WILL_PDF_MARGIN_PT,
+} from '@/lib/will-pdf-layout'
 
 /** ISO A4 in PDF points */
 export const A4_WIDTH = 595.28
@@ -118,8 +123,8 @@ export async function renderSkeletonLayoutPdf(
 
   const pageWidth = A4_WIDTH
   const pageHeight = A4_HEIGHT
-  const marginX = 56.7 // ~20mm
-  const marginY = 56.7
+  const marginX = WILL_PDF_MARGIN_PT
+  const marginY = WILL_PDF_MARGIN_PT
   const footerReserve = 22
   const bottomLimit = marginY + footerReserve
   const contentWidth = pageWidth - marginX * 2
@@ -147,6 +152,14 @@ export async function renderSkeletonLayoutPdf(
 
   let page = startPage()
   let y = pageHeight - marginY
+  let firstAffidavitPageIndex: number | null = null
+
+  const markAffidavitPageIfNeeded = (heading: string) => {
+    if (firstAffidavitPageIndex !== null) return
+    if (isWillPdfPageNumberingStopHeading(heading)) {
+      firstAffidavitPageIndex = pages.length - 1
+    }
+  }
 
   const spaceLeft = (bottom = bottomLimit) => y - bottom
   const newPage = (extraTop = 0) => {
@@ -375,7 +388,9 @@ export async function renderSkeletonLayoutPdf(
     }
 
     if (block.kind === 'heading') {
-      const heading = fillSkeletonTokens(block.heading || 'Heading', answers, options).toUpperCase()
+      const headingRaw = fillSkeletonTokens(block.heading || 'Heading', answers, options)
+      markAffidavitPageIfNeeded(headingRaw)
+      const heading = headingRaw.toUpperCase()
       const headingFont = block.headingBold === false ? font : fontBold
       // Keep heading with following paragraph + signature lines when possible (prefer prior page).
       let keepWith = headingSize + 8 + lineHeight * (block.blankLinesAfter || 0)
@@ -457,7 +472,9 @@ export async function renderSkeletonLayoutPdf(
 
     // section
     if (block.heading.trim()) {
-      const heading = fillSkeletonTokens(block.heading, answers, options).toUpperCase()
+      const headingRaw = fillSkeletonTokens(block.heading, answers, options)
+      markAffidavitPageIfNeeded(headingRaw)
+      const heading = headingRaw.toUpperCase()
       const headingFont = block.headingBold === false ? font : fontBold
       drawAlignedText(heading, headingFont, headingSize, block.align, 8)
     }
@@ -474,8 +491,11 @@ export async function renderSkeletonLayoutPdf(
     drawBlock(doc.blocks[i], i)
   }
 
+  let numberedPage = 0
   pages.forEach((p, i) => {
-    const label = `Page ${i + 1}`
+    if (!shouldNumberWillPdfPage(i, firstAffidavitPageIndex)) return
+    numberedPage += 1
+    const label = `Page ${numberedPage}`
     const w = font.widthOfTextAtSize(label, 9)
     p.drawText(label, {
       x: (pageWidth - w) / 2,

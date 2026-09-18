@@ -71,7 +71,7 @@ Draft environment documentation. Not live to customers until ethics review.
 
 #### Step 8 — Children’s lifetime residuary trust (MVP + Rev 1, Sep 2026)
 - **Questionnaire** (`residuary` section): when plan is **Equally among my children** or **spouse then children** and **has children**, shows MVP info copy, **SNT override** note when special needs is enabled, and required **primary / alternate adult trustee** (person picker). **Custom residuary split** removed from UI.
-- **Will PDF:** **Article VI — Trust for Children** (Rev 1 Sections 1–6). Residuary **5.1** + **SNT pour-over** under 5.1 when applicable; trailing article headings renumber after VI/VII blocks.
+- **Will PDF:** **Article VI — Trust for Children** (**6.1–6.6**, Ron Rev 3 spousal handoff). **5.4(d)** termination uses principal/undistributed income + explicit Article VI trustee pour-over; margins 1″; page numbers exclude self-proving affidavit only.
 - Template: [`src/lib/children-residuary-trust-article.ts`](src/lib/children-residuary-trust-article.ts) — fixed text, no AI generation.
 - **No DB migration** — legacy `residuary_plan: custom` answers still render if already saved.
 

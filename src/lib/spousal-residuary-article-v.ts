@@ -2,7 +2,10 @@
  * Ron 9/13/26 — Article V residuary + spousal testamentary trust (coordinates SNT in 5.2 and 5.4(d)).
  */
 
-import { childrenResiduaryDistributionPhrase } from '@/lib/children-residuary-trust-article'
+import {
+  childrenResiduaryDistributionPhrase,
+  spousalTrustTerminationRemainderPhrase,
+} from '@/lib/children-residuary-trust-article'
 import { parseSntTrustRows, wantsSpecialNeedsTrust } from '@/lib/special-needs-trust'
 import { spousalTrusteeMode } from '@/lib/spousal-trust'
 
@@ -105,7 +108,7 @@ function section54CoTrustee(params: {
     `(c) **Lifetime Distributions to Spouse:**`,
     `(1) **Mandatory Net Income:** The Co-Trustees shall pay to or apply for the benefit of my spouse all of the net income of the Trust, distributed at least annually or in more frequent installments.`,
     `(2) **Principal Discretion (HEMS Standard):** The Co-Trustees may pay to or apply for the benefit of my spouse so much of the trust principal as is reasonably necessary for my spouse's health, education, maintenance, and support in reasonable comfort (HEMS Standard). In exercising this discretion, the Co-Trustees shall balance my primary intent to support my spouse during their lifetime with my secondary intent to preserve the principal for my surviving children.`,
-    `(d) **Termination and Remainder Distribution:** Upon the death of my spouse, the ${params.trustName} shall terminate. The Co-Trustees shall distribute the remaining trust principal and any accrued but undistributed net income ${params.remainderToChildren}${params.remainderWithSnt}`,
+    `(d) **Termination and Remainder Distribution:** Upon the death of my spouse, the Co-Trustees shall distribute the remaining principal and any undistributed income of the Spousal Trust ${params.remainderToChildren}${params.remainderWithSnt}`,
   ].join('\n\n')
 }
 
@@ -124,7 +127,7 @@ function section54SoleTrustee(params: {
     `(c) **Lifetime Distributions to Spouse:**`,
     `(1) **Mandatory Net Income:** The Trustee shall pay to or apply for the benefit of my spouse all of the net income of the Trust, distributed at least annually or in more frequent installments.`,
     `(2) **Principal Discretion (HEMS Standard):** The Trustee may pay to or apply for the benefit of my spouse so much of the trust principal as the Trustee deems necessary or advisable for my spouse's health, education, maintenance, and support in reasonable comfort (the "HEMS Standard"), taking into consideration any other financial resources known to the Trustee to be available to my spouse.`,
-    `(d) **Termination and Remainder Distribution:** Upon the death of my spouse, the ${params.trustName} shall terminate. The Trustee shall distribute the remaining trust principal and any accrued but undistributed net income ${params.remainderToChildren}${params.remainderWithSnt}`,
+    `(d) **Termination and Remainder Distribution:** Upon the death of my spouse, the Trustee shall distribute the remaining principal and any undistributed income of the Spousal Trust ${params.remainderToChildren}${params.remainderWithSnt}`,
   ].join('\n\n')
 }
 
@@ -168,12 +171,13 @@ export function buildRonArticleVResiduarySpousalText(
 
   const fiduciaryRef =
     mode === 'co_trustee'
-      ? 'the Co-Trustees named in Section 5.4 of this Article'
-      : 'the Trustee named in Section 5.4 of this Article'
+      ? 'the Co-Trustees named in **5.4** of this Article'
+      : 'the Trustee named in **5.4** of this Article'
   const section51 = `**5.1 Primary Disposition to Spousal Trust.**
 If my spouse, ${spouseName}, survives me, I give, devise, and bequeath my entire residuary estate to ${fiduciaryRef}, to be held, administered, and distributed in a separate trust designated as the "${trustName}" as provided herein.`
 
   const remainderToChildren = childrenResiduaryDistributionPhrase(answers)
+  const terminationRemainder = spousalTrustTerminationRemainderPhrase(answers)
   const section52 = `**5.2 Contingent Disposition (If Spouse Predeceases).**
 If my spouse does not survive me, I give, devise, and bequeath my entire residuary estate ${remainderToChildren}${contingentSnt}`
 
@@ -188,14 +192,14 @@ If any beneficiary under this Will fails to survive me by thirty (30) days, that
           coTrusteeChildName: str(answers.spousal_trust_co_trustee_name),
           successorCoTrusteeName: str(answers.spousal_trust_successor_trustee_name),
           remainderWithSnt: remainderSnt,
-          remainderToChildren,
+          remainderToChildren: terminationRemainder,
         })
       : section54SoleTrustee({
           trustName,
           spouseName,
           alternateTrusteeName: str(answers.spousal_trust_alternate_trustee_name),
           remainderWithSnt: remainderSnt,
-          remainderToChildren,
+          remainderToChildren: terminationRemainder,
         })
 
   const section55 = mode === 'co_trustee' ? SECTION_55 : SECTION_55_SOLE

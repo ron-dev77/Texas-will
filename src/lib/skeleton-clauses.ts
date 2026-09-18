@@ -8,12 +8,15 @@ import {
   specialNeedsTrustClauseText,
 } from '@/lib/special-needs-trust'
 import {
+  articleArabicFromRoman,
   buildChildrenResiduaryTrustArticleText,
   childrenOutrightResiduaryContingentText,
   childrenOutrightResiduaryStandaloneText,
+  guardianClauseApplies,
   resolveFinalWishesArticleRoman,
   resolveFirstSntArticleRoman,
   resolveGeneralProvisionsArticleRoman,
+  resolveGuardianArticleRoman,
   resolveNoContestArticleRoman,
   resolveSimultaneousDeathArticleRoman,
   usesChildrenLifetimeResiduaryTrust,
@@ -566,10 +569,12 @@ const COMPUTED: Record<
   },
   clause_guardian(answers) {
     const guardian = plain(str(answers.primary_guardian_name))
-    if (answers.has_children !== 'yes' || !guardian) return ''
+    if (!guardianClauseApplies(answers)) return ''
     const rel = plain(str(answers.primary_guardian_relationship))
     const alt = plain(str(answers.alternate_guardian_name))
     const notes = plain(str(answers.guardian_notes))
+    const artRoman = resolveGuardianArticleRoman(answers)
+    const n = articleArabicFromRoman(artRoman)
     const appoint = rel
       ? `If my spouse does not survive me, or if I am not married at the time of my death, I appoint ${bold(guardian)}, my ${rel.toLowerCase()}, as guardian of the person and estate of each of my minor children.`
       : `If my spouse does not survive me, or if I am not married at the time of my death, I appoint ${bold(guardian)} as guardian of the person and estate of each of my minor children.`
@@ -578,11 +583,11 @@ const COMPUTED: Record<
       : ` If ${bold(firstName(guardian))} is unable or unwilling to serve, I request the court to appoint a suitable guardian.`
     const noteLine = notes ? ` In selecting a guardian, I ask that the following be considered: ${notes}` : ''
     return [
-      '**ARTICLE VI — GUARDIAN OF MINOR CHILDREN**',
+      `**ARTICLE ${artRoman} — GUARDIAN OF MINOR CHILDREN**`,
       '',
-      `**6.1 Appointment of Guardian.** ${appoint}${succ}${noteLine}`,
+      `**${n}.1 Appointment of Guardian.** ${appoint}${succ}${noteLine}`,
       '',
-      '**6.2 Bond Waived.** I request that no bond be required of any guardian named herein.',
+      `**${n}.2 Bond Waived.** I request that no bond be required of any guardian named herein.`,
     ].join('\n')
   },
   clause_final_wishes(answers) {

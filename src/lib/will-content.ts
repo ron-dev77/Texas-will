@@ -458,7 +458,10 @@ export function buildWillFromAnswers(
   }
 
   const firstSntRoman = resolveFirstSntArticleRoman(answers, { includeSpousalTrust })
-  const sntArticles = buildSpecialNeedsArticles(answers)
+  const sntArticles = buildSpecialNeedsArticles(answers, {
+    firstSntArticleRoman: firstSntRoman,
+    includeSpousalTrust,
+  })
   for (let i = 0; i < sntArticles.length; i++) {
     const snt = sntArticles[i]!
     const sntRoman = sntArticleRomanNumeral(firstSntRoman, i)

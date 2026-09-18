@@ -1,6 +1,11 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
 import type { DocumentKind } from '@/lib/document-kinds'
 import { DOCUMENT_KIND_LABEL } from '@/lib/document-kinds'
+import {
+  isWillPdfPageNumberingStopHeading,
+  shouldNumberWillPdfPage,
+  WILL_PDF_MARGIN_PT,
+} from '@/lib/will-pdf-layout'
 
 export interface WillContent {
   title: string
@@ -342,8 +347,8 @@ export async function renderWillToPdf(
   // Hardcoded A4 (ISO 216) in PDF points
   const pageWidth = 595.28
   const pageHeight = 841.89
-  const marginX = 56.7
-  const marginY = 56.7
+  const marginX = WILL_PDF_MARGIN_PT
+  const marginY = WILL_PDF_MARGIN_PT
   const footerReserve = 28
   const bottomLimit = marginY + footerReserve
   const contentWidth = pageWidth - marginX * 2
@@ -590,6 +595,7 @@ export async function renderWillToPdf(
   drawCentered(partyName, fontBold, nameSize, 26)
 
   let hitExecution = false
+  let firstAffidavitPageIndex: number | null = null
   for (const section of sections) {
     const heading = section.heading
       .replace(/[—–−]/g, '.')
@@ -599,6 +605,10 @@ export async function renderWillToPdf(
       .toUpperCase()
     const normalized = { ...section, heading }
     const isExec = isExecutionBlockSection(heading)
+
+    if (isWillPdfPageNumberingStopHeading(heading) && firstAffidavitPageIndex === null) {
+      firstAffidavitPageIndex = pages.length - 1
+    }
 
     if (isExec && !hitExecution) {
       hitExecution = true
@@ -611,8 +621,11 @@ export async function renderWillToPdf(
     drawSection(normalized, isExec)
   }
 
+  let numberedPage = 0
   pages.forEach((p, i) => {
-    const label = `${i + 1}`
+    if (!shouldNumberWillPdfPage(i, firstAffidavitPageIndex)) return
+    numberedPage += 1
+    const label = `Page ${numberedPage}`
     const w = font.widthOfTextAtSize(label, 9)
     p.drawText(label, {
       x: (pageWidth - w) / 2,
