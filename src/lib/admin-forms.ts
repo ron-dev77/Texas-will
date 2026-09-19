@@ -8,7 +8,10 @@ import {
   type Section,
 } from '@/lib/questionnaire'
 import { BUNDLED_WILL_SKELETON } from '@/lib/admin-content'
-import { needsDefaultWillSkeletonRefresh } from '@/lib/content-defaults/default-will-skeleton'
+import {
+  mergeArticleIITaxElectionsSkeletonBody,
+  needsDefaultWillSkeletonRefresh,
+} from '@/lib/content-defaults/default-will-skeleton'
 import {
   BUNDLED_SPOUSAL_TRUST_SKELETON,
   needsSpousalTrustTemplateRefresh,
@@ -530,7 +533,8 @@ export function buildFormUpgradePatch(mapped: QuestionnaireFormRow): FormUpgrade
 
 function refreshWillSkeletonBody(body: string | null | undefined): string {
   if (needsDefaultWillSkeletonRefresh(body)) return BUNDLED_WILL_SKELETON
-  return body?.trim() ? body : BUNDLED_WILL_SKELETON
+  const base = body?.trim() ? body : BUNDLED_WILL_SKELETON
+  return mergeArticleIITaxElectionsSkeletonBody(base)
 }
 
 /** Sync the active questionnaire form when bundled schema/skeletons advance. */

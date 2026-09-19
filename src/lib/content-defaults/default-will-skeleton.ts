@@ -1,5 +1,13 @@
-import { serializeSkeletonDoc, type SkeletonBlock, type SkeletonDoc } from '@/lib/skeleton-doc'
-import { RON_ARTICLE_III_DEBTS_TAXES } from '@/lib/spousal-residuary-article-v'
+import {
+  parseSkeletonBody,
+  serializeSkeletonDoc,
+  type SkeletonBlock,
+  type SkeletonDoc,
+} from '@/lib/skeleton-doc'
+import {
+  RON_ARTICLE_II_TAX_ELECTIONS,
+  RON_ARTICLE_III_DEBTS_TAXES,
+} from '@/lib/spousal-residuary-article-v'
 
 /**
  * Production-ready Texas Last Will skeleton.
@@ -31,7 +39,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
       blk({
         kind: 'paragraph',
         body: '{{clause_will_opening}}',
-        blankLinesAfter: 1,
+        blankLinesAfter: 2,
       }),
 
       blk({
@@ -75,6 +83,11 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
       blk({
         kind: 'paragraph',
         body: '**2.3 Executor Powers.** My Executor shall have full power to sell, lease, mortgage, invest, and reinvest assets of my estate; to pay debts, taxes, and expenses of administration; to compromise claims; and to do all acts necessary for the proper settlement of my estate without court approval, as permitted under the **Texas Estates Code**.',
+        blankLinesAfter: 1,
+      }),
+      blk({
+        kind: 'paragraph',
+        body: RON_ARTICLE_II_TAX_ELECTIONS,
         blankLinesAfter: 1,
       }),
 
@@ -335,6 +348,36 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
 /** Serialized v2 body for DB / bundled default. */
 export const DEFAULT_WILL_SKELETON_BODY = serializeSkeletonDoc(buildDefaultWillSkeletonDoc())
 
+/** Insert Scott 2.4 Tax Elections after 2.3 when an saved skeleton predates the bundled block. */
+export function mergeArticleIITaxElectionsSkeletonBody(body: string): string {
+  if (!body.trim() || /2\.4 Tax Elections/i.test(body)) return body
+  let doc: SkeletonDoc
+  try {
+    doc = parseSkeletonBody(body)
+  } catch {
+    return body
+  }
+  const idx = doc.blocks.findIndex(
+    (b) => b.kind === 'paragraph' && /\*\*2\.3 Executor Powers\.\*\*/i.test(b.body),
+  )
+  if (idx < 0) return body
+  const taxBlock: SkeletonBlock = {
+    id: `will_ii_tax_${idx + 1}`,
+    kind: 'paragraph',
+    heading: '',
+    body: RON_ARTICLE_II_TAX_ELECTIONS,
+    label: 'Signature',
+    leftLabel: 'Signature of Witness 1',
+    rightLabel: 'Signature of Witness 2',
+    align: 'left',
+    blankLinesAfter: 1,
+    pageBreakBefore: false,
+    headingBold: true,
+  }
+  doc.blocks.splice(idx + 1, 0, taxBlock)
+  return serializeSkeletonDoc(doc)
+}
+
 /** True when stored body is still the old bracket / plain-text AI skeleton. */
 export function isLegacyWillSkeleton(body: string | null | undefined): boolean {
   const t = (body ?? '').trim()
@@ -403,6 +446,7 @@ export function needsDefaultWillSkeletonRefresh(body: string | null | undefined)
     /ARTICLE V\s*[—\-]\s*CHARITABLE/i.test(t) ||
     (/ARTICLE III\s*[—\-]\s*PAYMENT OF DEBTS, EXPENSES, AND TAXES/i.test(t) &&
       !/3\.1 Death Tax/i.test(t)) ||
-    /"heading"\s*:\s*"PREAMBLE"/i.test(t)
+    /"heading"\s*:\s*"PREAMBLE"/i.test(t) ||
+    !/2\.4 Tax Elections/i.test(t)
   )
 }

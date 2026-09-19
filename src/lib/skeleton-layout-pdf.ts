@@ -9,7 +9,10 @@ import {
 import {
   isWillPdfPageNumberingStopHeading,
   shouldNumberWillPdfPage,
+  WILL_PDF_FOOTER_RESERVE_PT,
   WILL_PDF_MARGIN_PT,
+  WILL_PDF_PAGE_NUMBER_Y_PT,
+  WILL_PDF_TITLE_GAP_PT,
 } from '@/lib/will-pdf-layout'
 
 /** ISO A4 in PDF points */
@@ -17,6 +20,23 @@ export const A4_WIDTH = 595.28
 export const A4_HEIGHT = 841.89
 
 type RichRun = { text: string; bold: boolean }
+
+function isNotarySealParagraph(body: string): boolean {
+  return /^\[NOTARY\s+SEAL\]\s*$/i.test(body.trim())
+}
+
+function richLinePlainText(runs: RichRun[]): string {
+  return runs.map((r) => r.text).join('')
+}
+
+/** Dynamic clauses embed ARTICLE titles inside paragraph blocks — match skeleton heading alignment. */
+function isEmbeddedArticleHeadingLine(runs: RichRun[]): boolean {
+  const t = richLinePlainText(runs)
+    .replace(/\*\*/g, '')
+    .trim()
+    .toUpperCase()
+  return /^ARTICLE [IVXLCDM]+(\s*[—\-]\s*.+)?$/.test(t)
+}
 
 function cleanLegalText(text: string): string {
   return text.replace(/[—–]/g, '-').replace(/ {2,}/g, ' ')
@@ -125,7 +145,7 @@ export async function renderSkeletonLayoutPdf(
   const pageHeight = A4_HEIGHT
   const marginX = WILL_PDF_MARGIN_PT
   const marginY = WILL_PDF_MARGIN_PT
-  const footerReserve = 22
+  const footerReserve = WILL_PDF_FOOTER_RESERVE_PT
   const bottomLimit = marginY + footerReserve
   const contentWidth = pageWidth - marginX * 2
   const usableHeight = pageHeight - marginY - bottomLimit
@@ -215,25 +235,35 @@ export async function renderSkeletonLayoutPdf(
     }
   }
 
-  const drawParagraph = (raw: string, align: TextAlign, size = bodySize) => {
+  const drawParagraph = (
+    raw: string,
+    align: TextAlign,
+    size = bodySize,
+    opts?: { allowPageBreak?: boolean },
+  ) => {
     const text = fillSkeletonTokens(raw, answers, options).trim()
     if (!text) return
+    const allowPageBreak = opts?.allowPageBreak !== false
     const lines = wrapRichLines(text, font, fontBold, size, contentWidth)
     for (const line of lines) {
       if (!line.length) {
         y -= lineHeight * 0.5
         continue
       }
-      need(lineHeight)
-      const w = measureRichLineWidth(line, font, fontBold, size)
-      let x = xForAlign(align, contentWidth, marginX, w)
-      const baseline = y - size
+      const articleHeading = isEmbeddedArticleHeadingLine(line)
+      const lineSize = articleHeading ? headingSize : size
+      const lineAlign: TextAlign = articleHeading ? 'center' : align
+      const rowH = articleHeading ? lineSize + 6 : lineHeight
+      if (allowPageBreak) need(rowH)
+      const w = measureRichLineWidth(line, font, fontBold, lineSize)
+      let x = xForAlign(lineAlign, contentWidth, marginX, w)
+      const baseline = y - lineSize
       for (const run of line) {
         const f = run.bold ? fontBold : font
-        page.drawText(run.text, { x, y: baseline, size, font: f, color: ink })
-        x += f.widthOfTextAtSize(run.text, size)
+        page.drawText(run.text, { x, y: baseline, size: lineSize, font: f, color: ink })
+        x += f.widthOfTextAtSize(run.text, lineSize)
       }
-      y -= lineHeight
+      y -= rowH
     }
   }
 
@@ -429,7 +459,12 @@ export async function renderSkeletonLayoutPdf(
         break
       }
       // Prefer staying on this page: only break if it truly cannot fit with a slight footer squeeze.
-      if (spaceLeft(squeezeBottom) < Math.min(keepWith, usableHeight * 0.5)) {
+      if (/notary acknowledgment/i.test(headingRaw.trim())) {
+        const tailH = estimateTrailingHeight(index)
+        if (tailH > 0 && tailH <= usableHeight && spaceLeft(squeezeBottom) < tailH) {
+          need(tailH, squeezeBottom)
+        }
+      } else if (spaceLeft(squeezeBottom) < Math.min(keepWith, usableHeight * 0.5)) {
         need(Math.min(keepWith, usableHeight * 0.5), squeezeBottom)
       }
       drawAlignedText(heading, headingFont, headingSize, block.align, 6)
@@ -438,6 +473,11 @@ export async function renderSkeletonLayoutPdf(
     }
 
     if (block.kind === 'paragraph') {
+      if (isNotarySealParagraph(block.body || '')) {
+        drawParagraph(block.body || '', block.align, bodySize, { allowPageBreak: false })
+        applyBlankLines(block.blankLinesAfter)
+        return
+      }
       const filled = fillSkeletonTokens(block.body || '', answers, options).trim()
       const richLines = filled ? wrapRichLines(filled, font, fontBold, bodySize, contentWidth) : []
       let paraH = 0
@@ -456,6 +496,25 @@ export async function renderSkeletonLayoutPdf(
     }
 
     if (block.kind === 'signature') {
+      let extraAfter = 0
+      for (let j = index + 1; j < doc.blocks.length; j++) {
+        if (skipTitleBlockIdx.has(j)) continue
+        const next = doc.blocks[j]
+        if (next.pageBreakBefore || next.kind === 'page_break') break
+        if (next.kind === 'paragraph' && isNotarySealParagraph(next.body)) {
+          extraAfter = lineHeight + lineHeight * (next.blankLinesAfter || 0)
+          break
+        }
+        if (next.kind === 'signature') {
+          extraAfter += sigBlockH + lineHeight * (next.blankLinesAfter || 0)
+          continue
+        }
+        break
+      }
+      const sigCluster = sigBlockH + lineHeight * (block.blankLinesAfter || 0) + extraAfter
+      if (extraAfter > 0 && sigCluster <= usableHeight && spaceLeft(squeezeBottom) < sigCluster) {
+        need(sigCluster, squeezeBottom)
+      }
       drawSigLine(fillSkeletonTokens(block.label || 'Signature', answers, options), block.align)
       applyBlankLines(block.blankLinesAfter)
       return
@@ -484,7 +543,8 @@ export async function renderSkeletonLayoutPdf(
     applyBlankLines(block.blankLinesAfter)
   }
 
-  drawAlignedText(displayTitle, fontBold, titleSize, 'center', 10)
+  drawAlignedText(displayTitle, fontBold, titleSize, 'center', WILL_PDF_TITLE_GAP_PT)
+  y -= lineHeight * 0.75
 
   for (let i = 0; i < doc.blocks.length; i++) {
     if (skipTitleBlockIdx.has(i)) continue
@@ -499,7 +559,7 @@ export async function renderSkeletonLayoutPdf(
     const w = font.widthOfTextAtSize(label, 9)
     p.drawText(label, {
       x: (pageWidth - w) / 2,
-      y: 36,
+      y: WILL_PDF_PAGE_NUMBER_Y_PT,
       size: 9,
       font,
       color: ink,

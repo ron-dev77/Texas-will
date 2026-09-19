@@ -4,7 +4,10 @@ import { DOCUMENT_KIND_LABEL } from '@/lib/document-kinds'
 import {
   isWillPdfPageNumberingStopHeading,
   shouldNumberWillPdfPage,
+  WILL_PDF_FOOTER_RESERVE_PT,
   WILL_PDF_MARGIN_PT,
+  WILL_PDF_PAGE_NUMBER_Y_PT,
+  WILL_PDF_TITLE_GAP_PT,
 } from '@/lib/will-pdf-layout'
 
 export interface WillContent {
@@ -349,7 +352,7 @@ export async function renderWillToPdf(
   const pageHeight = 841.89
   const marginX = WILL_PDF_MARGIN_PT
   const marginY = WILL_PDF_MARGIN_PT
-  const footerReserve = 28
+  const footerReserve = WILL_PDF_FOOTER_RESERVE_PT
   const bottomLimit = marginY + footerReserve
   const contentWidth = pageWidth - marginX * 2
   const usableHeight = pageHeight - marginY - bottomLimit
@@ -590,9 +593,9 @@ export async function renderWillToPdf(
 
   const docTitle = (willIn.title || 'LAST WILL AND TESTAMENT').toUpperCase()
   const partyName = (willIn.testatorName || '').toUpperCase()
-  drawCentered(docTitle, fontBold, titleSize, 10)
+  drawCentered(docTitle, fontBold, titleSize, WILL_PDF_TITLE_GAP_PT)
   drawCentered('of', fontItalic, 11, 10)
-  drawCentered(partyName, fontBold, nameSize, 26)
+  drawCentered(partyName, fontBold, nameSize, WILL_PDF_TITLE_GAP_PT + 8)
 
   let hitExecution = false
   let firstAffidavitPageIndex: number | null = null
@@ -629,7 +632,7 @@ export async function renderWillToPdf(
     const w = font.widthOfTextAtSize(label, 9)
     p.drawText(label, {
       x: (pageWidth - w) / 2,
-      y: 40,
+      y: WILL_PDF_PAGE_NUMBER_Y_PT,
       size: 9,
       font,
       color: ink,

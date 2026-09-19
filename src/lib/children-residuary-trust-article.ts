@@ -3,7 +3,11 @@
  * Fixed template; variables: adult trustee names, SNT article cross-ref.
  */
 
-import { parseSntTrustRows, wantsSpecialNeedsTrust } from '@/lib/special-needs-trust'
+import {
+  countSntWillArticles,
+  parseSntTrustRows,
+  wantsSpecialNeedsTrust,
+} from '@/lib/special-needs-trust'
 import {
   articleArabicFromRoman,
   romanIndex,
@@ -99,17 +103,23 @@ export function usesChildrenOutrightResiduary(answers: Answers): boolean {
 export const CHILDREN_LIFETIME_TRUST_ARTICLE_ROMAN = 'VI'
 export const DEFAULT_FIRST_SNT_AFTER_CHILDREN_TRUST_ROMAN = 'VII'
 
+/** 1-based article index after optional post–V blocks (V = 5). */
+export function postResiduaryArticleIndexAfterChildren(answers: Answers): number {
+  let idx = 5
+  if (usesChildrenLifetimeResiduaryTrust(answers)) idx += 1
+  return idx
+}
+
+/** Roman for the Nth SNT article (0-based), after Trust for Children when present. */
+export function resolveSntArticleRomanAtOffset(answers: Answers, offset: number): string {
+  return romanNumeral(postResiduaryArticleIndexAfterChildren(answers) + 1 + offset)
+}
+
 export function resolveFirstSntArticleRoman(
   answers: Answers,
-  options: { includeSpousalTrust?: boolean } = {},
+  _options: { includeSpousalTrust?: boolean } = {},
 ): string {
-  const spousal =
-    options.includeSpousalTrust || str(answers.residuary_plan) === 'spousal_trust'
-  if (usesChildrenLifetimeResiduaryTrust(answers)) {
-    return spousal ? 'VII' : DEFAULT_FIRST_SNT_AFTER_CHILDREN_TRUST_ROMAN
-  }
-  if (spousal) return 'VI'
-  return 'VI'
+  return resolveSntArticleRomanAtOffset(answers, 0)
 }
 
 /** Ron Rev 3 — pour-over to Trust for Children (5.2 contingent + 5.4(d) termination). */
@@ -138,7 +148,7 @@ export function spousalTrustTerminationRemainderPhrase(answers: Answers): string
 export function postResiduaryArticleSlotCount(answers: Answers): number {
   let n = 0
   if (usesChildrenLifetimeResiduaryTrust(answers)) n++
-  if (wantsSpecialNeedsTrust(answers) && parseSntTrustRows(answers).length > 0) n++
+  n += countSntWillArticles(answers)
   return n
 }
 
@@ -146,7 +156,7 @@ export function postResiduaryArticleSlotCount(answers: Answers): number {
 export function postResiduaryLastArticleIndex(answers: Answers): number {
   let n = 5
   if (usesChildrenLifetimeResiduaryTrust(answers)) n += 1
-  if (wantsSpecialNeedsTrust(answers)) n += parseSntTrustRows(answers).length
+  n += countSntWillArticles(answers)
   return n
 }
 

@@ -24,6 +24,7 @@ import {
 import {
   buildRonArticleVResiduarySpousalText,
   buildRonWillOpeningParagraph,
+  RON_ARTICLE_II_TAX_ELECTIONS,
   RON_ARTICLE_III_DEBTS_TAXES,
 } from '@/lib/spousal-residuary-article-v'
 
@@ -469,6 +470,9 @@ const COMPUTED: Record<
   },
   clause_will_opening(answers) {
     return buildRonWillOpeningParagraph(answers)
+  },
+  clause_article_ii_tax_elections() {
+    return RON_ARTICLE_II_TAX_ELECTIONS
   },
   clause_article_iii_debts_taxes() {
     return RON_ARTICLE_III_DEBTS_TAXES
