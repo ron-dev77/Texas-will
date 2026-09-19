@@ -378,6 +378,12 @@ export function mergeArticleIITaxElectionsSkeletonBody(body: string): string {
   return serializeSkeletonDoc(doc)
 }
 
+/** Remove cross-reference to (b) in 2.4(a) on skeletons saved with the prior wording. */
+export function patchArticleII2_4RemoveSubsectionBelowRef(body: string): string {
+  if (!body.trim() || !/subsection \(b\) below/i.test(body)) return body
+  return body.replace(/\s+and the authority described in subsection \(b\) below\./gi, '.')
+}
+
 /** True when stored body is still the old bracket / plain-text AI skeleton. */
 export function isLegacyWillSkeleton(body: string | null | undefined): boolean {
   const t = (body ?? '').trim()

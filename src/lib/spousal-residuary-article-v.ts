@@ -215,7 +215,7 @@ export function buildRonWillOpeningParagraph(answers: Answers): string {
   return `I, ${name}, a resident of ${county} County, Texas, being of sound mind and memory, and being at least eighteen (18) years of age or older, do hereby make, publish, and declare this to be my Last Will, hereby revoking any and all former wills and codicils made by me at any time before.`
 }
 
-export const RON_ARTICLE_II_TAX_ELECTIONS = `**2.4 Tax Elections.** (a) My Executor shall have the power to make, or refrain from making, any tax elections available under federal, state, or local tax laws, without making any compensating adjustments between income and principal or among the beneficiaries. This includes, without limitation, basis adjustment elections and the authority described in subsection (b) below.
+export const RON_ARTICLE_II_TAX_ELECTIONS = `**2.4 Tax Elections.** (a) My Executor shall have the power to make, or refrain from making, any tax elections available under federal, state, or local tax laws, without making any compensating adjustments between income and principal or among the beneficiaries. This includes, without limitation, basis adjustment elections.
 
 (b) QTIP Election. My Executor may, in my Executor's sole discretion, elect under Section 2056(b)(7) of the Internal Revenue Code (or any corresponding successor provision) to treat all or any percentage share of any trust created under this Will that qualifies for such treatment as qualified terminable interest property ("QTIP") for federal estate tax purposes. My Executor shall incur no liability to any beneficiary for making or refraining from making such election in good faith.`
 
