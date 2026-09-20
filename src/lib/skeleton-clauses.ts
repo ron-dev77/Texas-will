@@ -23,6 +23,8 @@ import {
 } from '@/lib/children-residuary-trust-article'
 import {
   buildRonArticleVResiduarySpousalText,
+  buildRonGeneralProvisionsText,
+  buildRonNoContestArticleText,
   buildRonWillOpeningParagraph,
   RON_ARTICLE_II_TAX_ELECTIONS,
   RON_ARTICLE_III_DEBTS_TAXES,
@@ -556,6 +558,16 @@ const COMPUTED: Record<
   },
   clause_article_x_general_provisions_heading(answers) {
     return `ARTICLE ${resolveGeneralProvisionsArticleRoman(answers)} — GENERAL PROVISIONS`
+  },
+  clause_no_contest(answers) {
+    const artRoman = resolveNoContestArticleRoman(answers)
+    const n = articleArabicFromRoman(artRoman)
+    return buildRonNoContestArticleText(n)
+  },
+  clause_general_provisions(answers) {
+    const artRoman = resolveGeneralProvisionsArticleRoman(answers)
+    const n = articleArabicFromRoman(artRoman)
+    return buildRonGeneralProvisionsText(n)
   },
   clause_children_residuary_trust(answers, options) {
     return buildChildrenResiduaryTrustArticleText(answers, {

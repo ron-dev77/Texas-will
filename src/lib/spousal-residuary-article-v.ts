@@ -219,6 +219,27 @@ export const RON_ARTICLE_II_TAX_ELECTIONS = `**2.4 Tax Elections.** (a) My Execu
 
 (b) QTIP Election. My Executor may, in my Executor's sole discretion, elect under Section 2056(b)(7) of the Internal Revenue Code (or any corresponding successor provision) to treat all or any percentage share of any trust created under this Will that qualifies for such treatment as qualified terminable interest property ("QTIP") for federal estate tax purposes. My Executor shall incur no liability to any beneficiary for making or refraining from making such election in good faith.`
 
+/** Ron MVP — No-Contest article body; `sectionNum` matches article Arabic (e.g. 10 for Article X). */
+export function buildRonNoContestArticleText(sectionNum: number): string {
+  return `**${sectionNum}.1 No-Contest Provision.** If any beneficiary under this Will directly or indirectly contests or challenges the validity of this Will, any codicil hereto, or any testamentary trust created hereunder, or seeks to invalidate or set aside any provision hereof, any share or interest in my estate given to that contesting beneficiary under this Will is hereby revoked and forfeited. Such forfeited share shall be distributed and disposed of under the terms of this Will as if that contesting beneficiary had predeceased me without leaving surviving descendants.
+
+**${sectionNum}.2 Statutory Exception and Exclusions.** This Section shall not apply to, and shall not cause a forfeiture of, any beneficiary's share as a result of an action if the beneficiary bringing the action establishes, by a preponderance of the evidence, that just cause existed for bringing the action and that the action was brought and maintained in good faith, as provided under Section 254.005 of the Texas Estates Code and, with respect to any testamentary trust created hereunder, Section 112.038 of the Texas Property Code. Furthermore, this provision shall not restrict, prevent, or disinherit any beneficiary from:
+
+(a) Demanding an accounting or inventory from the executor as authorized under the Texas Estates Code;
+
+(b) Seeking judicial construction or clarification of any provision of this Will; or
+
+(c) Filing an action against a fiduciary for breach of fiduciary duty, self-dealing, or fraud.`
+}
+
+export function buildRonGeneralProvisionsText(sectionNum: number): string {
+  return `**${sectionNum}.1 Governing Law.** This Will shall be governed by and construed in accordance with the laws of the **State of Texas**.
+
+**${sectionNum}.2 Severability.** If any provision of this Will is held invalid or unenforceable, the remaining provisions shall continue in full force and effect.
+
+**${sectionNum}.3 Gender and Number.** As used in this Will, the masculine, feminine, and neuter genders, and the singular and plural numbers, shall each include the others whenever the context so indicates.`
+}
+
 export const RON_ARTICLE_III_DEBTS_TAXES = `**3.1 Death Tax.** The Executor shall pay any death taxes out of my residuary estate.
 
 **3.2 Debts and Expenses.** All of my debts, funeral expense, and expenses incurred in the administration of my estate paid by the Executor shall be paid out of my residuary estate. Nothing herein, however, shall require the Executor to prepay any debt. The Executor may pay death taxes, debts, and expenses out of the income of my estate.

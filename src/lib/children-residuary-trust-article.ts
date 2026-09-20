@@ -175,22 +175,23 @@ export function resolveSimultaneousDeathArticleRoman(answers: Answers): string {
   return romanNumeral(n)
 }
 
-export function resolveNoContestArticleRoman(answers: Answers): string {
-  const base = resolveSimultaneousDeathArticleRoman(answers)
-  const idx = romanIndex(base)
-  return idx > 0 ? romanNumeral(idx + 1) : romanNumeral(8)
-}
-
+/** Final wishes immediately follow simultaneous death (Ron: No Contest is Article X). */
 export function resolveFinalWishesArticleRoman(answers: Answers): string {
   const base = resolveSimultaneousDeathArticleRoman(answers)
   const idx = romanIndex(base)
-  return idx > 0 ? romanNumeral(idx + 2) : romanNumeral(9)
+  return idx > 0 ? romanNumeral(idx + 1) : romanNumeral(9)
+}
+
+export function resolveNoContestArticleRoman(answers: Answers): string {
+  const base = resolveSimultaneousDeathArticleRoman(answers)
+  const idx = romanIndex(base)
+  return idx > 0 ? romanNumeral(idx + 2) : romanNumeral(10)
 }
 
 export function resolveGeneralProvisionsArticleRoman(answers: Answers): string {
   const base = resolveSimultaneousDeathArticleRoman(answers)
   const idx = romanIndex(base)
-  return idx > 0 ? romanNumeral(idx + 3) : romanNumeral(10)
+  return idx > 0 ? romanNumeral(idx + 3) : romanNumeral(11)
 }
 
 export function buildChildrenResiduaryTrustArticleText(

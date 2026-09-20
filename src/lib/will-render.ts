@@ -5,7 +5,8 @@ import {
   isWillPdfPageNumberingStopHeading,
   shouldNumberWillPdfPage,
   WILL_PDF_FOOTER_RESERVE_PT,
-  WILL_PDF_MARGIN_PT,
+  WILL_PDF_MARGIN_X_PT,
+  WILL_PDF_MARGIN_Y_PT,
   WILL_PDF_PAGE_NUMBER_Y_PT,
   WILL_PDF_TITLE_GAP_PT,
 } from '@/lib/will-pdf-layout'
@@ -350,8 +351,8 @@ export async function renderWillToPdf(
   // Hardcoded A4 (ISO 216) in PDF points
   const pageWidth = 595.28
   const pageHeight = 841.89
-  const marginX = WILL_PDF_MARGIN_PT
-  const marginY = WILL_PDF_MARGIN_PT
+  const marginX = WILL_PDF_MARGIN_X_PT
+  const marginY = WILL_PDF_MARGIN_Y_PT
   const footerReserve = WILL_PDF_FOOTER_RESERVE_PT
   const bottomLimit = marginY + footerReserve
   const contentWidth = pageWidth - marginX * 2

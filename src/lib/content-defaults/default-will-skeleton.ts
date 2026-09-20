@@ -172,18 +172,6 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
 
       blk({
         kind: 'heading',
-        heading: '{{clause_article_viii_no_contest_heading}}',
-        align: 'center',
-        blankLinesAfter: 1,
-      }),
-      blk({
-        kind: 'paragraph',
-        body: 'If any beneficiary under this Will contests this Will or any of its provisions, any share or interest in my estate given to that contesting beneficiary under this Will is revoked and shall be disposed of as if that contesting beneficiary had predeceased me without descendants.',
-        blankLinesAfter: 1,
-      }),
-
-      blk({
-        kind: 'heading',
         heading: '{{clause_article_ix_final_wishes_heading}}',
         align: 'center',
         blankLinesAfter: 1,
@@ -196,6 +184,18 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
 
       blk({
         kind: 'heading',
+        heading: '{{clause_article_viii_no_contest_heading}}',
+        align: 'center',
+        blankLinesAfter: 1,
+      }),
+      blk({
+        kind: 'paragraph',
+        body: '{{clause_no_contest}}',
+        blankLinesAfter: 1,
+      }),
+
+      blk({
+        kind: 'heading',
         heading: '{{clause_article_x_general_provisions_heading}}',
         align: 'center',
         blankLinesAfter: 1,
@@ -203,17 +203,7 @@ export function buildDefaultWillSkeletonDoc(): SkeletonDoc {
       }),
       blk({
         kind: 'paragraph',
-        body: '**10.1 Governing Law.** This Will shall be governed by and construed in accordance with the laws of the **State of Texas**.',
-        blankLinesAfter: 1,
-      }),
-      blk({
-        kind: 'paragraph',
-        body: '**10.2 Severability.** If any provision of this Will is held invalid or unenforceable, the remaining provisions shall continue in full force and effect.',
-        blankLinesAfter: 1,
-      }),
-      blk({
-        kind: 'paragraph',
-        body: '**10.3 Gender and Number.** As used in this Will, the masculine, feminine, and neuter genders, and the singular and plural numbers, shall each include the others whenever the context so indicates.',
+        body: '{{clause_general_provisions}}',
         blankLinesAfter: 1,
       }),
 
@@ -453,6 +443,10 @@ export function needsDefaultWillSkeletonRefresh(body: string | null | undefined)
     (/ARTICLE III\s*[—\-]\s*PAYMENT OF DEBTS, EXPENSES, AND TAXES/i.test(t) &&
       !/3\.1 Death Tax/i.test(t)) ||
     /"heading"\s*:\s*"PREAMBLE"/i.test(t) ||
-    !/2\.4 Tax Elections/i.test(t)
+    !/2\.4 Tax Elections/i.test(t) ||
+    !t.includes('{{clause_no_contest}}') ||
+    !t.includes('{{clause_general_provisions}}') ||
+    (/contests this Will or any of its provisions/i.test(t) &&
+      !/No-Contest Provision/i.test(t))
   )
 }
