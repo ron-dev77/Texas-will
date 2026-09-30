@@ -1,4 +1,14 @@
 import { formatPhoneNumber, formatPhoneNumberIntl } from 'react-phone-number-input'
+import {
+  defaultNoChildrenResiduaryPlan,
+  NO_CHILDREN_RESIDUARY_SURVIVOR_HELPER,
+  parseResiduaryNamedBeneficiaries,
+  RESIDUARY_NAMED_PLANS,
+  residuaryNamedBeneficiariesTotalPct,
+  type ResiduaryNamedBeneficiaryRow,
+  usesNoChildrenNamedResiduary,
+  isMarriedForResiduary,
+} from '@/lib/no-children-residuary-article'
 
 export type FieldType =
   | 'shorttext'
@@ -11,6 +21,7 @@ export type FieldType =
   | 'people'
   | 'gifts'
   | 'charitable_gifts'
+  | 'residuary_named_beneficiaries'
   | 'snt_trusts'
   | 'info'
 
@@ -25,6 +36,12 @@ export type FieldOption = {
   label: string
   /** Only show this choice when the order includes the spousal trust add-on. */
   requiresSpousalTrust?: boolean
+  /** Only when questionnaire answers show the testator has children. */
+  requiresHasChildren?: boolean
+  /** Only when the testator has no children. */
+  requiresNoChildren?: boolean
+  /** Only when married or domestic partnership (no-children residuary). */
+  requiresMarried?: boolean
 }
 
 export type Field = {
@@ -419,13 +436,44 @@ export const SECTIONS: readonly Section[] = [
             label:
               'Leave everything to the Spousal Testamentary Trust (lifetime support for my spouse, then remainder to my children)',
             requiresSpousalTrust: true,
+            requiresHasChildren: true,
           },
           {
             value: 'spouse_then_children',
             label: "All to my spouse; if they don't survive me, equally to my children",
+            requiresHasChildren: true,
           },
-          { value: 'children_equally', label: 'Equally among my children' },
+          {
+            value: 'children_equally',
+            label: 'Equally among my children',
+            requiresHasChildren: true,
+          },
+          {
+            value: 'spouse_then_named',
+            label: "All to my spouse; if they don't survive me, to the people I name below",
+            requiresNoChildren: true,
+            requiresMarried: true,
+          },
+          {
+            value: 'named',
+            label: 'To the people I name below',
+            requiresNoChildren: true,
+          },
         ],
+      },
+      {
+        id: 'residuary_named_beneficiaries',
+        label: 'Named beneficiaries',
+        type: 'residuary_named_beneficiaries',
+        required: true,
+        showIf: { field: 'residuary_plan', in: ['spouse_then_named', 'named'] },
+      },
+      {
+        id: 'residuary_named_survivor_note',
+        label: 'If someone passes before you',
+        helper: NO_CHILDREN_RESIDUARY_SURVIVOR_HELPER,
+        type: 'info',
+        showIf: { field: 'residuary_plan', in: ['spouse_then_named', 'named'] },
       },
       {
         id: 'children_residuary_education',
@@ -1107,10 +1155,18 @@ export function isFieldVisible(field: Field, answers: Record<string, unknown>): 
 
 export function visibleFieldOptions(
   field: Field,
+  answers: Record<string, unknown>,
   includeSpousalTrust = false,
 ): readonly FieldOption[] {
+  const hasChildren = answers.has_children === 'yes'
+  const noChildren = answers.has_children === 'no'
+  const married = isMarriedForResiduary(answers)
+
   return (field.options ?? []).filter((opt) => {
     if (opt.requiresSpousalTrust && !includeSpousalTrust) return false
+    if (opt.requiresHasChildren && !hasChildren) return false
+    if (opt.requiresNoChildren && !noChildren) return false
+    if (opt.requiresMarried && !married) return false
     if (
       (field.id === 'residuary_plan' || field.id === 'trust_residuary_plan') &&
       opt.value === 'custom'
@@ -1139,12 +1195,32 @@ export const DEPRECATED_CHILDREN_LIFETIME_INFO_FIELD_IDS = [
   'children_lifetime_no_descendants_note',
 ] as const
 
-/** Map removed residuary options to supported plans. */
+/** Map removed residuary options and seed no-children Step 8 defaults. */
 export function migrateResiduaryAnswers(
   answers: Record<string, unknown>,
 ): Record<string, unknown> | null {
-  if (answers.residuary_plan !== 'spouse_only') return null
-  return { ...answers, residuary_plan: 'spouse_then_children' }
+  let next: Record<string, unknown> | null = null
+  const base = () => {
+    if (!next) next = { ...answers }
+    return next
+  }
+
+  if (answers.residuary_plan === 'spouse_only') {
+    base().residuary_plan = 'spouse_then_children'
+  }
+
+  if (answers.has_children === 'no') {
+    const plan = typeof answers.residuary_plan === 'string' ? answers.residuary_plan.trim() : ''
+    if (!RESIDUARY_NAMED_PLANS.has(plan)) {
+      base().residuary_plan = defaultNoChildrenResiduaryPlan(answers)
+    }
+    const rows = answers.residuary_named_beneficiaries
+    if (!Array.isArray(rows) || rows.length === 0) {
+      base().residuary_named_beneficiaries = [{ name: '', relationship: '', pct: 100 }]
+    }
+  }
+
+  return next
 }
 
 export class ResiduaryStep8NotReadyError extends Error {
@@ -1159,6 +1235,32 @@ export function assertResiduaryStep8ReadyForPdf(
   answers: Record<string, unknown>,
   includeSpousalTrust = false,
 ): void {
+  if (usesNoChildrenNamedResiduary(answers)) {
+    const rows = parseResiduaryNamedBeneficiaries(answers)
+    if (rows.length === 0 || rows.some((r) => !r.name.trim())) {
+      throw new ResiduaryStep8NotReadyError(
+        'Step 8 is incomplete: enter a full legal name for each named residuary beneficiary.',
+      )
+    }
+    const total = residuaryNamedBeneficiariesTotalPct(rows)
+    if (Math.abs(total - 100) > 0.001) {
+      throw new ResiduaryStep8NotReadyError(
+        'Step 8 is incomplete: named beneficiary shares must total 100%.',
+      )
+    }
+    const spouseName =
+      typeof answers.spouse_full_name === 'string' ? answers.spouse_full_name.trim() : ''
+    if (
+      answers.residuary_plan === 'spouse_then_named' &&
+      isMarriedForResiduary(answers) &&
+      !spouseName
+    ) {
+      throw new ResiduaryStep8NotReadyError(
+        'Step 8 is incomplete: spouse name is required for the spouse-first residuary plan.',
+      )
+    }
+    return
+  }
   if (!showChildrenResiduaryQuestion2(answers, includeSpousalTrust)) return
   const delivery = answers.children_residuary_delivery
   if (delivery !== 'outright' && delivery !== 'lifetime_trust') {
@@ -1212,6 +1314,9 @@ export function getVisibleFields(
     if (f.id === 'children_lifetime_snt_note') {
       if (answers.wants_snt !== 'yes') return false
     }
+    if (f.id === 'residuary_named_beneficiaries' || f.id === 'residuary_named_survivor_note') {
+      if (answers.has_children !== 'no') return false
+    }
     return isFieldVisible(f, answers)
   })
 }
@@ -1252,6 +1357,16 @@ export function isFieldFilled(field: Field, value: unknown): boolean {
   if (field.type === 'info') return true
   if (field.type === 'date') {
     return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
+  }
+  if (field.type === 'residuary_named_beneficiaries') {
+    if (!Array.isArray(value) || value.length === 0) return false
+    return (value as ResiduaryNamedBeneficiaryRow[]).every(
+      (row) =>
+        typeof row?.name === 'string' &&
+        row.name.trim() !== '' &&
+        typeof row?.relationship === 'string' &&
+        row.relationship.trim() !== '',
+    )
   }
   if (field.type === 'snt_trusts') {
     if (!Array.isArray(value) || value.length === 0) return false
@@ -1307,6 +1422,22 @@ export function fieldQualityError(field: Field, value: unknown): string | null {
         return 'Add a date of birth for each child'
       }
     }
+    return null
+  }
+
+  if (field.type === 'residuary_named_beneficiaries') {
+    if (!Array.isArray(value) || value.length === 0) {
+      return field.required ? 'Add at least one beneficiary' : null
+    }
+    const rows = value as ResiduaryNamedBeneficiaryRow[]
+    for (const row of rows) {
+      const name = (row?.name ?? '').trim()
+      if (!name) return 'Enter a full legal name for each beneficiary'
+      if (name.length < 3) return 'Enter at least 3 characters for each name'
+      if (!(row?.relationship ?? '').trim()) return 'Choose a relationship for each beneficiary'
+    }
+    const total = residuaryNamedBeneficiariesTotalPct(rows)
+    if (Math.abs(total - 100) > 0.001) return 'Shares need to add up to 100%'
     return null
   }
 
@@ -1516,6 +1647,20 @@ export function formatAnswerPreview(field: Field, value: unknown): string {
     )
   }
   if (field.type === 'info') return '—'
+  if (field.type === 'residuary_named_beneficiaries' && Array.isArray(value)) {
+    return (
+      value
+        .map((r: ResiduaryNamedBeneficiaryRow) => {
+          const name = r.name?.trim()
+          if (!name) return ''
+          const rel = r.relationship?.replace(/_/g, ' ') || '—'
+          const pct = r.pct ?? '—'
+          return `${name} (${rel}) — ${pct}%`
+        })
+        .filter(Boolean)
+        .join('\n') || '—'
+    )
+  }
   if (field.type === 'snt_trusts' && Array.isArray(value)) {
     return (
       value

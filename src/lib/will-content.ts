@@ -12,6 +12,10 @@ import {
   resolveFirstSntArticleRoman,
   usesChildrenLifetimeResiduaryTrust,
 } from '@/lib/children-residuary-trust-article'
+import {
+  buildNoChildrenResiduaryArticleText,
+  usesNoChildrenNamedResiduary,
+} from '@/lib/no-children-residuary-article'
 import { sntArticleRomanNumeral } from '@/lib/spousal-residuary-article-v'
 import {
   buildRonArticleVResiduarySpousalText,
@@ -425,28 +429,37 @@ export function buildWillFromAnswers(
     })
   }
 
-  const residuaryParagraphs: string[] = includeSpousalTrust
-    ? [
-        buildRonArticleVResiduarySpousalText(answers, {
-          firstSntArticleRoman: resolveFirstSntArticleRoman(answers, {
-            includeSpousalTrust,
+  if (usesNoChildrenNamedResiduary(answers) && !includeSpousalTrust && !includeTrust) {
+    sections.push({
+      heading: `ARTICLE ${roman(article++)}. DISPOSITION OF RESIDUARY ESTATE`,
+      paragraphs: buildNoChildrenResiduaryArticleText(answers).split(/\n\n+/),
+    })
+  } else {
+    const residuaryParagraphs: string[] = includeSpousalTrust
+      ? [
+          buildRonArticleVResiduarySpousalText(answers, {
+            firstSntArticleRoman: resolveFirstSntArticleRoman(answers, {
+              includeSpousalTrust,
+            }),
           }),
-        }),
-      ]
-    : includeTrust
-      ? pourOverResiduaryText(answers, name)
-      : residuaryText(answers, spouse)
+        ]
+      : includeTrust
+        ? pourOverResiduaryText(answers, name)
+        : residuaryText(answers, spouse)
 
-  sections.push({
-    heading: `ARTICLE ${roman(article++)}. RESIDUARY ESTATE`,
-    paragraphs: includeSpousalTrust
-      ? residuaryParagraphs
-      : withSpecialNeedsResiduaryNote(answers, residuaryParagraphs),
-  })
+    sections.push({
+      heading: `ARTICLE ${roman(article++)}. RESIDUARY ESTATE`,
+      paragraphs: includeSpousalTrust
+        ? residuaryParagraphs
+        : withSpecialNeedsResiduaryNote(answers, residuaryParagraphs),
+    })
+  }
 
-  const childrenTrustArticle = buildChildrenResiduaryTrustArticleText(answers, {
-    firstSntArticleRoman: resolveFirstSntArticleRoman(answers, { includeSpousalTrust }),
-  })
+  const childrenTrustArticle = usesNoChildrenNamedResiduary(answers)
+    ? ''
+    : buildChildrenResiduaryTrustArticleText(answers, {
+        firstSntArticleRoman: resolveFirstSntArticleRoman(answers, { includeSpousalTrust }),
+      })
   if (childrenTrustArticle) {
     sections.push({
       heading: `ARTICLE ${roman(article++)}. TRUST FOR CHILDREN`,

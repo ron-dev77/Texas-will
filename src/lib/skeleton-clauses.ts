@@ -21,6 +21,7 @@ import {
   resolveSimultaneousDeathArticleRoman,
   usesChildrenLifetimeResiduaryTrust,
 } from '@/lib/children-residuary-trust-article'
+import { buildNoChildrenResiduaryArticleText, usesNoChildrenNamedResiduary } from '@/lib/no-children-residuary-article'
 import {
   buildRonArticleVResiduarySpousalText,
   buildRonGeneralProvisionsText,
@@ -480,6 +481,9 @@ const COMPUTED: Record<
     return RON_ARTICLE_III_DEBTS_TAXES
   },
   clause_residuary_article_heading(answers, options) {
+    if (usesNoChildrenNamedResiduary(answers)) {
+      return 'ARTICLE V — DISPOSITION OF RESIDUARY ESTATE'
+    }
     const spousal =
       options.includeSpousalTrust || str(answers.residuary_plan) === 'spousal_trust'
     return spousal
@@ -487,6 +491,9 @@ const COMPUTED: Record<
       : 'ARTICLE V — RESIDUARY ESTATE'
   },
   clause_residuary(answers, options) {
+    if (usesNoChildrenNamedResiduary(answers)) {
+      return buildNoChildrenResiduaryArticleText(answers)
+    }
     const name = plain(str(answers.legal_full_name, '[Testator]'))
     const spouse = plain(str(answers.spouse_full_name))
     let body = ''
@@ -570,6 +577,7 @@ const COMPUTED: Record<
     return buildRonGeneralProvisionsText(n)
   },
   clause_children_residuary_trust(answers, options) {
+    if (usesNoChildrenNamedResiduary(answers)) return ''
     return buildChildrenResiduaryTrustArticleText(answers, {
       firstSntArticleRoman: resolveFirstSntArticleRoman(answers, options),
     })

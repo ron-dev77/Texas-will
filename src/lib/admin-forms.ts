@@ -78,6 +78,7 @@ export const WILL_ENGINE_FIELD_IDS = [
   'alternate_guardian_name',
   'guardian_notes',
   'residuary_plan',
+  'residuary_named_beneficiaries',
   'children_residuary_delivery',
   'children_lifetime_primary_trustee_name',
   'children_lifetime_alternate_trustee_name',
@@ -352,6 +353,8 @@ const BUNDLED_QUESTION_SYNC_IDS = new Set([
 ])
 
 const STEP8_RESIDUARY_FIELD_IDS = [
+  'residuary_named_beneficiaries',
+  'residuary_named_survivor_note',
   'children_residuary_education',
   'children_residuary_delivery',
   'children_lifetime_trust_guidance',
@@ -373,7 +376,8 @@ function residuarySectionMissingStep8Fields(section: Section): boolean {
 function residuaryPlanOptionsStale(section: Section): boolean {
   const plan = section.fields.find((f) => f.id === 'residuary_plan')
   if (!plan?.options?.length) return false
-  return plan.options.some((o) => o.value === 'spouse_only')
+  if (plan.options.some((o) => o.value === 'spouse_only')) return true
+  return !plan.options.some((o) => o.value === 'spouse_then_named')
 }
 
 function bundledSectionFingerprint(section: Section): string {

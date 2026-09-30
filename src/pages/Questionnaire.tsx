@@ -10,6 +10,12 @@ import { DateField } from '@/components/ui/date-field'
 import { PhoneField } from '@/components/ui/phone-field'
 import { PersonPickSelect } from '@/components/questionnaire/PersonPickSelect'
 import { InfoHelpButton } from '@/components/ui/info-help-modal'
+import {
+  defaultNoChildrenResiduaryPlan,
+  emptyResiduaryNamedBeneficiaryRow,
+  RESIDUARY_NAMED_RELATIONSHIPS,
+  type ResiduaryNamedBeneficiaryRow,
+} from '@/lib/no-children-residuary-article'
 import { startWillPath } from '@/lib/start-will-path'
 import {
   loadOrderDraft,
@@ -92,6 +98,7 @@ function isComplex(field: Field) {
     field.type === 'people' ||
     field.type === 'gifts' ||
     field.type === 'charitable_gifts' ||
+    field.type === 'residuary_named_beneficiaries' ||
     field.type === 'snt_trusts' ||
     field.type === 'info'
   )
@@ -195,9 +202,29 @@ export default function Questionnaire() {
 
   useEffect(() => {
     if (!includeSpousalTrust || section?.id !== 'residuary') return
+    if (answers.has_children === 'no') return
     if (answers.residuary_plan) return
     setAnswers((prev) => ({ ...prev, residuary_plan: 'spousal_trust' }))
-  }, [includeSpousalTrust, section?.id, answers.residuary_plan])
+  }, [includeSpousalTrust, section?.id, answers.residuary_plan, answers.has_children])
+
+  useEffect(() => {
+    if (section?.id !== 'residuary' || answers.has_children !== 'no') return
+    setAnswers((prev) => {
+      const expected = defaultNoChildrenResiduaryPlan(prev)
+      let changed = false
+      const next = { ...prev }
+      if (prev.residuary_plan !== expected) {
+        next.residuary_plan = expected
+        changed = true
+      }
+      const rows = prev.residuary_named_beneficiaries
+      if (!Array.isArray(rows) || rows.length === 0) {
+        next.residuary_named_beneficiaries = [emptyResiduaryNamedBeneficiaryRow(100)]
+        changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [section?.id, answers.has_children, answers.marital_status])
 
   const visibleFields = useMemo(
     () => (section ? getVisibleFields(section, answers, includeSpousalTrust) : []),
@@ -375,6 +402,18 @@ export default function Questionnaire() {
       if (id === 'has_children' && value === 'no') {
         delete next.children
         clearGuardianAnswers(next)
+        next.residuary_plan = defaultNoChildrenResiduaryPlan(next)
+        next.residuary_named_beneficiaries = [emptyResiduaryNamedBeneficiaryRow(100)]
+        delete next.children_residuary_delivery
+        delete next.children_lifetime_primary_trustee_name
+        delete next.children_lifetime_alternate_trustee_name
+      }
+      if (
+        id === 'marital_status' &&
+        next.has_children === 'no' &&
+        (value === 'married' || value === 'domestic_partnership' || value === 'single' || value === 'widowed' || value === 'divorced')
+      ) {
+        next.residuary_plan = defaultNoChildrenResiduaryPlan(next)
       }
       if (
         id === 'children' ||
@@ -617,6 +656,7 @@ export default function Questionnaire() {
                               field={field}
                               value={answers[field.id]}
                               error={fieldErrors[field.id]}
+                              answers={answers}
                               namedPeople={namedPeople}
                               includeSpousalTrust={includeSpousalTrust}
                               onChange={(v) => update(field.id, v)}
@@ -708,6 +748,7 @@ function FieldCell({
   field,
   value,
   error,
+  answers,
   namedPeople,
   includeSpousalTrust,
   onChange,
@@ -716,6 +757,7 @@ function FieldCell({
   field: Field
   value: unknown
   error?: string
+  answers: Answers
   namedPeople: ReturnType<typeof collectNamedPeople>
   includeSpousalTrust: boolean
   onChange: (v: unknown) => void
@@ -823,6 +865,7 @@ function FieldCell({
           field={field}
           value={value}
           error={error}
+          answers={answers}
           namedPeople={namedPeople}
           includeSpousalTrust={includeSpousalTrust}
           onChange={onChange}
@@ -843,6 +886,7 @@ function FieldCell({
           field={field}
           value={value}
           error={error}
+          answers={answers}
           namedPeople={namedPeople}
           includeSpousalTrust={includeSpousalTrust}
           onChange={onChange}
@@ -862,6 +906,7 @@ function FieldControl({
   field,
   value,
   error,
+  answers,
   namedPeople,
   includeSpousalTrust,
   onChange,
@@ -870,6 +915,7 @@ function FieldControl({
   field: Field
   value: unknown
   error?: string
+  answers: Answers
   namedPeople: ReturnType<typeof collectNamedPeople>
   includeSpousalTrust: boolean
   onChange: (v: unknown) => void
@@ -882,7 +928,7 @@ function FieldControl({
             { value: 'yes', label: 'Yes' },
             { value: 'no', label: 'No' },
           ]
-        : visibleFieldOptions(field, includeSpousalTrust)
+        : visibleFieldOptions(field, answers, includeSpousalTrust)
 
     const shortLabels = options.every((o) => o.label.length <= 22)
 
@@ -943,6 +989,17 @@ function FieldControl({
         onBlurValidate={onBlurValidate}
         requireDob={field.id === 'children'}
         maxLength={field.maxLength ?? 80}
+        error={error}
+      />
+    )
+  }
+
+  if (field.type === 'residuary_named_beneficiaries') {
+    return (
+      <ResiduaryNamedBeneficiariesEditor
+        value={(Array.isArray(value) ? value : []) as ResiduaryNamedBeneficiaryRow[]}
+        onChange={onChange}
+        onBlurValidate={onBlurValidate}
         error={error}
       />
     )
@@ -1314,6 +1371,109 @@ function SntTrustsEditor({
   )
 }
 
+function ResiduaryNamedBeneficiariesEditor({
+  value,
+  onChange,
+  onBlurValidate,
+  error,
+}: {
+  value: ResiduaryNamedBeneficiaryRow[]
+  onChange: (v: ResiduaryNamedBeneficiaryRow[]) => void
+  onBlurValidate: () => void
+  error?: string
+}) {
+  const rows =
+    value.length > 0 ? value : [emptyResiduaryNamedBeneficiaryRow(value.length === 1 ? 100 : 100)]
+
+  function setRow(i: number, patch: Partial<ResiduaryNamedBeneficiaryRow>) {
+    const next = rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r))
+    onChange(next)
+  }
+
+  function addRow() {
+    onChange([...rows, emptyResiduaryNamedBeneficiaryRow(rows.length === 0 ? 100 : 0)])
+  }
+
+  return (
+    <div className="space-y-2 rounded-2xl border border-border/50 bg-secondary/20 p-3">
+      <div className="hidden gap-2 px-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[1.4fr_1fr_72px_36px]">
+        <span>Full legal name</span>
+        <span>Relationship</span>
+        <span>Share %</span>
+        <span />
+      </div>
+      {rows.map((row, i) => (
+        <div
+          key={i}
+          className="grid grid-cols-1 gap-2 sm:grid-cols-[1.4fr_1fr_72px_36px] sm:items-center"
+        >
+          <Input
+            value={row.name}
+            maxLength={80}
+            onChange={(e) => setRow(i, { name: e.target.value.slice(0, 80) })}
+            onBlur={onBlurValidate}
+            placeholder="Full legal name"
+            className={cn(
+              'h-9 rounded-xl border-border/60 bg-background text-sm',
+              error && 'border-destructive/40',
+            )}
+          />
+          <select
+            value={row.relationship}
+            onChange={(e) => setRow(i, { relationship: e.target.value })}
+            onBlur={onBlurValidate}
+            className={cn(
+              'h-9 rounded-xl border border-border/60 bg-background px-2 text-sm text-foreground',
+              error && !row.relationship && 'border-destructive/40',
+            )}
+          >
+            <option value="">Relationship</option>
+            {RESIDUARY_NAMED_RELATIONSHIPS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <Input
+            inputMode="numeric"
+            value={row.pct === '' || row.pct == null ? '' : String(row.pct)}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/\D/g, '').slice(0, 3)
+              setRow(i, { pct: digits === '' ? '' : Number.parseInt(digits, 10) })
+            }}
+            onBlur={onBlurValidate}
+            placeholder="%"
+            className={cn(
+              'h-9 rounded-xl border-border/60 bg-background text-sm',
+              error && 'border-destructive/40',
+            )}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0 rounded-full text-muted-foreground"
+            onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
+            disabled={rows.length === 1}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 gap-1.5 rounded-full text-xs"
+        onClick={addRow}
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Add another person
+      </Button>
+    </div>
+  )
+}
+
 function GiftsEditor({
   value,
   onChange,
@@ -1594,6 +1754,7 @@ function ReviewPanel({
                         f.type === 'people' ||
                         f.type === 'gifts' ||
                         f.type === 'charitable_gifts' ||
+                        f.type === 'residuary_named_beneficiaries' ||
                         f.type === 'radio') &&
                         'sm:col-span-2',
                     )}
