@@ -49,11 +49,44 @@ export function emptyResiduaryNamedBeneficiaryRow(pct = 100): ResiduaryNamedBene
   return { name: '', relationship: '', pct }
 }
 
+/** Shares must total 100% within two decimal places. */
+export const RESIDUARY_SHARE_TOTAL_TOLERANCE = 0.009
+
+export function parseResiduarySharePct(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : NaN
+  if (typeof value === 'string') {
+    const t = value.trim()
+    if (!t) return NaN
+    return Number.parseFloat(t)
+  }
+  return NaN
+}
+
+/** Allow up to two decimal places while typing (e.g. 33.33). */
+export function sanitizeResiduarySharePctInput(raw: string): string {
+  let s = raw.replace(/[^\d.]/g, '')
+  const firstDot = s.indexOf('.')
+  if (firstDot !== -1) {
+    s =
+      s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '').slice(0, 2)
+  }
+  return s
+}
+
 export function residuaryNamedBeneficiariesTotalPct(rows: ResiduaryNamedBeneficiaryRow[]): number {
   return rows.reduce((sum, row) => {
-    const n = typeof row.pct === 'number' ? row.pct : Number.parseFloat(String(row.pct))
+    const n = parseResiduarySharePct(row.pct)
     return sum + (Number.isFinite(n) ? n : 0)
   }, 0)
+}
+
+export function residuaryShareTotals100(rows: ResiduaryNamedBeneficiaryRow[]): boolean {
+  const total = residuaryNamedBeneficiariesTotalPct(rows)
+  return Math.abs(total - 100) <= RESIDUARY_SHARE_TOTAL_TOLERANCE
+}
+
+function formatPctDisplay(pct: number): string {
+  return Number(pct.toFixed(2)).toString()
 }
 
 export function parseResiduaryNamedBeneficiaries(
@@ -114,9 +147,16 @@ const TENS: Record<number, string> = {
   9: 'ninety',
 }
 
-/** Percent in words and numerals for will PDF (e.g. fifty (50)). */
+/** Percent in words and numerals for will PDF (e.g. fifty (50)); decimals use numerals. */
 export function formatSharePercentWordsAndNumerals(pct: number): string {
-  const n = Math.round(pct)
+  if (!Number.isFinite(pct)) return '0 (0)'
+  const rounded = Math.round(pct * 100) / 100
+  const hasFraction = Math.abs(rounded - Math.round(rounded)) > 0.0001
+  if (hasFraction) {
+    const display = formatPctDisplay(rounded)
+    return `${display} (${display})`
+  }
+  const n = Math.round(rounded)
   if (n < 0 || n > 100) return `${n} (${n})`
   if (n <= 19) return `${UNDER_20[n]} (${n})`
   if (n === 100) return 'one hundred (100)'
@@ -144,13 +184,15 @@ export function buildNoChildrenResiduaryArticleText(answers: Answers): string {
 
   const section2Lines = rows.map((row) => {
     const name = row.name.trim()
-    const pct = typeof row.pct === 'number' ? row.pct : Number.parseFloat(String(row.pct))
-    const pctFormatted = formatSharePercentWordsAndNumerals(Number.isFinite(pct) ? pct : 0)
+    const pct = parseResiduarySharePct(row.pct)
+    const pctNum = Number.isFinite(pct) ? pct : 0
+    const pctFormatted = formatSharePercentWordsAndNumerals(pctNum)
+    const pctDisplay = formatPctDisplay(pctNum)
     if (row.relationship === 'charity') {
-      return `${bold(name)}, ${pctFormatted} percent (${Number.isFinite(pct) ? Math.round(pct) : 0}%)`
+      return `${bold(name)}, ${pctFormatted} percent (${pctDisplay}%)`
     }
     const rel = relationshipLabel(row.relationship)
-    return `${bold(name)}, my ${rel}, ${pctFormatted} percent (${Number.isFinite(pct) ? Math.round(pct) : 0}%)`
+    return `${bold(name)}, my ${rel}, ${pctFormatted} percent (${pctDisplay}%)`
   })
 
   const parts: string[] = []
@@ -169,7 +211,7 @@ export function buildNoChildrenResiduaryArticleText(answers: Answers): string {
   }
 
   parts.push(
-    `**Section 3. Beneficiary Who Does Not Survive Me.** If any beneficiary named in Section 2 does not survive me by thirty (30) days, that beneficiary's share shall pass to that beneficiary's descendants who so survive me, per stirpes, or if none, to the other beneficiaries named in Section 2 who so survive me, in proportion to their respective shares.`,
+    `**Section 3. Beneficiary Who Does Not Survive Me.** If any beneficiary named in Section 2 does not survive me by thirty (30) days, that beneficiary's share shall pass to that beneficiary's descendants who so survive me, per stirpes, or if none, to the other beneficiaries named in Section 2 of this article who survive me, in proportion to their respective shares.`,
   )
 
   parts.push(

@@ -14,6 +14,7 @@ import {
   defaultNoChildrenResiduaryPlan,
   emptyResiduaryNamedBeneficiaryRow,
   RESIDUARY_NAMED_RELATIONSHIPS,
+  sanitizeResiduarySharePctInput,
   type ResiduaryNamedBeneficiaryRow,
 } from '@/lib/no-children-residuary-article'
 import { startWillPath } from '@/lib/start-will-path'
@@ -1435,13 +1436,23 @@ function ResiduaryNamedBeneficiariesEditor({
             ))}
           </select>
           <Input
-            inputMode="numeric"
+            inputMode="decimal"
             value={row.pct === '' || row.pct == null ? '' : String(row.pct)}
             onChange={(e) => {
-              const digits = e.target.value.replace(/\D/g, '').slice(0, 3)
-              setRow(i, { pct: digits === '' ? '' : Number.parseInt(digits, 10) })
+              const sanitized = sanitizeResiduarySharePctInput(e.target.value)
+              if (sanitized === '' || sanitized === '.') {
+                setRow(i, { pct: '' })
+                return
+              }
+              setRow(i, { pct: sanitized })
             }}
-            onBlur={onBlurValidate}
+            onBlur={() => {
+              const raw = String(row.pct ?? '').trim()
+              if (raw.endsWith('.')) {
+                setRow(i, { pct: raw.slice(0, -1) })
+              }
+              onBlurValidate()
+            }}
             placeholder="%"
             className={cn(
               'h-9 rounded-xl border-border/60 bg-background text-sm',

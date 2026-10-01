@@ -4,7 +4,8 @@ import {
   NO_CHILDREN_RESIDUARY_SURVIVOR_HELPER,
   parseResiduaryNamedBeneficiaries,
   RESIDUARY_NAMED_PLANS,
-  residuaryNamedBeneficiariesTotalPct,
+  parseResiduarySharePct,
+  residuaryShareTotals100,
   type ResiduaryNamedBeneficiaryRow,
   usesNoChildrenNamedResiduary,
   isMarriedForResiduary,
@@ -1242,8 +1243,7 @@ export function assertResiduaryStep8ReadyForPdf(
         'Step 8 is incomplete: enter a full legal name for each named residuary beneficiary.',
       )
     }
-    const total = residuaryNamedBeneficiariesTotalPct(rows)
-    if (Math.abs(total - 100) > 0.001) {
+    if (!residuaryShareTotals100(rows)) {
       throw new ResiduaryStep8NotReadyError(
         'Step 8 is incomplete: named beneficiary shares must total 100%.',
       )
@@ -1435,9 +1435,10 @@ export function fieldQualityError(field: Field, value: unknown): string | null {
       if (!name) return 'Enter a full legal name for each beneficiary'
       if (name.length < 3) return 'Enter at least 3 characters for each name'
       if (!(row?.relationship ?? '').trim()) return 'Choose a relationship for each beneficiary'
+      const pct = parseResiduarySharePct(row.pct)
+      if (!Number.isFinite(pct) || pct <= 0) return 'Enter a share percentage for each beneficiary'
     }
-    const total = residuaryNamedBeneficiariesTotalPct(rows)
-    if (Math.abs(total - 100) > 0.001) return 'Shares need to add up to 100%'
+    if (!residuaryShareTotals100(rows)) return 'Shares need to add up to 100%'
     return null
   }
 
